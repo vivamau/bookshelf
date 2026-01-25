@@ -17,7 +17,7 @@ import {
   X,
   Trash2
 } from 'lucide-react';
-import { booksApi, genresApi, booksGenresApi } from '../api/api';
+import { booksApi, genresApi, booksGenresApi, authorsApi, booksAuthorsApi } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../lib/utils';
 
@@ -37,6 +37,10 @@ export default function BookDetails() {
   const [isCreatingGenre, setIsCreatingGenre] = useState(false);
   const [newGenreName, setNewGenreName] = useState('');
   
+  const [allAuthors, setAllAuthors] = useState([]);
+  const [selectedAuthorId, setSelectedAuthorId] = useState('');
+  const [currentAuthorRelationId, setCurrentAuthorRelationId] = useState(null);
+  
   // Delete Modal State
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [genreToDelete, setGenreToDelete] = useState(null);
@@ -46,12 +50,49 @@ export default function BookDetails() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      // 1. Update basic book info (title, summary, ISBN)
       await booksApi.update(id, editForm);
-      setBook(prev => ({ ...prev, ...editForm }));
+      
+      // 2. If an author was selected in the dropdown, update the relationship
+      if (selectedAuthorId) {
+        // Get all BooksAuthors relationships for this book
+        const allRelationsRes = await booksAuthorsApi.getAll();
+        const bookRelations = allRelationsRes.data.data.filter(rel => rel.book_id == id);
+        
+        // Delete all existing author relationships for this book
+        for (const relation of bookRelations) {
+          await booksAuthorsApi.delete(relation.ID);
+        }
+        
+        // Create new author relationship
+        await booksAuthorsApi.create({ 
+          book_id: parseInt(id), 
+          author_id: parseInt(selectedAuthorId),
+          bookauthor_create_date: Date.now()
+        });
+      }
+
+      // 3. Refresh book data
+      const res = await booksApi.getById(id);
+      const updatedBook = res.data.data;
+      setBook(updatedBook);
+      setEditForm({
+        book_title: updatedBook.book_title,
+        book_summary: updatedBook.book_summary,
+        book_isbn: updatedBook.book_isbn
+      });
+      setSelectedAuthorId('');
       setIsEditing(false);
+      
+      // Update the current relation ID for future changes
+      if (updatedBook.authors_data && typeof updatedBook.authors_data === 'string') {
+        const authorParts = updatedBook.authors_data.split('||')[0]?.split('::');
+        if (authorParts && authorParts.length >= 3) {
+          setCurrentAuthorRelationId(authorParts[2]);
+        }
+      }
     } catch (err) {
       console.error("Failed to update book", err);
-      alert("Failed to update book");
     } finally {
       setSaving(false);
     }
@@ -116,21 +157,26 @@ export default function BookDetails() {
       navigate('/');
     } catch (err) {
       console.error("Failed to delete book", err);
-      alert("Failed to delete book");
       setDeleting(false);
     }
   };
 
+
+
   useEffect(() => {
-    const loadGenres = async () => {
+    const loadGenresAndAuthors = async () => {
         try {
-            const res = await genresApi.getAll();
-            setAllGenres(res.data.data);
+            const [genresRes, authorsRes] = await Promise.all([
+              genresApi.getAll(),
+              authorsApi.getAll()
+            ]);
+            setAllGenres(genresRes.data.data);
+            setAllAuthors(authorsRes.data.data);
         } catch (err) {
-            console.error("Failed to load genres", err);
+            console.error("Failed to load genres/authors", err);
         }
     };
-    loadGenres();
+    loadGenresAndAuthors();
   }, []);
 
   useEffect(() => {
@@ -144,6 +190,14 @@ export default function BookDetails() {
             book_summary: bookData.book_summary,
             book_isbn: bookData.book_isbn
         });
+        
+        // Extract author relationship ID for editing
+        if (bookData.authors_data && typeof bookData.authors_data === 'string') {
+          const authorParts = bookData.authors_data.split('||')[0]?.split('::');
+          if (authorParts && authorParts.length >= 3) {
+            setCurrentAuthorRelationId(authorParts[2]); 
+          }
+        }
       } catch (err) {
         console.error("Failed to fetch book details", err);
       } finally {
@@ -223,22 +277,58 @@ export default function BookDetails() {
               )}
               <div className="flex items-center gap-4 text-sm font-medium text-muted-foreground">
                  <div className="flex items-center gap-1">
-                    {book.authors_data && typeof book.authors_data === 'string' ? book.authors_data.split('||').map((authorStr, idx) => {
-                      const parts = authorStr.split('::');
-                      if (parts.length < 2) return null;
-                      const [authId, authName] = parts;
-                      return (
-                        <React.Fragment key={authId}>
-                          <button 
-                            onClick={() => navigate(`/author/${authId}`)}
-                            className="text-primary font-bold hover:underline"
-                          >
-                            {authName}
-                          </button>
-                          {idx < book.authors_data.split('||').length - 1 && <span>, </span>}
-                        </React.Fragment>
-                      );
-                    }) : <span className="text-primary font-bold">Unknown Author</span>}
+                    {isEditing ? (
+                      <div className="flex gap-2 items-center">
+                        <div className="flex items-center gap-1 opacity-60 bg-white/5 px-2 py-1 rounded border border-white/10 italic">
+                           {book.authors_data && typeof book.authors_data === 'string' ? book.authors_data.split('||').map((authorStr, idx) => {
+                             const parts = authorStr.split('::');
+                             if (parts.length < 2) return null;
+                             return <span key={parts[0]}>{parts[1]}{idx < book.authors_data.split('||').length - 1 ? ', ' : ''}</span>
+                           }) : <span>Unknown Author</span>}
+                        </div>
+                        <ChevronRight size={14} className="text-muted-foreground mr-1" />
+                        <select 
+                          value={selectedAuthorId}
+                          onChange={e => setSelectedAuthorId(e.target.value)}
+                          className="bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-sm font-bold text-primary outline-none focus:border-primary focus:bg-white/15 transition-all"
+                        >
+                          <option value="">Select new author...</option>
+                          {allAuthors.filter(author => {
+                            // Get current author IDs from book data
+                            if (!book.authors_data || typeof book.authors_data !== 'string') return true;
+                            const currentAuthorIds = book.authors_data.split('||').map(authorStr => {
+                              const parts = authorStr.split('::');
+                              return parts.length >= 1 ? parts[0] : null;
+                            }).filter(Boolean);
+                            // Exclude current authors
+                            return !currentAuthorIds.includes(String(author.ID));
+                          }).map(author => (
+                            <option key={author.ID} value={author.ID}>
+                              {author.author_name} {author.author_lastname}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <>
+                        {book.authors_data && typeof book.authors_data === 'string' ? book.authors_data.split('||').map((authorStr, idx) => {
+                          const parts = authorStr.split('::');
+                          if (parts.length < 2) return null;
+                          const [authId, authName] = parts;
+                          return (
+                            <React.Fragment key={authId}>
+                              <button 
+                                onClick={() => navigate(`/author/${authId}`)}
+                                className="text-primary font-bold hover:underline"
+                              >
+                                {authName}
+                              </button>
+                              {idx < book.authors_data.split('||').length - 1 && <span>, </span>}
+                            </React.Fragment>
+                          );
+                        }) : <span className="text-primary font-bold">Unknown Author</span>}
+                      </>
+                    )}
                  </div>
                  <span>•</span>
                  <span>{book.language_name || 'English'}</span>
@@ -298,7 +388,7 @@ export default function BookDetails() {
                   if (book.book_entry_point) {
                     navigate(`/reader/${id}`);
                   } else {
-                    alert('Preview not available for this book.');
+                    console.warn('Preview not available for this book.');
                   }
                 }}
                 className={cn(

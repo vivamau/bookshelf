@@ -337,7 +337,7 @@ booksRouter.get('/:id', (req, res) => {
                bu.book_current_index,
                bu.book_progress_percentage,
                (SELECT COUNT(*) FROM BooksUsers WHERE book_id = b.ID) as readers_count,
-               (SELECT GROUP_CONCAT(a.ID || '::' || a.author_name || ' ' || a.author_lastname, '||') 
+               (SELECT GROUP_CONCAT(a.ID || '::' || a.author_name || ' ' || a.author_lastname || '::' || ba.ID, '||') 
                 FROM Authors a 
                 JOIN BooksAuthors ba ON ba.author_id = a.ID 
                 WHERE ba.book_id = b.ID) AS authors_data,

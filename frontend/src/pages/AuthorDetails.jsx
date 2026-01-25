@@ -26,6 +26,34 @@ const BookItem = ({ id, title, year, cover, progress }) => {
   );
 };
 
+const OtherBookItem = ({ title, year, cover, olKey }) => {
+  return (
+    <a 
+      href={`https://openlibrary.org${olKey}`} 
+      target="_blank" 
+      rel="noopener noreferrer" 
+      className="flex flex-col gap-2 group cursor-pointer animate-in fade-in zoom-in duration-500"
+    >
+      <div className="relative aspect-[2/3] overflow-hidden rounded-sm bg-accent/30 border border-border group-hover:border-primary/30 transition-all shadow-sm">
+        <img 
+          src={cover ? `https://covers.openlibrary.org/b/id/${cover}-M.jpg` : `https://api.dicebear.com/7.x/initials/svg?seed=${title}`} 
+          alt={title} 
+          className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105" 
+        />
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+           <div className="bg-primary/20 p-2 rounded-full text-primary transform scale-50 group-hover:scale-100 transition-all duration-300">
+              <ExternalLink size={20} />
+           </div>
+        </div>
+      </div>
+      <div className="flex flex-col overflow-hidden">
+        <span className="text-[12px] font-bold truncate group-hover:text-primary transition-colors leading-tight mb-1">{title}</span>
+        <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">{year || 'N/A'}</span>
+      </div>
+    </a>
+  );
+};
+
 export default function AuthorDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -39,6 +67,8 @@ export default function AuthorDetails() {
   const [avatarMode, setAvatarMode] = useState('dicebear'); // 'dicebear' or 'custom'
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [otherBooks, setOtherBooks] = useState([]);
+  const [loadingOtherBooks, setLoadingOtherBooks] = useState(false);
 
   const handleSave = async () => {
     setSaving(true);
@@ -48,9 +78,29 @@ export default function AuthorDetails() {
       setIsEditing(false);
     } catch (err) {
       console.error("Failed to update author", err);
-      alert("Failed to update author");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const fetchOtherBooks = async (name, lastname, systemBooks) => {
+    setLoadingOtherBooks(true);
+    try {
+        const query = encodeURIComponent(`${name} ${lastname}`);
+        const res = await fetch(`https://openlibrary.org/search.json?author=${query}&sort=new`);
+        const data = await res.json();
+        
+        // Filter out existing books by title (case insensitive)
+        const systemTitles = systemBooks.map(b => b.book_title.toLowerCase());
+        const filtered = data.docs
+          .filter(doc => !systemTitles.includes(doc.title.toLowerCase()))
+          .slice(0, 16); 
+        
+        setOtherBooks(filtered);
+    } catch (err) {
+        console.error("Failed to fetch from Open Library", err);
+    } finally {
+        setLoadingOtherBooks(false);
     }
   };
 
@@ -63,7 +113,6 @@ export default function AuthorDetails() {
       navigate('/');
     } catch (err) {
       console.error("Failed to delete author", err);
-      alert("Failed to delete author");
       setDeleting(false);
     }
   };
@@ -88,6 +137,9 @@ export default function AuthorDetails() {
             setAvatarMode('custom');
         }
         setBooks(booksRes.data.data);
+        
+        // Fetch other books from Open Library
+        fetchOtherBooks(authorData.author_name, authorData.author_lastname, booksRes.data.data);
       } catch (err) {
         console.error("Failed to fetch author logic", err);
       } finally {
@@ -296,7 +348,7 @@ export default function AuthorDetails() {
       {/* Books Grid */}
       <div className="flex flex-col gap-6">
         <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-black text-foreground tracking-tight">Books by {author.author_name}</h2>
+            <h2 className="text-2xl font-black text-foreground tracking-tight uppercase">{author?.author_name} {author?.author_lastname}'s books in bookshelf</h2>
         </div>
         
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-6">
@@ -310,6 +362,45 @@ export default function AuthorDetails() {
                     progress={book.book_progress_percentage}
                 />
             ))}
+        </div>
+
+        {/* Otherbooks from Open Library */}
+        <div className="pt-10 border-t border-white/5 pb-20">
+            <div className="flex items-center justify-between mb-8">
+                <div>
+                    <h2 className="text-2xl font-black tracking-tight text-foreground uppercase">Otherbooks</h2>
+                    <p className="text-xs text-muted-foreground font-medium mt-1">Discover more works by {author?.author_name} {author?.author_lastname} from Open Library.</p>
+                </div>
+                <div className="h-px flex-1 mx-8 bg-gradient-to-r from-white/5 to-transparent hidden md:block" />
+            </div>
+
+            {loadingOtherBooks ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-6 opacity-50 animate-pulse">
+                    {[...Array(8)].map((_, i) => (
+                        <div key={i} className="flex flex-col gap-2">
+                             <div className="aspect-[2/3] bg-card rounded-sm border border-border" />
+                             <div className="h-3 w-3/4 bg-card rounded mt-1" />
+                             <div className="h-2 w-1/4 bg-card rounded" />
+                        </div>
+                    ))}
+                </div>
+            ) : otherBooks.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-6">
+                    {otherBooks.map((doc, idx) => (
+                        <OtherBookItem 
+                            key={idx}
+                            title={doc.title}
+                            year={doc.first_publish_year}
+                            cover={doc.cover_i}
+                            olKey={doc.key}
+                        />
+                    ))}
+                </div>
+            ) : (
+                <div className="flex flex-col items-center justify-center py-12 px-4 bg-white/5 rounded-xl border border-white/5 text-center">
+                    <p className="text-sm text-muted-foreground">No other books found in Open Library for this author.</p>
+                </div>
+            )}
         </div>
 
         {/* Delete Author Confirmation Modal */}

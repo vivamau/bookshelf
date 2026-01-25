@@ -28,7 +28,7 @@ import Reader from './pages/Reader';
 import AuthorDetails from './pages/AuthorDetails';
 import Authors from './pages/Authors';
 import Library from './pages/Library';
-import { booksApi } from './api/api';
+import { booksApi, libraryApi } from './api/api';
 
 // UI Components
 const SidebarItem = ({ icon: Icon, label, active, onClick, to, hasMenu, onMenuClick }) => {
@@ -115,28 +115,22 @@ const Layout = ({ children }) => {
     setShowLibraryMenu(false);
     
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3005/api/library/scan', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      const data = await response.json();
+      const res = await libraryApi.scan();
+      const data = res.data;
       if (data.success) {
         setScanMessage(data.message);
         setTimeout(() => setScanMessage(''), 5000);
-        // Optionally refresh the page or books list
       } else {
         setScanMessage('Scan failed: ' + data.error);
         setTimeout(() => setScanMessage(''), 5000);
       }
     } catch (err) {
       console.error('Scan error:', err);
-      setScanMessage('Scan failed. Please try again.');
-      setTimeout(() => setScanMessage(''), 5000);
+      // The interceptor will handle 401, so we only handle other errors here
+      if (err.response && err.response.status !== 401) {
+        setScanMessage('Scan failed. Please try again.');
+        setTimeout(() => setScanMessage(''), 5000);
+      }
     } finally {
       setIsScanning(false);
     }
