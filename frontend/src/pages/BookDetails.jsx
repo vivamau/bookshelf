@@ -14,7 +14,8 @@ import {
   Check,
   ChevronRight,
   ChevronDown,
-  X
+  X,
+  Trash2
 } from 'lucide-react';
 import { booksApi, genresApi, booksGenresApi } from '../api/api';
 import { useAuth } from '../context/AuthContext';
@@ -39,6 +40,8 @@ export default function BookDetails() {
   // Delete Modal State
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [genreToDelete, setGenreToDelete] = useState(null);
+  const [showDeleteBookModal, setShowDeleteBookModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const handleSave = async () => {
     setSaving(true);
@@ -101,6 +104,20 @@ export default function BookDetails() {
          setGenreToDelete(null);
     } catch (err) {
         console.error("Failed to remove genre", err);
+    }
+  };
+
+  const handleDeleteBook = async () => {
+    setDeleting(true);
+    try {
+      await booksApi.delete(id);
+      setShowDeleteBookModal(false);
+      // Navigate back to home after successful deletion
+      navigate('/');
+    } catch (err) {
+      console.error("Failed to delete book", err);
+      alert("Failed to delete book");
+      setDeleting(false);
     }
   };
 
@@ -252,13 +269,25 @@ export default function BookDetails() {
                        </button>
                     </div>
                   ) : (
-                    <button 
-                      onClick={() => setIsEditing(true)}
-                      className="flex items-center gap-2 px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-full font-bold text-sm transition-all border border-primary/30"
-                    >
-                      <Pencil size={18} />
-                      EDIT DETAILS
-                    </button>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => setIsEditing(true)}
+                        className="flex items-center gap-2 px-6 py-2 rounded-full font-bold text-sm transition-all border"
+                        style={{ backgroundColor: '#8bad0d20', borderColor: '#8bad0d50', color: '#8bad0d' }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#8bad0d30'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#8bad0d20'}
+                      >
+                        <Pencil size={18} />
+                        EDIT DETAILS
+                      </button>
+                      <button 
+                        onClick={() => setShowDeleteBookModal(true)}
+                        className="flex items-center gap-2 px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-full font-bold text-sm transition-all border border-primary/30"
+                      >
+                        <Trash2 size={18} />
+                        DELETE BOOK
+                      </button>
+                    </div>
                   )}
                 </>
               )}
@@ -472,6 +501,47 @@ export default function BookDetails() {
                             className="px-4 py-2 rounded-full font-bold text-sm bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors"
                         >
                             Remove
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* Delete Book Confirmation Modal */}
+        {showDeleteBookModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="bg-card border border-border rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] max-w-md w-full p-6 animate-in zoom-in-95 duration-200">
+                    <h3 className="text-xl font-bold mb-2 text-destructive">Delete Book?</h3>
+                    <p className="text-muted-foreground text-sm mb-4">
+                        Are you sure you want to permanently delete this book?
+                    </p>
+                    <p className="text-foreground text-sm font-bold mb-6">
+                        This will delete:
+                    </p>
+                    <ul className="text-sm text-muted-foreground mb-6 space-y-1 ml-4">
+                        <li>• Book metadata from database</li>
+                        <li>• EPUB file from storage</li>
+                        <li>• Cover image</li>
+                        <li>• Extracted content</li>
+                    </ul>
+                    <p className="text-destructive text-xs font-bold mb-6">
+                        ⚠️ This action cannot be undone!
+                    </p>
+                    <div className="flex gap-3 justify-end">
+                        <button 
+                            onClick={() => setShowDeleteBookModal(false)}
+                            disabled={deleting}
+                            className="px-4 py-2 rounded-full font-bold text-sm bg-muted text-foreground hover:bg-muted/80 transition-colors disabled:opacity-50"
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                            onClick={handleDeleteBook}
+                            disabled={deleting}
+                            className="px-4 py-2 rounded-full font-bold text-sm bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors disabled:opacity-50 flex items-center gap-2"
+                        >
+                            {deleting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                            {deleting ? 'Deleting...' : 'Delete Forever'}
                         </button>
                     </div>
                 </div>

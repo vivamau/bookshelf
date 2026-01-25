@@ -202,7 +202,67 @@ app.use('/api/users', createCrudRouter('Users', db));
 app.use('/api/books-users', createCrudRouter('BooksUsers', db));
 app.use('/api/languages', createCrudRouter('Languages', db));
 // Custom Books Routes (Override default GET to include joins and progress)
-const booksRouter = createCrudRouter('Books', db, 'ID', ['POST', 'PUT', 'DELETE']);
+const booksRouter = createCrudRouter('Books', db, 'ID', ['POST', 'PUT']);
+
+// Custom DELETE for books - removes metadata AND files
+booksRouter.delete('/:id', (req, res) => {
+    const bookId = req.params.id;
+    const fs = require('fs');
+    const path = require('path');
+    
+    // First, get book details to know which files to delete
+    db.get("SELECT book_filename, book_cover_img FROM Books WHERE ID = ?", [bookId], (err, book) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!book) return res.status(404).json({ error: 'Book not found' });
+        
+        // Delete related records first (foreign key constraints)
+        db.serialize(() => {
+            db.run("DELETE FROM BooksGeneres WHERE book_id = ?", [bookId]);
+            db.run("DELETE FROM BooksAuthors WHERE book_id = ?", [bookId]);
+            db.run("DELETE FROM BooksUsers WHERE book_id = ?", [bookId]);
+            
+            // Delete the book record
+            db.run("DELETE FROM Books WHERE ID = ?", [bookId], function(err) {
+                if (err) return res.status(500).json({ error: err.message });
+                
+                // Delete physical files
+                try {
+                    // Delete EPUB file
+                    if (book.book_filename) {
+                        const epubPath = path.join(__dirname, 'books', book.book_filename);
+                        if (fs.existsSync(epubPath)) {
+                            fs.unlinkSync(epubPath);
+                            console.log(`Deleted EPUB: ${epubPath}`);
+                        }
+                    }
+                    
+                    // Delete cover image
+                    if (book.book_cover_img) {
+                        const coverPath = path.join(__dirname, 'covers', book.book_cover_img);
+                        if (fs.existsSync(coverPath)) {
+                            fs.unlinkSync(coverPath);
+                            console.log(`Deleted cover: ${coverPath}`);
+                        }
+                    }
+                    
+                    // Delete extracted content folder
+                    if (book.book_filename) {
+                        const extractedPath = path.join(__dirname, 'extracted', path.basename(book.book_filename, '.epub'));
+                        if (fs.existsSync(extractedPath)) {
+                            fs.rmSync(extractedPath, { recursive: true, force: true });
+                            console.log(`Deleted extracted content: ${extractedPath}`);
+                        }
+                    }
+                } catch (fileErr) {
+                    console.error('Error deleting files:', fileErr);
+                    // Continue anyway - metadata is deleted
+                }
+                
+                res.json({ message: 'Book and associated files deleted successfully' });
+            });
+        });
+    });
+});
 
 // Update getAll to include progress
 booksRouter.get('/', (req, res) => {

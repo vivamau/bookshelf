@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, BookOpen, ExternalLink, User, Pencil, Check } from 'lucide-react';
+import { ArrowLeft, BookOpen, ExternalLink, User, Pencil, Check, Trash2 } from 'lucide-react';
 import { authorsApi } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../lib/utils';
@@ -37,6 +37,8 @@ export default function AuthorDetails() {
   const [editForm, setEditForm] = useState({ author_name: '', author_lastname: '', author_wiki: '', author_avatar: '' });
   const [saving, setSaving] = useState(false);
   const [avatarMode, setAvatarMode] = useState('dicebear'); // 'dicebear' or 'custom'
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const handleSave = async () => {
     setSaving(true);
@@ -49,6 +51,20 @@ export default function AuthorDetails() {
       alert("Failed to update author");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDeleteAuthor = async () => {
+    setDeleting(true);
+    try {
+      await authorsApi.delete(id);
+      setShowDeleteModal(false);
+      // Navigate back to home after successful deletion
+      navigate('/');
+    } catch (err) {
+      console.error("Failed to delete author", err);
+      alert("Failed to delete author");
+      setDeleting(false);
     }
   };
 
@@ -236,13 +252,25 @@ export default function AuthorDetails() {
                        </button>
                     </div>
                   ) : (
-                    <button 
-                      onClick={() => setIsEditing(true)}
-                      className="flex items-center gap-2 px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-full font-bold text-sm transition-all border border-primary/30"
-                    >
-                      <Pencil size={18} />
-                      EDIT PROFILE
-                    </button>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => setIsEditing(true)}
+                        className="flex items-center gap-2 px-6 py-2 rounded-full font-bold text-sm transition-all border"
+                        style={{ backgroundColor: '#8bad0d20', borderColor: '#8bad0d50', color: '#8bad0d' }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#8bad0d30'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#8bad0d20'}
+                      >
+                        <Pencil size={18} />
+                        EDIT PROFILE
+                      </button>
+                      <button 
+                        onClick={() => setShowDeleteModal(true)}
+                        className="flex items-center gap-2 px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-full font-bold text-sm transition-all border border-primary/30"
+                      >
+                        <Trash2 size={18} />
+                        DELETE AUTHOR
+                      </button>
+                    </div>
                   )}
               </div>
             )}
@@ -283,6 +311,63 @@ export default function AuthorDetails() {
                 />
             ))}
         </div>
+
+        {/* Delete Author Confirmation Modal */}
+        {showDeleteModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="bg-card border border-border rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] max-w-md w-full p-6 animate-in zoom-in-95 duration-200">
+                    {books.length > 0 ? (
+                        <>
+                            <h3 className="text-xl font-bold mb-2 text-destructive">Cannot Delete Author</h3>
+                            <p className="text-muted-foreground text-sm mb-4">
+                                This author cannot be deleted because they have {books.length} book{books.length > 1 ? 's' : ''} in your library.
+                            </p>
+                            <p className="text-foreground text-sm font-bold mb-6">
+                                Please delete or reassign all books by this author before deleting the author profile.
+                            </p>
+                            <div className="flex gap-3 justify-end">
+                                <button 
+                                    onClick={() => setShowDeleteModal(false)}
+                                    className="px-4 py-2 rounded-full font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                                >
+                                    OK
+                                </button>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <h3 className="text-xl font-bold mb-2 text-destructive">Delete Author?</h3>
+                            <p className="text-muted-foreground text-sm mb-4">
+                                Are you sure you want to permanently delete this author?
+                            </p>
+                            <p className="text-foreground text-sm font-bold mb-4">
+                                This will remove the author from the database.
+                            </p>
+                            <p className="text-destructive text-xs font-bold mb-6">
+                                ⚠️ This action cannot be undone!
+                            </p>
+                            <div className="flex gap-3 justify-end">
+                                <button 
+                                    onClick={() => setShowDeleteModal(false)}
+                                    disabled={deleting}
+                                    className="px-4 py-2 rounded-full font-bold text-sm bg-muted text-foreground hover:bg-muted/80 transition-colors disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    onClick={handleDeleteAuthor}
+                                    disabled={deleting}
+                                    className="px-4 py-2 rounded-full font-bold text-sm bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors disabled:opacity-50 flex items-center gap-2"
+                                >
+                                    {deleting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                                    {deleting ? 'Deleting...' : 'Delete Forever'}
+                                </button>
+                            </div>
+                        </>
+                    )}
+                </div>
+            </div>
+        )}
       </div>
     </div>
   );
