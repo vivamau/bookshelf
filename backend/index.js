@@ -309,6 +309,19 @@ booksRouter.get('/:id', (req, res) => {
 app.use('/api/books', booksRouter);
 app.use('/api/userroles', createCrudRouter('UserRoles', db, 'ID', ['GET']));
 
+// Library scan endpoint
+const { scanLibrary } = require('./utils/libraryScanner');
+app.post('/api/library/scan', async (req, res) => {
+    try {
+        console.log('Library scan requested by user:', req.user.username);
+        const result = await scanLibrary(db);
+        res.json({ success: true, message: `Scan complete. Added ${result.newBooks} new books out of ${result.totalFiles} total files.`, ...result });
+    } catch (err) {
+        console.error('Library scan error:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });

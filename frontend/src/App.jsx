@@ -16,7 +16,9 @@ import {
   Cast,
   ArrowLeft,
   BookOpen,
-  Plus
+  Plus,
+  MoreVertical,
+  RefreshCw
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -29,16 +31,28 @@ import Library from './pages/Library';
 import { booksApi } from './api/api';
 
 // UI Components
-const SidebarItem = ({ icon: Icon, label, active, onClick, to }) => {
+const SidebarItem = ({ icon: Icon, label, active, onClick, to, hasMenu, onMenuClick }) => {
   const content = (
     <div 
       className={cn(
-        "flex items-center gap-3 px-4 py-2 cursor-pointer transition-all duration-200 group",
+        "flex items-center gap-3 px-4 py-2 cursor-pointer transition-all duration-200 group relative",
         active ? "text-primary border-l-2 border-primary bg-primary/10" : "text-muted-foreground hover:text-foreground hover:bg-accent"
       )}
     >
       <Icon size={20} className={cn(active ? "text-primary" : "group-hover:text-foreground")} />
-      <span className="text-sm font-medium">{label}</span>
+      <span className="text-sm font-medium flex-1">{label}</span>
+      {hasMenu && (
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onMenuClick?.();
+          }}
+          className="p-1 rounded hover:bg-white/10 transition-colors opacity-0 group-hover:opacity-100"
+        >
+          <MoreVertical size={14} />
+        </button>
+      )}
     </div>
   );
 
@@ -88,11 +102,45 @@ const Section = ({ title, children, showAll = true }) => (
   </div>
 );
 
-function Layout({ children }) {
-  const { user, logout, hasPermission } = useAuth();
-  const [activeTab, setActiveTab] = useState('Home');
+const Layout = ({ children }) => {
   const navigate = useNavigate();
+  const { user, logout, hasPermission } = useAuth();
+  const [showLibraryMenu, setShowLibraryMenu] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanMessage, setScanMessage] = useState('');
 
+  const scanLibrary = async () => {
+    setIsScanning(true);
+    setScanMessage('');
+    setShowLibraryMenu(false);
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:3005/api/library/scan', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setScanMessage(data.message);
+        setTimeout(() => setScanMessage(''), 5000);
+        // Optionally refresh the page or books list
+      } else {
+        setScanMessage('Scan failed: ' + data.error);
+        setTimeout(() => setScanMessage(''), 5000);
+      }
+    } catch (err) {
+      console.error('Scan error:', err);
+      setScanMessage('Scan failed. Please try again.');
+      setTimeout(() => setScanMessage(''), 5000);
+    } finally {
+      setIsScanning(false);
+    }
+  };
   const navItems = [
     { label: 'Home', icon: Home, to: '/' },
     { label: 'Read Lists', icon: BookMarked },
@@ -126,8 +174,31 @@ function Layout({ children }) {
               label={item.label} 
               to={item.to}
               active={window.location.pathname === (item.to || '/_')}
+              hasMenu={item.label === 'Library'}
+              onMenuClick={() => setShowLibraryMenu(!showLibraryMenu)}
             />
           ))}
+          
+          {/* Library Menu Dropdown */}
+          {showLibraryMenu && (
+            <div className="mx-4 mb-2 bg-secondary/50 border border-border rounded-lg overflow-hidden animate-in slide-in-from-top-2 duration-200">
+              <button
+                onClick={scanLibrary}
+                disabled={isScanning}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-white/5 transition-colors disabled:opacity-50"
+              >
+                <RefreshCw size={16} className={cn(isScanning && "animate-spin")} />
+                <span>{isScanning ? 'Scanning...' : 'Scan Library Files'}</span>
+              </button>
+            </div>
+          )}
+          
+          {/* Scan Status Message */}
+          {scanMessage && (
+            <div className="mx-4 mb-2 bg-primary/10 border border-primary/20 rounded-lg p-3 animate-in slide-in-from-top-2 duration-200">
+              <p className="text-xs text-foreground">{scanMessage}</p>
+            </div>
+          )}
 
           {/* Role Indicator */}
           <div className="mt-8 px-6 mb-4">
