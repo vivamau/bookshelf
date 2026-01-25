@@ -309,6 +309,6 @@ booksRouter.get('/:id', (req, res) => {
 app.use('/api/books', booksRouter);
 app.use('/api/userroles', createCrudRouter('UserRoles', db, 'ID', ['GET']));
 
-app.listen(PORT, '127.0.0.1', () => {
+app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });

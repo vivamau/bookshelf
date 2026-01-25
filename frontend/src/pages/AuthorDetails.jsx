@@ -34,8 +34,9 @@ export default function AuthorDetails() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ author_name: '', author_lastname: '', author_wiki: '' });
+  const [editForm, setEditForm] = useState({ author_name: '', author_lastname: '', author_wiki: '', author_avatar: '' });
   const [saving, setSaving] = useState(false);
+  const [avatarMode, setAvatarMode] = useState('dicebear'); // 'dicebear' or 'custom'
 
   const handleSave = async () => {
     setSaving(true);
@@ -63,8 +64,13 @@ export default function AuthorDetails() {
         setEditForm({
             author_name: authorData.author_name,
             author_lastname: authorData.author_lastname,
-            author_wiki: authorData.author_wiki || ''
+            author_wiki: authorData.author_wiki || '',
+            author_avatar: authorData.author_avatar || ''
         });
+        // Determine initial avatar mode
+        if (authorData.author_avatar && !authorData.author_avatar.includes('dicebear.com')) {
+            setAvatarMode('custom');
+        }
         setBooks(booksRes.data.data);
       } catch (err) {
         console.error("Failed to fetch author logic", err);
@@ -107,7 +113,7 @@ export default function AuthorDetails() {
       <div className="flex flex-col md:flex-row gap-12 items-start mb-16">
         <div className="w-40 h-40 bg-secondary rounded-full flex items-center justify-center shrink-0 border-4 border-white/5 overflow-hidden">
             <img 
-                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${author.author_name}${author.author_lastname}`} 
+                src={author.author_avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${author.author_name}${author.author_lastname}`} 
                 alt={author.author_name} 
                 className="w-full h-full object-cover"
             />
@@ -140,12 +146,61 @@ export default function AuthorDetails() {
             </div>
 
             {hasPermission('userrole_managebooks') && isEditing && (
-               <input 
-                  value={editForm.author_wiki}
-                  onChange={e => setEditForm({...editForm, author_wiki: e.target.value})}
-                  placeholder="Wikipedia URL"
-                  className="bg-white/5 border border-white/20 rounded-md px-3 py-2 text-sm w-full max-w-md outline-none focus:border-primary transition-all"
-               />
+               <div className="flex flex-col gap-4 w-full max-w-md">
+                  <input 
+                     value={editForm.author_wiki}
+                     onChange={e => setEditForm({...editForm, author_wiki: e.target.value})}
+                     placeholder="Wikipedia URL"
+                     className="bg-white/5 border border-white/20 rounded-md px-3 py-2 text-sm w-full outline-none focus:border-primary transition-all"
+                  />
+                  
+                  {/* Avatar Selection */}
+                  <div className="flex flex-col gap-2 p-4 bg-white/5 border border-white/10 rounded-lg">
+                     <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Avatar</label>
+                     
+                     <div className="flex gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                           <input 
+                              type="radio" 
+                              name="avatarMode" 
+                              value="dicebear"
+                              checked={avatarMode === 'dicebear'}
+                              onChange={(e) => {
+                                 setAvatarMode('dicebear');
+                                 setEditForm({...editForm, author_avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${editForm.author_name}${editForm.author_lastname}`});
+                              }}
+                              className="accent-primary"
+                           />
+                           <span className="text-sm text-foreground">Dicebear</span>
+                        </label>
+                        
+                        <label className="flex items-center gap-2 cursor-pointer">
+                           <input 
+                              type="radio" 
+                              name="avatarMode" 
+                              value="custom"
+                              checked={avatarMode === 'custom'}
+                              onChange={(e) => setAvatarMode('custom')}
+                              className="accent-primary"
+                           />
+                           <span className="text-sm text-foreground">Custom URL</span>
+                        </label>
+                     </div>
+                     
+                     {avatarMode === 'custom' && (
+                        <input 
+                           value={editForm.author_avatar}
+                           onChange={e => setEditForm({...editForm, author_avatar: e.target.value})}
+                           placeholder="https://example.com/avatar.jpg"
+                           className="bg-white/5 border border-white/20 rounded-md px-3 py-2 text-sm w-full outline-none focus:border-primary transition-all mt-2"
+                        />
+                     )}
+                     
+                     {avatarMode === 'dicebear' && (
+                        <p className="text-xs text-muted-foreground mt-2">Using auto-generated avatar based on author name</p>
+                     )}
+                  </div>
+               </div>
             )}
 
             {!isEditing && author.author_wiki && (
