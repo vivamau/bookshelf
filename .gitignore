@@ -56,5 +56,9 @@ coverage/
 .cache/
 tmp/
 temp/
+
+# Backend to do not post
 backend/books/
 backend/covers/
+backend/extracted/
+

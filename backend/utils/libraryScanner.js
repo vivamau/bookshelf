@@ -213,14 +213,24 @@ const processBook = async (db, filename, formatId) => {
 
                 const authorId = await getOrCreateAuthor(db, firstName, lastName);
                 
-                await new Promise((res, rej) => {
-                    db.run("INSERT INTO BooksAuthors (book_id, author_id, bookauthor_create_date) VALUES (?, ?, ?)",
-                        [bookId, authorId, now],
-                        (err) => err ? rej(err) : res()
-                    );
-                });
-                
-                console.log(`  -> Author: ${firstName} ${lastName}`);
+                try {
+                    await new Promise((res, rej) => {
+                        db.run("INSERT INTO BooksAuthors (book_id, author_id, bookauthor_create_date) VALUES (?, ?, ?)",
+                            [bookId, authorId, now],
+                            function(err) {
+                                if (err) {
+                                    console.error(`  -> ERROR linking book ${bookId} to author ${authorId}:`, err);
+                                    rej(err);
+                                } else {
+                                    console.log(`  -> Linked to Author: ${firstName} ${lastName} (ID: ${authorId})`);
+                                    res();
+                                }
+                            }
+                        );
+                    });
+                } catch (err) {
+                    console.error(`  -> Failed to create book-author relationship:`, err);
+                }
             }
 
             // Extract EPUB content
