@@ -1,0 +1,1661 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xml:lang="en"
+      lang="en"
+      xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:epub="http://www.idpf.org/2007/ops">
+<head>
+<title>TensorFlow in Action</title>
+<link rel="stylesheet" type="text/css" href="../../override_v1.css"/>
+<link rel="stylesheet" type="text/css" href="../../stylesheet.css"/><link rel="stylesheet" type="text/css" href="../../page_styles.css"/>
+</head>
+<body>
+<div id="book-content">
+<div id="sbo-rt-content" class="calibre"><h1 class="tochead"><a id="pgfId-1167898"></a>14 TensorBoard: Big brother of TensorFlow</h1>
+
+  <p class="co-summary-head"><a id="pgfId-1167901"></a>This chapter<a id="marker-1169807"></a><a id="marker-1169808"></a> covers</p>
+
+  <ul class="calibre9">
+    <li class="co-summary-bullet"><a class="calibre8" id="pgfId-1167903"></a><a class="calibre8" id="aHlk72732759"></a>Running and visualizing image data in TensorBoard</li>
+
+    <li class="co-summary-bullet"><a class="calibre8" id="pgfId-1167904"></a>Monitoring model performance and behaviors in real time</li>
+
+    <li class="co-summary-bullet"><a class="calibre8" id="pgfId-1167905"></a>Performance profiling models using TensorBoard</li>
+
+    <li class="co-summary-bullet"><a class="calibre8" id="pgfId-1167906"></a>Using <span class="fm-code-in-text">tf.summary</span> to log custom metrics during customized model training</li>
+
+    <li class="co-summary-bullet"><a class="calibre8" id="pgfId-1167907"></a>Visualizing and analyzing word vectors on TensorBoard</li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1167908"></a>Thus far we have focused on various models. We have talked about fully connected models (e.g., autoencoders), convolutional neural networks, and recurrent neural networks (e.g., LSTMs, GRUs). In chapter 13, we talked about Transformers, a powerful family of deep learning models that have paved the way to a new state-of-the-art performance in language understanding. Furthermore, inspired by the achievements in the field of natural language processing, Transformers are making waves in the computer vision field. We are past the modeling step, but we still have to plough through several more steps to reap the final harvest. One such step is making sure the data/features to the model are correct and the models are working as expected.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1167909"></a>In this chapter, we will explore a new facet of machine learning: leveraging a visualization tool kit to visualize high-dimensional data (e.g., images, word vectors, etc.) as well as track and monitor model performance. Let’s understand why this is a crucial need. Due to the success demonstrated by using machine learning in many different fields, machine learning has become deeply rooted in many industries and fields of research. Consequently, this means that we need more rapid cycles in training new models and less friction when performing various steps in the data science workflow (e.g., understanding data, model training, model evaluation, etc.). TensorBoard is a step in that direction. It allows you to easily track and visualize data, model performance, and even profile models to understand where data spends the most time.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1167910"></a>You typically write data and model metrics or other things you want to visualize to a logging directory. What is written to the logging directory is typically organized into subfolders, which are named to have information like the date, time, and a brief description of the experiment. This will help to identify an experiment quickly in TensorBoard. TensorBoard will constantly search the designated logging directory for changes and visualize them on the dashboard. You will learn the specifics of these steps in the coming sections.</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_181"><a id="pgfId-1167911"></a>14.1 Visualize data with TensorBoard</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1167915"></a>Imagine<a class="calibre8" id="marker-1167912"></a><a class="calibre8" id="marker-1167913"></a><a class="calibre8" id="marker-1167914"></a> you are working for a fashion company as a data scientist. They have asked you to assess the feasibility of building a model that can identify clothing items in a given photo. For this, you pick the Fashion-MNIST data set, which has images of clothes in black and white belonging to one of 10 categories. Some categories are T-shirt, trouser, and dress. You will first load the data and analyze it through TensorBoard, a visualization tool for visualizing data and models. Here, you will visualize a few images and make sure they have the correct class label assigned after loading to memory.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1167916"></a>The first thing we will do is download the Fashion-MNIST data set. Fashion-MNIST is a labeled data set that contains images of various garments and corresponding labels/categories. Fashion-MNIST is primarily inspired by the MNIST data set. To refresh our memories, the MNIST data set consists of 28 × 28-sized images of digits 0-9, and the corresponding digit is the label. Fashion-MNIST emerged as a solution as many were recommending moving away from MNIST as a performance benchmarking data set due to the easiness of the task. Fashion-MNIST is considered a more challenging task compared to MNIST.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1167917"></a>Downloading the Fashion-MNIST data set is a very easy step, as it is available through the <span class="fm-code-in-text">tensorflow_datasets</span> library<a class="calibre8" id="marker-1167918"></a>:</p>
+  <pre class="programlisting">import tensorflow_datasets as tfds
+ 
+# Construct a tf.data.Dataset
+fashion_ds = tfds.load('fashion_mnist')</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1167924"></a>Now, let’s print to see the format of the data:</p>
+  <pre class="programlisting">print(fashion_ds)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1167926"></a>This will return</p>
+  <pre class="programlisting">{'test': &lt;PrefetchDataset shapes: {image: (28, 28, 1), label: ()}, types: 
+<span class="fm-code-continuation-arrow">➥</span> {image: tf.uint8, label: tf.int64}&gt;, 'train': &lt;PrefetchDataset shapes: 
+<span class="fm-code-continuation-arrow">➥</span> {image: (28, 28, 1), label: ()}, types: {image: tf.uint8, label: 
+<span class="fm-code-continuation-arrow">➥</span> tf.int64}&gt;}</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1167928"></a>The data set has two components, a training data set and a testing data set. The training set has two items: images, each of which is 28 × 28 × 1, and an integer label. The same items are available for the test set. Next, we are going to create three <span class="fm-code-in-text">tf.data</span> data sets: training, validation, and testing. We will split the original training data set into two, a training and a validation set, and then keep the test set as it is (see the next listing).</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1167931"></a>Listing 14.1 Generating training, validation, and test data sets</p>
+  <pre class="programlisting">def get_train_valid_test_datasets(fashion_ds, batch_size, 
+<span class="fm-code-continuation-arrow">➥</span> flatten_images=False):
+        
+    train_ds = fashion_ds["train"].shuffle(batch_size*20).map(
+        lambda xy: (xy["image"], tf.reshape(xy["label"], [-1]))         <span class="fm-combinumeral">❶</span>
+    )
+    test_ds = fashion_ds["test"].map(
+        lambda xy: (xy["image"], tf.reshape(xy["label"], [-1]))         <span class="fm-combinumeral">❷</span>
+    )
+    
+    if flatten_images:
+        train_ds = train_ds.map(lambda x,y: (tf.reshape(x, [-1]), y))   <span class="fm-combinumeral">❸</span>
+        test_ds = test_ds.map(lambda x,y: (tf.reshape(x, [-1]), y))     <span class="fm-combinumeral">❸</span>
+    
+    valid_ds = train_ds.take(10000).batch(batch_size)                   <span class="fm-combinumeral">❹</span>
+    
+    train_ds = train_ds.skip(10000).batch(batch_size)                   <span class="fm-combinumeral">❺</span>
+    
+    return train_ds, valid_ds, test_ds</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1187324"></a><span class="fm-combinumeral">❶</span> Get the training data set, shuffle it, and output a tuple of (image, label).</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1187345"></a><span class="fm-combinumeral">❷</span> Get the testing data set and output a tuple of (image, label).</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1187369"></a><span class="fm-combinumeral">❸</span> Flatten the images to a 1D vector for fully connected networks.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1187386"></a><span class="fm-combinumeral">❹</span> Make the validation data set the first 10,000 data points.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1187403"></a><span class="fm-combinumeral">❺</span> Make training data set the rest.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1167956"></a>This is a simple data pipeline. Each record in the original data set is provided as a dictionary with two keys: <span class="fm-code-in-text">image</span> and <span class="fm-code-in-text">label</span>. First, we convert dictionary-based records to a tuple of <span class="fm-code-in-text">(&lt;image&gt;, &lt;label&gt;)</span> using the <span class="fm-code-in-text">tf.data.Dataset.map()</span> function<a class="calibre8" id="marker-1167957"></a>. Then, we have an optional step of flattening the 2D images to a 1D vector if the data set is to be used for fully connected networks. In other words, the 28 × 28 image will become a 784-sized vector. Finally, we create the valid set as the first 10,000 data points in the <span class="fm-code-in-text">train_ds</span> (after shuffling) and keep the rest as the training set.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1167958"></a>The way to visualize data on TensorBoard is by logging information to a predefined log directory through a <span class="fm-code-in-text">tf.summary.SummaryWriter()</span>. This writer will write the data we’re interested in, in a special format the TensorBoard understands. Next, you spin up an instance of TensorBoard, pointing it to the log directory. Using this approach, let’s visualize some of the training data using the TensorBoard. First, we define a mapping from the label ID to the string label:</p>
+  <pre class="programlisting">id2label_map = {
+    0: "T-shirt/top",
+    1: "Trouser",
+    2:"Pullover",
+    3: "Dress",
+    4: "Coat",
+    5: "Sandal",
+    6: "Shirt",
+    7: "Sneaker",
+    8: "Bag",
+    9: "Ankle boot"
+}</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1167975"></a>These mappings are obtained from <span class="fm-hyperlink"><a class="url" href="http://mng.bz/DgdR">http://mng.bz/DgdR</a></span>. Then we will define the logging directory. We are going to use date-timestamps to generate a unique identifier for different runs, as shown:</p>
+  <pre class="programlisting">log_datetimestamp_format = "%Y%m%d%H%M%S"
+ 
+log_datetimestamp = datetime.strftime(datetime.now(), 
+<span class="fm-code-continuation-arrow">➥</span> log_datetimestamp_format)
+image_logdir = "./logs/data_{}/train".format(log_datetimestamp)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1167981"></a>If you’re wondering about the strange-looking format found in the <span class="fm-code-in-text">log_datetimestamp_format</span> variable, it is a standard format used by Python’s <span class="fm-code-in-text">datetime</span> library<a class="calibre8" id="marker-1182629"></a> to define the format of dates and times (<span class="fm-hyperlink"><a class="url" href="http://mng.bz/lxM2">http://mng.bz/lxM2</a></span>), should you use them in your code. Specifically, we are going to the time of running (given by <span class="fm-code-in-text">datetime .now()</span>) as a string of digits with no separators in between. We will get the year (<span class="fm-code-in-text">%Y</span>), month (<span class="fm-code-in-text">%m</span>), day (<span class="fm-code-in-text">%d</span>), hour in 24-hour format (<span class="fm-code-in-text">%H</span>), minutes (<span class="fm-code-in-text">%M</span>), and seconds (<span class="fm-code-in-text">%S</span>) of a given time of the day. Then we append the string of digits to the logging directory to create a unique identifier based on the time of running. Next, we define a <span class="fm-code-in-text">tf.summary.SummaryWriter()</span> by calling the following function, with the logging directory as an argument. With that, any write we do with this summary writer will be logged in the defined directory:</p>
+  <pre class="programlisting">image_writer = tf.summary.create_file_writer(image_logdir)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1167990"></a>Next, we open the defined summary writer as the default writer, using a with clause. Once the summary writer is open, any <span class="fm-code-in-text">tf.summary.&lt;data type&gt;</span> object<a class="calibre8" id="marker-1175236"></a> will log that information to the log directory. Here, we use a <span class="fm-code-in-text">tf.summary.image</span> object<a class="calibre8" id="marker-1175237"></a>. There are several different objects you can use to log (<span class="fm-hyperlink"><a class="url" href="https://www.tensorflow.org/api_docs/python/tf/summary">https://www.tensorflow.org/api_docs/python/tf/summary</a></span>):</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1167994"></a><span class="fm-code-in-text">tf.summary.audio</span>—A type of object used to log audio files and listen to them on TensorBoard</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1167995"></a><span class="fm-code-in-text">tf.summary.histogram</span>—A type of object used to log histograms and view them on TensorBoard</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1167996"></a><span class="fm-code-in-text">tf.summary.image</span>—A type of object used to log images and view them on TensorBoard</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1167997"></a><span class="fm-code-in-text">tf.summary.scalar</span>—A type of object used to log scalar values (e.g., model losses computed over several epochs) and show them on TensorBoard</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1167998"></a><span class="fm-code-in-text">tf.summary.text</span>—A type of object used to log raw textual data and show it on TensorBoard</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1167999"></a><i class="fm-italics">Here, we will use</i> <span class="fm-code-in-text">tf.summary.image()</span> <i class="fm-italics">to write and display images on TensorBoard.</i> <span class="fm-code-in-text">tf.summary.image()</span> takes in several arguments:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1168000"></a><span class="fm-code-in-text">name</span>—A description of the summary. This will be used as a tag when displaying images on TensorBoard.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168001"></a><span class="fm-code-in-text">data</span>—A batch of images of size [b, h, w, c], where b is the batch size, h is the image height, w is the image width, and c is the number of channels (e.g., RGB).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168002"></a><span class="fm-code-in-text">step</span>—An integer that can be used to show images belonging to different batches/iterations (defaults to <span class="fm-code-in-text">None</span>).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168003"></a><span class="fm-code-in-text">max_outputs</span>—The maximum number of outputs to display at a given time. If there are more images than <span class="fm-code-in-text">max_outputs</span> in the <span class="fm-code-in-text">data</span>, the first <span class="fm-code-in-text">max_outputs</span> images will be shown, and the rest will be silently discarded (defaults to three).</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1168004"></a><span class="fm-code-in-text">description</span>—A detailed description of the summary (defaults to <span class="fm-code-in-text">None</span>)</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168005"></a>We will write two sets of image data in two ways:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1168006"></a>First, we will take 10 images, one by one, from the training data set and write them with their class label tagged. Then, images with the same class label (i.e., category) are nested under the same section on TensorBoard.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168007"></a>Finally, we will write a batch of 20 images at once.</p>
+    </li>
+  </ul>
+  <pre class="programlisting">with image_writer.as_default():
+    for data in fashion_ds["train"].batch(1).take(10):
+        tf.summary.image(
+            id2label_map[int(data["label"].numpy())], 
+            data["image"], 
+            max_outputs=10, 
+            step=0
+        )
+ 
+# Write a batch of 20 images at once
+with image_writer.as_default():
+    for data in fashion_ds["train"].batch(20).take(1):
+        pass
+    tf.summary.image("A training data batch", data["image"], max_outputs=20, step=0)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168024"></a>Then we are all set to visualize the TensorBoard. Initializing and loading the TensorBoard can be done simply by running the following commands in a Jupyter notebook code cell. As you know by now, a Jupyter notebook is made of cells, where you can enter text/code. Cells can be code cells, Markdown cells, and so on:</p>
+  <pre class="programlisting">%load_ext tensorboard
+%tensorboard --logdir ./logs --port 6006</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168027"></a>Figure 14.1 shows how the code will look in a notebook cell.</p>
+
+  <p class="fm-figure"><img alt="14-01" class="calibre10" src="../../OEBPS/Images/14-01.png" width="1100" height="295"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1188110"></a>Figure 14.1 Jupyter magic commands in a notebook cell</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168034"></a>You might notice that this is not typical Python syntax. Commands such as these that start with a % sign are known as Jupyter magic commands. Remember that Jupyter is the name of the Python library that is producing notebooks that we have our code in. You can see a list of such commands at <span class="fm-hyperlink"><a class="url" href="http://mng.bz/BMd1">http://mng.bz/BMd1</a></span>. The first command loads the TensorBoard Jupyter notebook extension. The second command instantiates a TensorBoard with the provided logging directory (<span class="fm-code-in-text">--logdir)</span> argument and a port (<span class="fm-code-in-text">--port</span>) argument. If you don’t specify a port, TensorBoard will run on 6006 (or the first unused port greater than 6006) by default. Figure 14.2 shows how the TensorBoard looks with visualized images.</p>
+
+  <p class="fm-figure"><img alt="14-02" class="calibre10" src="../../OEBPS/Images/14-02.png" width="1092" height="933"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1188144"></a>Figure 14.2 The TensorBoard visualizing logged images, displayed inline in the Jupyter notebook. You can perform various operations on images, such as adjusting brightness or contrast. Furthermore, the subdirectories to which the data is logged are shown on the left-hand panel, allowing you to easily show/hide different subdirectories for easier comparison.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168044"></a>Alternatively, you can also visualize the TensorBoard on a browser tab independent of the Jupyter notebook. After you run the two commands in your browser, open http:<span class="fm-hyperlink">//</span>localhost:6006, which will display the TensorBoard as shown in figure 14.2. In the next section, we will see how TensorBoard can be used to track and monitor model performance as models are trained.</p>
+
+  <p class="fm-head2"><a id="pgfId-1168046"></a>Exercise 1</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168047"></a>You have a list of five batches of images in a variable called <span class="fm-code-in-text">step_image_batches</span>. Each item in the list corresponds to the first five steps of the training. You want to have these batches shown in the TensorBoard, each with the correct step value. You can name each batch as batch_0, batch_1, and so on. How would you do<a class="calibre8" id="marker-1168048"></a><a class="calibre8" id="marker-1168049"></a><a class="calibre8" id="marker-1168050"></a> this?</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_182"><a id="pgfId-1168051"></a>14.2 Tracking and monitoring models with TensorBoard</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168055"></a>With<a class="calibre8" id="marker-1168052"></a><a class="calibre8" id="marker-1168053"></a><a class="calibre8" id="marker-1168054"></a> a good understanding of the data in the Fashion-MNIST data set, you will use a neural network to train a model on this data to gauge how accurately you can classify different types of apparel. You are planning to use a dense network and a convolutional neural network. You will train both these models under the same conditions (e.g., data sets) and visualize the model’s accuracy and loss on the TensorBoard.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168056"></a>The primary purpose served by the TensorBoard is the ability to visualize a model’s performance as it is trained. Deep neural networks are notoriously known for their long training times. There is no doubt that identifying problems with a model as early as possible pays off well. The TensorBoard plays a vital role in that. You can pipe model performance (through evaluation metrics) to be displayed in real time on TensorBoard. Therefore, you can spot any abnormal behaviors in the model before spending too much time and take necessary actions quickly.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168057"></a>In this section, we will compare the performance of a fully connected network and a convolutional neural network on the Fashion-MNIST data set. Let’s define a small fully connected model as the first model we want to test with this data set. It will have three layers:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1168058"></a>A layer with 512 neurons and ReLU activation that takes a flattened image from the Fashion-MNIST data set</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168059"></a>A layer with 256 neurons and ReLU activation that takes the previous layer’s output</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1168060"></a>A layer with 10 outputs (representing the categories) that has a softmax activation</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168061"></a>The model is compiled with sparse categorical cross-entropy loss and the Adam optimizer. Since we’re interested in the model accuracy, we add that to the list of metrics that are tracked:</p>
+  <pre class="programlisting">from tensorflow.keras import layers, models
+ 
+ 
+dense_model = models.Sequential([
+    layers.Dense(512, activation='relu', input_shape=(784,)),
+    layers.Dense(256, activation='relu'),
+    layers.Dense(10, activation='softmax')
+])
+ 
+dense_model.compile(loss="sparse_categorical_crossentropy", optimizer='adam', metrics=['accuracy'])</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168072"></a>With the model fully defined, we train it on the training data and evaluate it on the validation data set. First, let’s define the logging directory for the fully connected model:</p>
+  <pre class="programlisting">log_datetimestamp_format = "%Y%m%d%H%M%S"
+log_datetimestamp = datetime.strftime(
+    datetime.now(), log_datetimestamp_format
+)
+ 
+dense_log_dir = os.path.join("logs","dense_{}".format(log_datetimestamp))</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168081"></a>As before, you can see that we are not only writing to subdirectories instead of the plain flat directory, but we are also using a unique identifier that is based on the time of running. Each of these subdirectories represents what is called a <i class="fm-italics">run</i> in TensorBoard terminology.</p>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1168082"></a>Organizing runs in TensorBoard</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168083"></a>Typically, users leverage some kind of run organization when visualizing them via the TensorBoard. Other than having multiple runs for multiple algorithms, a standard thing to do is add a date-time stamp to the runs to discriminate between different runs of the same algorithm running at different occasions.</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168084"></a>For example, you might test the same algorithm with different hyperparameters (e.g., number of layers, learning rate, optimizer, etc.) and may want to see them all in one place. Let’s say you want to test a fully connected layer with different learning rates (0.01, 0.001, and 0.0005). You would have the following directory structure in your main logging directory:</p>
+    <pre class="programlisting">./logs/dense/run_2021-05-27-03-14-21_lr=0.01
+./logs/dense/run_2021-05-27-09-02-52_lr=0.001
+./logs/dense/run_2021-05-27-10-12-09_lr=0.001
+./logs/dense/run_2021-05-27-14-43-12_lr=0.0005</pre>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168089"></a>Or you could even use a more nested directory structure:</p>
+    <pre class="programlisting">./logs/dense/lr=0.01/2021-05-27-03-14-21
+./logs/dense/lr=0.001/2021-05-27-09-02-52
+./logs/dense/lr=0.001/2021-05-27-10-12-09
+./logs/dense/lr=0.0005/2021-05-27-14-43-12</pre>
+  </div>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168095"></a>I would like to stress that it is important to time stamp your runs, as explained in the sidebar. This way you will have a unique folder for each run and can always go back to previous runs to compare if needed. Next, let’s generate training/validation/testing data sets using the <span class="fm-code-in-text">get_train_valid_test()</span> function. Make sure to set the <span class="fm-code-in-text">flatten_ images=True</span>:</p>
+  <pre class="programlisting">batch_size = 64
+tr_ds, v_ds, ts_ds = get_train_valid_test_datasets(
+    fashion_ds, batch_size=batch_size, flatten_images=True
+)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168102"></a>Modeling metrics to the TensorBoard is very easy. There is a special callback for the TensorBoard that you can pass during the model training/evaluation:</p>
+  <pre class="programlisting">tb_callback = tf.keras.callbacks.TensorBoard(
+    log_dir=dense_log_dir, profile_batch=0
+)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168107"></a>Let’s discuss some of the key arguments you can pass to the TensorBoard callback. The default TensorBoard callback looks as follows:</p>
+  <pre class="programlisting">tf.keras.callbacks.TensorBoard(
+    log_dir='logs', histogram_freq=0, write_graph=True,
+    write_images=False, write_steps_per_second=False, update_freq='epoch',
+    profile_batch=2, embeddings_freq=0, embeddings_metadata=None, 
+)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168113"></a>Now we will look at the arguments provided:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1168114"></a><span class="fm-code-in-text">log_dir</span>—The directory to log information to. Once the TensorBoard is spun up using the <span class="fm-code-in-text">log dir</span> as this (or a parent of this) directory, the information can be visualized on the TensorBoard (defaults to <span class="fm-code-in-text">'logs'</span>).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168115"></a><span class="fm-code-in-text">histogram_freq</span>—Creates histograms of activation distribution in layers (discussed in detail later). This specifies how frequently (in epochs) these histograms need to be recorded (defaults to <span class="fm-code-in-text">0</span>, meaning it’s disabled).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168116"></a><span class="fm-code-in-text">write_graph</span>—Determines whether to write the model as a graph to visualize on the TensorBoard (defaults to <span class="fm-code-in-text">True</span>).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168117"></a><span class="fm-code-in-text">write_image</span>—Determines whether to write model weights as an image (i.e., a heat map) to visualize the weights on the TensorBoard (defaults to <span class="fm-code-in-text">False</span>).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168118"></a><span class="fm-code-in-text">write_steps_per_second</span>—Determines whether to write the number of steps performed in a second to the TensorBoard (defaults to <span class="fm-code-in-text">False</span>).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168119"></a><span class="fm-code-in-text">update_freq</span> (<span class="fm-code-in-text">'batch'</span>, <span class="fm-code-in-text">'epoch'</span> or an integer)—Determines whether to write updates to the TensorBoard every batch (if the value is set to <span class="fm-code-in-text">batch</span>) or epoch (if value is set to <span class="fm-code-in-text">epoch</span>). Passing an integer, TensorFlow will interpret it as “write to the TensorBoard every x batches.” By default, updates will be written every epoch. Writing to the disk is expensive; therefore, writing too frequently will slow your training down.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168120"></a><span class="fm-code-in-text">profile_batch</span> (an integer or a list of two numbers)—Determines which batches to use for profiling the model. Profiling computes computational and memory profiles of the model (discussed in detail later). If an integer is passed, it will profile a single batch. If a range (i.e., a list of two numbers) is passed, it will profile batches in that range. If set to zero, profiling will not happen (defaults to <span class="fm-code-in-text">2</span>).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168121"></a><span class="fm-code-in-text">embedding_freq</span>—If the model has an embedding layer, this parameter specifies the interval (in epochs) to visualize the embedding layer. If set to zero, this is disabled (defaults to <span class="fm-code-in-text">0</span>).</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1168122"></a><span class="fm-code-in-text">embedding_metadata</span>—A dictionary that maps the embedding layer name to a file name. The file should consist of the tokens corresponding to each row in the embedding matrix (in that order; defaults to <span class="fm-code-in-text">None</span>).</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168123"></a>Finally, we will train the model as we have done before. The only difference is that we pass <span class="fm-code-in-text">tb_callback</span> as a callback to the model:</p>
+  <pre class="programlisting">dense_model.fit(tr_ds, validation_data=v_ds, epochs=10, callbacks=[tb_callback])</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168127"></a>The model should reach a validation accuracy of around 85%. Now open the TensorBoard by visiting http:<span class="fm-hyperlink">/ /</span>localhost:6006. It will display a dashboard similar to figure 14.3. The dashboard will be refreshed automatically as new data appears in the log directory.</p>
+
+  <p class="fm-figure"><img alt="14-03" class="calibre10" src="../../OEBPS/Images/14-03.png" width="986" height="539"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1188185"></a>Figure 14.3 How tracked metrics are displayed on the TensorBoard. You can see the training and validation accuracy and the loss are plotted as line graphs. Furthermore, you have various controls, such as maximizing the graph, switching to a log-scale y-axis, and so on.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168135"></a>The TensorBoard dashboard has many controls that help users understand their models in great depth with the help of logged metrics. You can turn different runs on or off depending on what you want to analyze. For example, if you only want to look at validation metrics, you can switch off dense/train run, and vice versa. Data/train run does not affect this panel as it contains images we logged from the training data. To view them, you can click on the IMAGES panel.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168136"></a>Next, you can change the smoothing parameter to control the smoothness of the line. It helps to remove localized small changes in metrics and focus on global trends by having a smoother version of the line. Figure 14.4 depicts the effect of the smoothing parameter on line plots.</p>
+
+  <p class="fm-figure"><img alt="14-04" class="calibre10" src="../../OEBPS/Images/14-04.png" width="1003" height="411"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1188221"></a>Figure 14.4 How the smoothing parameter changes the line plot. Here, we are showing the same line plot under different smoothing parameters. You can see how the line gets smoother as the smoothing parameter increases. The original line is shown in faded colors.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168143"></a>Additionally, you have other controls such as switching to a log-scale y-axis instead of a linear one. This is useful if metrics observe large changes over time. In log scale, such large changes will become smaller. You can also toggle between standard-sized plots and full-sized plots if you need to examine the graphs in more detail. Figure 14.3 highlights these controls.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168144"></a>After that, we will define a simple convolutional neural network and do the same. That is, we will define the network first, and then train the model while using a callback to the TensorBoard.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168145"></a>Let’s define the next model we will compare our fully connected network to: a convolutional neural network<a class="calibre8" id="marker-1168146"></a> (CNN). Again, we are defining a very simple CNN that encompasses</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1168147"></a>A 2D convolution layer with 32 filters with a 5 × 5 kernel, 2 × 2 strides, and ReLU activation that takes a 2D 28 × 28-sized image from the Fashion-MNIST data set</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168148"></a>A 2D convolution layer with 16 filters with a 3 × 3 kernel, 1 × 1 strides, and ReLU activation that takes the previous layer’s output</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168150"></a>A <span class="fm-code-in-text">Flatten</span> layer<a class="calibre8" id="marker-1168149"></a> that will flatten the convolutional output to a 1D vector suitable for a <span class="fm-code-in-text">Dense</span> layer<a class="calibre8" id="marker-1168151"></a></p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168152"></a>A layer with 10 outputs (representing the categories) that has a softmax activation</p>
+    </li>
+  </ul>
+  <pre class="programlisting">conv_model = models.Sequential([
+    layers.Conv2D(
+       filters=32, 
+       kernel_size=(5,5), 
+       strides=(2,2), 
+       padding='same', 
+       activation='relu', 
+       input_shape=(28,28,1)
+    ),
+    layers.Conv2D(
+        filters=16, 
+        kernel_size=(3,3), 
+        strides=(1,1), 
+        padding='same', 
+        activation='relu'
+    ),
+    layers.Flatten(),
+    layers.Dense(10, activation='softmax')
+])
+ 
+conv_model.compile(
+    loss="sparse_categorical_crossentropy", optimizer='adam', 
+<span class="fm-code-continuation-arrow">➥</span> metrics=['accuracy']
+)
+conv_model.summary()</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168177"></a>Moving onto the model training, we will log the CNN-related metrics to a separate directory called <span class="fm-code-in-text">./logs/conv_{datetimestamp}</span>. This way, we can plot the evaluation metrics of the fully connected network and the CNN under two separate runs. We will generate training and validation data sets and a TensorBoard callback, as we did earlier. These are then passed to the model when calling the <span class="fm-code-in-text">fit()</span> method<a class="calibre8" id="marker-1168178"></a> to train the model:</p>
+  <pre class="programlisting">log_datetimestamp_format = "%Y%m%d%H%M%S"
+log_datetimestamp = datetime.strftime(
+    datetime.now(), log_datetimestamp_format
+)
+ 
+conv_log_dir = os.path.join("logs","conv_{}".format(log_datetimestamp))
+ 
+batch_size = 64
+tr_ds, v_ds, ts_ds = get_train_valid_test_datasets(
+    fashion_ds, batch_size=batch_size, flatten_images=False
+)
+ 
+tb_callback = tf.keras.callbacks.TensorBoard(
+    log_dir=conv_log_dir, histogram_freq=2, profile_batch=0
+)
+ 
+conv_model.fit(
+    tr_ds, validation_data=v_ds, epochs=10, callbacks=[tb_callback]
+)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168198"></a>Notice the changes we have made when training the CNN. First, we do not flatten the images like we did when training the fully connected network (i.e., we set <span class="fm-code-in-text">flatten_ images=False</span> in the <span class="fm-code-in-text">get_train_valid_test_datasets()</span> function). Next, we introduce a new argument to the TensorBoard callback. We will use the <span class="fm-code-in-text">histogram_freq</span> argument to log layer activation histograms of the model during the training process. We will discuss layer activation histograms in more depth shortly. This will display the accuracy and loss metrics of both models (i.e., dense model and convolutional model) in the same graph, so they can be easily compared (figure 14.5).</p>
+
+  <p class="fm-figure"><img alt="14-05" class="calibre10" src="../../OEBPS/Images/14-05.png" width="1075" height="672"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1188255"></a>Figure 14.5 Viewing metrics of both the dense model and the convolutional model. You can switch different runs off/on depending on what you want to compare.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168206"></a>Let’s come back to activation histograms again. Activation histograms let us visualize the neuron activation distribution of different layers as the training progresses. This is an important check that allows you to see whether or not the model is converging during the optimization, giving insights into problems in model training or data quality.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168207"></a>Let’s look at what these histograms show in more depth. Figure 14.6 illustrates the histograms generated for the CNN we have trained. We have plotted histograms every two epochs. Weights represented as histograms are stacked behind each other so we can easily understand how they evolved over time. Each slice in the histogram shows the weight distribution in a given layer and a given epoch. In other words, it will provide information such as “there were x number of outputs, having a value of y, approximately.”</p>
+
+  <p class="fm-figure"><img alt="14-06" class="calibre10" src="../../OEBPS/Images/14-06.png" width="1072" height="1144"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1188296"></a>Figure 14.6 Activation histograms displayed by the TensorBoard. These graphs indicate how the distribution of activations in a given layer changed over time (lighter ones represent more recent epochs).</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168214"></a>Typically, if you have a vector of values, it is quite straightforward to create the histogram. For example, assume the values are [0.1, 0.3, 0.35, 0.5, 0.6, 0.61, 0.63], and say that you have four bins: [0.0, 0.2), [0.2, 0.4), [0.4, 0.6), and [0.6, 0.8). You’d get the histogram shown in figure 14.7. If you look at the line connecting the midpoints of the bars, it’s similar to what you see in the dashboard.</p>
+
+  <p class="fm-figure"><img alt="14-07" class="calibre10" src="../../OEBPS/Images/14-07.png" width="500" height="222"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1188337"></a>Figure 14.7 A histogram generated for the sequence [0.1, 0.3, 0.35, 0.5, 0.6, 0.61, 0.63]</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168221"></a>However, computing histograms involves more complex data manipulations when data is large and sparse, like in a weight matrix. For example, computing histograms in TensorBoard involves using exponential bin sizes (as opposed to uniform bin sizes, as in the example), which gives more fine-grained bins near zero and wider bins as you move away from zero. Then it resamples these uneven-sized bins to uniformly sized bins for easier and more meaningful visualizations. The specific details of these computations are beyond the scope of this book. If you want more details, refer to <span class="fm-hyperlink"><a class="url" href="http://mng.bz/d26o">http://mng.bz/d26o</a></span>.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168223"></a>We can see in the graphs that the weights are converging to an approximate normal distribution as the training progresses. But the bias converges to a multi-modal distribution, with spikes appearing in many different places.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168224"></a>This section elucidated how you can use the TensorBoard for some of the primary data visualization and model performance tracking. These are vital parts of the core checkpoints you have to set up in your data science project. Visualizing data needs to be done early in your project to help you understand the data and its structure. Model performance tracking is important as deep learning models take longer to train, and you need to complete that training within a limited budget (of both time and cost). In the next section, we will discuss how we can log custom metrics to the TensorBoard and visualize them.</p>
+
+  <p class="fm-head2"><a id="pgfId-1168225"></a>Exercise 2</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168226"></a>You have a binary classification model represented by <span class="fm-code-in-text">classif_model</span>. You’d like to track precision and recall for this model in the TensorBoard. Furthermore, you’d like to visualize the activation histograms every epoch. How would you compile the model and fit it with data using the TensorBoard callback to achieve this? TensorFlow provides <span class="fm-code-in-text">tf.keras.metrics.Precision()</span> and <span class="fm-code-in-text">tf.keras.metrics.Recall()</span> to compute precision and recall, respectively. You can assume that you are logging directly to the <span class="fm-code-in-text">./logs</span> directory. Assume that you have been provided training data (<span class="fm-code-in-text">tr_ds</span>) and validation data (<span class="fm-code-in-text">v_ds</span>) as <span class="fm-code-in-text">tf.data.Dataset</span><a class="calibre8" id="marker-1168227"></a><a class="calibre8" id="marker-1168228"></a><a class="calibre8" id="marker-1168229"></a> objects<a class="calibre8" id="marker-1168230"></a>.</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_183"><a id="pgfId-1168231"></a>14.3 Using tf.summary to write custom metrics during model training</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168236"></a>Imagine<a class="calibre8" id="marker-1168232"></a><a class="calibre8" id="marker-1168233"></a><a class="calibre8" id="marker-1168234"></a><a class="calibre8" id="marker-1168235"></a> you are a PhD student researching the effects of batch normalization. Particularly, you need to analyze how the weights’ mean and standard deviation in a given layer change over time, with and without batch normalization. For this, you will use a fully connected network and log the weights’ mean and standard deviation at every step on the TensorBoard. As this is not a typical metric that you can produce using the Keras model, you will log it (for every step) during model training in a custom training loop.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168237"></a>In order to compare the effects of batch normalization, we need to define two different models: one without batch normalization and one with batch normalization. Both these models will have the same specifications, apart from using batch normalization. First, let’s define a model without batch normalization:</p>
+  <pre class="programlisting">from tensorflow.keras import layers, models
+import tensorflow.keras.backend as K
+ 
+K.clear_session()
+dense_model = models.Sequential([
+    layers.Dense(512, activation='relu', input_shape=(784,)),    
+    layers.Dense(256, activation='relu', name='log_layer'),    
+    layers.Dense(10, activation='softmax')
+])
+ 
+dense_model.compile(loss="sparse_categorical_crossentropy", optimizer='adam', metrics=['accuracy'])</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168250"></a>The model is quite straightforward and identical to the fully connected model we defined earlier. It has three layers, with 512, 256, and 10 nodes, respectively. The first two layers use ReLU activation, whereas the last layer uses softmax activation. Note that we name the second <span class="fm-code-in-text">Dense</span> layer <span class="fm-code-in-text">log_layer</span>. We will use this layer to compute the metrics we’re interested in. Finally, the model is compiled with sparse categorical cross-entropy loss, the Adam optimizer, and accuracy as metrics. Next, we define the same model with batch normalization:</p>
+  <pre class="programlisting">dense_model_bn = models.Sequential([
+    layers.Dense(512, activation='relu', input_shape=(784,)),
+    layers.BatchNormalization(),
+    layers.Dense(256, activation='relu', name='log_layer_bn'),
+    layers.BatchNormalization(),
+    layers.Dense(10, activation='softmax')
+])
+ 
+dense_model_bn.compile(
+    loss="sparse_categorical_crossentropy", optimizer='adam', 
+<span class="fm-code-continuation-arrow">➥</span> metrics=['accuracy']
+)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168262"></a>Introducing batch normalization means adding <span class="fm-code-in-text">tf.keras.layers.BatchNormalization()</span> layers<a class="calibre8" id="marker-1168263"></a> between the <span class="fm-code-in-text">Dense</span> layers. We name the layer of interest in the second model as <span class="fm-code-in-text">log_layer_bn</span>, as we cannot have two layers with the same name at once.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168264"></a>With the models defined, our task is to compute the mean and standard deviation of weights at every step. To do that, we will observe the mean and standard deviation of the weights in the second layer of both networks (<span class="fm-code-in-text">log_layer</span> and <span class="fm-code-in-text">log_layer_bn</span>). As we have already discussed, we cannot simply pass a TensorBoard callback and expect these metrics to be available. Since the metrics we’re interested in are not commonly used, we have to do the heavy lifting and make sure the metrics are logged every step.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168266"></a>We will define a <span class="fm-code-in-text">train_model()</span> function<a class="calibre8" id="marker-1183213"></a>, to which we can pass the defined model and train it on the data. While training, we will compute the mean and the standard deviation of the weights in every step and log that to the TensorBoard (see the next listing).</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1168268"></a>Listing 14.2 Writing a <span class="fm-code-in-listingcaption">tf.summary</span> object while training the model in a custom loop</p>
+  <pre class="programlisting">def train_model(model, dataset, log_dir, log_layer_name, epochs):    
+    
+    writer = tf.summary.create_file_writer(log_dir)                        <span class="fm-combinumeral">❶</span>
+    step = 0
+    
+    with writer.as_default():                                              <span class="fm-combinumeral">❷</span>
+        
+        for e in range(epochs):
+            print("Training epoch {}".format(e+1))
+            for batch in tr_ds:
+                
+                model.train_on_batch(*batch)                               <span class="fm-combinumeral">❸</span>
+                
+                weights = model.get_layer(log_layer_name).get_weights()[0] <span class="fm-combinumeral">❹</span>
+                                
+                tf.summary.scalar("mean_weights",np.mean(np.abs(weights)), <span class="fm-combinumeral">❺</span>
+<span class="fm-code-continuation-arrow">➥</span> step=step)                                                              <span class="fm-combinumeral">❺</span>
+                tf.summary.scalar("std_weights", np.std(np.abs(weights)),  <span class="fm-combinumeral">❺</span>
+<span class="fm-code-continuation-arrow">➥</span> step=step)                                                              <span class="fm-combinumeral">❺</span>
+                
+                writer.flush()                                             <span class="fm-combinumeral">❻</span>
+                
+                step += 1
+            print('\tDone')
+    
+    print("Training completed\n")</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1186860"></a><span class="fm-combinumeral">❶</span> Define the writer.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1186881"></a><span class="fm-combinumeral">❷</span> Open the writer.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1186898"></a><span class="fm-combinumeral">❸</span> Train with one batch.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1186915"></a><span class="fm-combinumeral">❹</span> Get the weights of the layer. It’s a list of arrays [weights, bias] in that order. Therefore, we’re only taking the weights (index 0).</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1186932"></a><span class="fm-combinumeral">❺</span> Log mean and std of absolute weights (which are two scalars for a given epoch).</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1186949"></a><span class="fm-combinumeral">❻</span> Flush to the disk from the buffer.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168301"></a>Note how we open a <span class="fm-code-in-text">tf.summary.writer()</span> and then log the metrics in every step using the <span class="fm-code-in-text">tf.summary.scalar()</span> call. We are giving the metrics meaningful names to make sure we know which is which when visualizing them on the TensorBoard. With the function defined, we call it for the two different models we have compiled:</p>
+  <pre class="programlisting">batch_size = 64
+tr_ds, _, _ = get_train_valid_test_datasets(
+    fashion_ds, batch_size=batch_size, flatten_images=True
+)
+train_model(dense_model, tr_ds, exp_log_dir + '/standard', "log_layer", 5)
+ 
+tr_ds, _, _ = get_train_valid_test_datasets(
+    fashion_ds, batch_size=batch_size, flatten_images=True
+)
+train_model(dense_model_bn, tr_ds, exp_log_dir + '/bn', "log_layer_bn", 5)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168313"></a>Note that we are specifying different logging subdirectories to make sure the two models that appear are different runs. After running this, you will see two new additional sections called mean_weights and std_weights (figure 14.8). It seems that the mean and variance of weights change more drastically when batch normalization is used. This could be because, as batch normalization introduces explicit normalization between layers, weights of layers have more freedom to move around.</p>
+
+  <p class="fm-figure"><img alt="14-08" class="calibre10" src="../../OEBPS/Images/14-08.png" width="1042" height="683"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1188371"></a>Figure 14.8 The mean and standard deviation of weights plotted in the TensorBoard</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168320"></a>The next section expands on how the TensorBoard can be used to profile models and provides in-depth analysis of how time spent and memory are consumed when models are executed.</p>
+
+  <p class="fm-head2"><a id="pgfId-1168321"></a>Exercise 3</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168322"></a>You are planning to compute Fibonacci numbers (i.e., 0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, etc.), where the n<sup class="fm-superscript">th</sup> number x_n is given by x_n = x_{n - 1} + x_{n - 2}. Write a code to compute the Fibonacci series for 100 steps and plot it as a line graph in TensorBoard. You can use the name “fibonacci” as the name for the<a class="calibre8" id="marker-1168323"></a><a class="calibre8" id="marker-1168324"></a><a class="calibre8" id="marker-1168325"></a><a class="calibre8" id="marker-1168326"></a> metric.</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_184"><a id="pgfId-1168327"></a>14.4 Profiling models to detect performance bottlenecks</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168332"></a>You<a class="calibre8" id="marker-1168328"></a><a class="calibre8" id="marker-1168329"></a><a class="calibre8" id="marker-1168330"></a><a class="calibre8" id="marker-1168331"></a> are starting off as a data scientist at a bio-tech company that is identifying endangered flower species. One of the previous data scientists developed a model, and you are continuing that work. First, you want to determine if there are any performance bottlenecks. To analyze such issues, you plan to use the TensorBoard profiler. You will be using a smaller flower data set for the purpose of training the model so that the profiler can capture various computational profiles.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168333"></a>We start with the model in listing 14.3. It is a CNN model that has four convolutional layers, with pooling layers in between and three fully connected layers, including a final softmax layer with 17 output classes.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1168335"></a>Listing 14.3 The CNN model available to you</p>
+  <pre class="programlisting">def get_cnn_model():
+    
+    conv_model = models.Sequential([                                <span class="fm-combinumeral">❶</span>
+        layers.Conv2D(                                              <span class="fm-combinumeral">❷</span>
+            filters=64, 
+            kernel_size=(5,5), 
+            strides=(1,1), 
+            padding='same', 
+            activation='relu', 
+            input_shape=(64,64,3)
+        ),
+        layers.BatchNormalization(),                                <span class="fm-combinumeral">❸</span>
+        layers.MaxPooling2D(pool_size=(3,3), strides=(2,2)),        <span class="fm-combinumeral">❹</span>
+        layers.Conv2D(                                              <span class="fm-combinumeral">❺</span>
+            filters=128, 
+            kernel_size=(3,3), 
+            strides=(1,1), 
+            padding='same', 
+            activation='relu'
+        ),
+        layers.BatchNormalization(),                                <span class="fm-combinumeral">❺</span>
+        layers.Conv2D(                                              <span class="fm-combinumeral">❺</span>
+            filters=256, 
+            kernel_size=(3,3), 
+            strides=(1,1), 
+            padding='same', 
+            activation='relu'
+        ),
+        layers.BatchNormalization(),                                <span class="fm-combinumeral">❺</span>
+        layers.Conv2D(                                              <span class="fm-combinumeral">❺</span>
+            filters=512, 
+            kernel_size=(3,3), 
+            strides=(1,1), 
+            padding='same', 
+            activation='relu'
+        ),
+        layers.BatchNormalization(),                                <span class="fm-combinumeral">❺</span>
+        layers.AveragePooling2D(pool_size=(2,2), strides=(2,2)),    <span class="fm-combinumeral">❻</span>
+        layers.Flatten(),                                           <span class="fm-combinumeral">❼</span>
+        layers.Dense(512),                                          <span class="fm-combinumeral">❽</span>
+        layers.LeakyReLU(),                                         <span class="fm-combinumeral">❽</span>
+        layers.LayerNormalization(),                                <span class="fm-combinumeral">❽</span>
+        layers.Dense(256),                                          <span class="fm-combinumeral">❽</span>
+        layers.LeakyReLU(),                                         <span class="fm-combinumeral">❽</span>
+        layers.LayerNormalization(),                                <span class="fm-combinumeral">❽</span>
+        layers.Dense(17),                                           <span class="fm-combinumeral">❽</span>
+        layers.Activation('softmax', dtype='float32')               <span class="fm-combinumeral">❽</span>
+    ])
+    return conv_model</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1186023"></a><span class="fm-combinumeral">❶</span> Define a Keras model using the sequential API.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1186044"></a><span class="fm-combinumeral">❷</span> Define the first convolutional layer that takes a 64 × 64 × 3-sized input.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1186061"></a><span class="fm-combinumeral">❸</span> A batch normalization layer</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1186078"></a><span class="fm-combinumeral">❹</span> A max pooling layer</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1186095"></a><span class="fm-combinumeral">❺</span> A series of alternating convolution and batch normalization layers</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1186112"></a><span class="fm-combinumeral">❻</span> An average pooling layer that marks the end of convolutional/pooling layers</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1186129"></a><span class="fm-combinumeral">❼</span> Flatten the output of the last pooling layer.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1186151"></a><span class="fm-combinumeral">❽</span> A set of Dense layers (with leaky ReLU activation), followed by a layer with softmax activation</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168394"></a>The data set we’re going to use is a flower data set found at <span class="fm-hyperlink"><a class="url" href="https://www.robots.ox.ac.uk/~vgg/data/flowers">https://www.robots.ox.ac.uk/~vgg/data/flowers</a></span>, specifically, the 17-category data set. It has a single folder with images of flowers, and each image filename has a number. The images are numbered in such a way that, when sorted by the filename, the first 80 images belong to class 0, the next 80 images belong to class 1, and so on. You have been provided the code to download the data set in the notebook <span class="fm-code-in-text">Ch14/14.1_Tensorboard.ipynb</span>, which we will not discuss here. Next, we will write a simple <span class="fm-code-in-text">tf.data</span> pipeline<a class="calibre8" id="marker-1175326"></a> to create batches of data by reading these images in:</p>
+  <pre class="programlisting">def get_flower_datasets(image_dir, batch_size, flatten_images=False):
+ 
+    # Get the training dataset, shuffle it, and output a tuple of (image, 
+<span class="fm-code-continuation-arrow">➥</span> label)
+    dataset = tf.data.Dataset.list_files(
+        os.path.join(image_dir,'*.jpg'), shuffle=False
+    )
+ 
+    def get_image_and_label(file_path):
+ 
+        tokens = tf.strings.split(file_path, os.path.sep)
+        label = (
+            tf.strings.to_number(
+                tf.strings.split(
+                    tf.strings.split(tokens[-1],'.')[0], '_'
+                )[-1]
+            ) -1
+        )//80
+ 
+        # load the raw data from the file as a string
+        img = tf.io.read_file(file_path)
+        img = tf.image.decode_jpeg(img, channels=3)
+ 
+        return tf.image.resize(img, [64, 64]), label
+ 
+    dataset = dataset.map(get_image_and_label).shuffle(400)
+ 
+    # Make the validation dataset the first 10000 data
+    valid_ds = dataset.take(250).batch(batch_size)
+    # Make training dataset the rest
+    train_ds = dataset.skip(250).batch(batch_size)
+    )
+ 
+    return train_ds, valid_ds</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168429"></a>Let’s analyze what we’re doing here. First, we read the files which have a .jpg extension from a given folder. Then we have a nested function called <span class="fm-code-in-text">get_image_and_label()</span>, which takes a file path of an image and produces the image by reading it from the disk and the label. The label can be computed by</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1168431"></a>Extracting the image ID</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1168432"></a>Subtracting 1 (i.e., to make IDs zero-based indices) and dividing by 80</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168433"></a>After that, we shuffle the data and take the first 250 as validation data and the rest as training data. Next, we use these functions defined and train the CNN model while creating various computational profiles of the model. In order for the profiling to work, you need two main prerequisites:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1168435"></a>Install the Python package <span class="fm-code-in-text">tensorboard_plugin_profile</span><a class="calibre8" id="marker-1168434"></a>.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1168436"></a>Install <span class="fm-code-in-text">libcupti</span>, the CUDA Profiling Toolkit Interface.</p>
+    </li>
+  </ul>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1168437"></a>Installing the CUDA Profiling Toolkit Interface (libcupti)</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168438"></a>TensorBoard requires the <span class="fm-code-in-text1">libcupti</span> CUDA library in order for model profiling to work. Installing this library requires different steps depending on which operating system is used. This assumes that your computer is equipped with an NVIDIA GPU. Unfortunately, you will not be able to perform this on a Mac, as the profiling API for data collection is not available on Mac. (Look at the Requirements section in <span class="fm-hyperlink"><a class="url" href="https://developer.nvidia.com/cupti-ctk10_1u1">https://developer.nvidia.com/cupti-ctk10_1u1</a></span>.)</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168440"></a><b class="fm-bold">Installing libcupti on Ubuntu</b></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168441"></a>To install <span class="fm-code-in-text1">libcupti</span> on Linux, simply run <span class="fm-code-in-text1">sudo apt-get install libcupti-dev</span>.</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168442"></a><b class="fm-bold">Installing libcupti on Windows</b></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168443"></a>Installing <span class="fm-code-in-text1">libcupti</span> on Windows requires more work:</p>
+
+    <ul class="calibre9">
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1168444"></a>Make sure you have installed the recommended CUDA installation (e.g., CUDA 11 [&gt;= TensorFlow 2.4.0]). For more information on the CUDA version, visit <span class="fm-hyperlink"><a class="url" href="https://www.tensorflow.org/install/source#gpu">https://www.tensorflow.org/install/source#gpu</a></span>.</p>
+      </li>
+
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1168448"></a>Next, open the NVIDIA control panel (by right-clicking on the desktop and selecting the menu item) to make several changes (<span class="fm-hyperlink"><a class="url" href="http://mng.bz/rJVJ">http://mng.bz/rJVJ</a></span>):</p>
+
+        <ul class="calibre16">
+          <li class="fm-sidebar-bullet-sub">
+            <p class="list"><a class="calibre8" id="pgfId-1168452"></a>Make sure you set the developer mode by clicking Desktop &gt; Set Developer Mode.</p>
+          </li>
+
+          <li class="fm-sidebar-bullet-sub">
+            <p class="list"><a class="calibre8" id="pgfId-1168453"></a>Make sure you enabled GRU profiling to all users and not just the administrator (figure 14.9).</p>
+          </li>
+
+          <li class="fm-sidebar-bullet-sub">
+            <p class="list"><a class="calibre8" id="pgfId-1168461"></a>For more errors that you might face, refer to <span class="fm-hyperlink"><a class="url" href="http://mng.bz/VMxy">http://mng.bz/VMxy</a></span> from the official NVIDIA website.</p>
+          </li>
+        </ul>
+      </li>
+
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1168463"></a>To install <span class="fm-code-in-text1">libcupti</span> (<span class="fm-hyperlink"><a class="url" href="http://mng.bz/xn2d">http://mng.bz/xn2d</a></span>)</p>
+
+        <ul class="calibre16">
+          <li class="fm-sidebar-bullet-sub">
+            <p class="list"><a class="calibre8" id="pgfId-1168464"></a>Copy <span class="fm-code-in-text1">libcupti_&lt;version&gt;.dll</span>, <span class="fm-code-in-text1">nvperf_host.dll</span>, and <span class="fm-code-in-text1">nvperf_target .dll</span> from extras\CUPTI\lib64 to the bin folder. Make sure the libcupti file has the name libcupti_110.dll.</p>
+          </li>
+
+          <li class="fm-sidebar-bullet-sub">
+            <p class="list"><a class="calibre8" id="pgfId-1168465"></a>Copy all files in extras\CUPTI\lib64 <i class="fm-italics">to</i> lib\x64</p>
+          </li>
+
+          <li class="fm-sidebar-bullet-sub">
+            <p class="list"><a class="calibre8" id="pgfId-1168466"></a>Copy all files in extras\CUPTI\include to include.</p>
+          </li>
+        </ul>
+      </li>
+    </ul>
+
+    <p class="fm-figure"><img alt="14-09" class="calibre10" src="../../OEBPS/Images/14-09.png" width="967" height="791"/><br class="calibre2"/></p>
+
+    <p class="fm-figure-caption"><a id="pgfId-1168459"></a>Figure 14.9 Enabling GPU profiling for all users</p>
+  </div>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168468"></a>Make sure you have <span class="fm-code-in-text">libcupti</span> installed properly in the environment you are using (e.g., Ubuntu or Windows). Otherwise, you will not see the expected results. Then, to enable profiling, all you need to do is pass the argument <span class="fm-code-in-text">profile_batch</span> to the TensorBoard callback. The value is a list of two numbers: the starting step and the ending step. Profiling is typically done across a span of several batches and therefore requires a range as the value. However, profiling can be done for a single batch too:</p>
+  <pre class="programlisting">batch_size = 32
+tr_ds, v_ds = get_flower_datasets(
+    os.path.join(
+        'data', '17flowers','jpg'), batch_size=batch_size, 
+<span class="fm-code-continuation-arrow">➥</span> flatten_images=False
+)
+ 
+tb_callback = tf.keras.callbacks.TensorBoard(
+    log_dir=profile_log_dir, profile_batch=[10, 20]
+)
+ 
+conv_model.fit(
+    tr_ds, validation_data=v_ds, epochs=2, callbacks=[tb_callback]
+)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168483"></a>Once the training finishes, you can view the results on the TensorBoard. TensorBoard provides a large collection of valuable information and insights on model performance. It breaks down the computation into smaller subtasks and provides fine-grained computational time decomposition based on those subtasks. Furthermore, TensorBoard provides recommendations on where there is room for improvement (figure 14.10). Let’s now delve into more details about the information provided on this page.</p>
+
+  <p class="fm-figure"><img alt="14-10" class="calibre10" src="../../OEBPS/Images/14-10.png" width="1078" height="850"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1188417"></a>Figure 14.10 TensorBoard profiling interface. It gives a valuable collection of information on various subtasks involved in running models on the GPU. In addition, it provides recommendations on how to improve the performance of the models.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168489"></a>The average step time is a summation of several smaller tasks:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1168490"></a><i class="fm-italics">Input time</i>—Time spent on reading data-related operations (e.g., <span class="fm-code-in-text">tf.data.Dataset</span> operations).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168491"></a><i class="fm-italics">Host compute time</i>—Model-related computations done on the host (e.g., CPU).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168492"></a><i class="fm-italics">Device-to-device time</i>—To run things on the GPU, data first needs to be transferred to the GPU. This subtask measures the time taken for such transfers.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168493"></a><i class="fm-italics">Kernel launch time</i>—For the GPU to execute operations on the transferred data, the CPU needs to launch the kernels for the GPU. A kernel encapsulates a primitive computation performed on data (e.g., matrix multiplication). This measures the time taken for launching kernels.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168494"></a><i class="fm-italics">Device compute time</i>—Model-related computations that happen on the device (e.g., GPU).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168495"></a><i class="fm-italics">Device collective communication time</i>—Relates to time spent on communicating in multi-device (e.g., multiple GPUs) or multi-node environments.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1168496"></a>All the other times (e.g., compilation time, output time, all other remaining time).</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168497"></a>Here we can see that the most time is spent on device computations. This is, in a way, good, as it means that most computations happen on the GPU. The next-biggest time consumer is the input time. This makes sense as we are not using any optimizations for our <span class="fm-code-in-text">tf.data</span> pipeline and it is a highly disk-bound pipeline as images are read from the disk.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168498"></a>Then, right below that, you can see some more information. Close to 80% of the TensorFlow ops were placed on this host, whereas only 20% ran on the GPU. Furthermore, all the operations were 32-bit operations, and none were 16-bit; 16-bit (half-precision floating point) operations run faster and save a lot of memory compared to 32-bit (single-precision floating point) data types. GPUs and Tensor Processing Units (TPUs) are optimized hardware that can run 16-bit operations much faster than 32-bit operations. Therefore, they must be incorporated whenever possible. Having said that, we must be careful how we use 16-bit operations, as incorrect usage can hurt model performance (e.g., model accuracy) significantly. Incorporating 16-bit operations along with 32-bit operations to train the model is known as <i class="fm-italics">mixed precision training</i>.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168499"></a>If you look at the recommendation section, you can see two main recommendations:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1168500"></a>Optimize the input data pipeline.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1168501"></a>Utilize more 16-bit operations in model training.</p>
+    </li>
+  </ul>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1168502"></a>Brain Floating Point data type (bfloat16)</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168503"></a>Brain Floating Point values, or bfloat16 values, are a data type proposed by Google. It has the same number of bits as float16 (i.e., 16 bits) but is able to represent the dynamic range of float32 values with some loss in precision. This change is implemented by having more exponent bits (left side of the decimal point) and less fraction bits (right side of the decimal point). This data type can give significant advantages on optimized hardware like TPUs and GPUs (given they have Tensor Cores; <span class="fm-hyperlink"><a class="url" href="https://developer.nvidia.com/tensor-cores">https://developer.nvidia.com/tensor-cores)</a></span>.</p>
+  </div>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168506"></a>Let’s see how we can use these recommendations to reduce model training time.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_185"><a id="pgfId-1168507"></a>14.4.1 Optimizing the input pipeline</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168512"></a>To<a class="calibre8" id="marker-1168508"></a><a class="calibre8" id="marker-1168509"></a><a class="calibre8" id="marker-1168510"></a><a class="calibre8" id="marker-1168511"></a> optimize the data pipeline, we will introduce two changes to our <span class="fm-code-in-text">get_flower_ datasets()</span> function:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1168514"></a>Use data prefetching to avoid the model having to wait for the data to become available.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1168515"></a>Use the parallelized map function when calling the <span class="fm-code-in-text">get_image_and_label()</span> function.</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168516"></a>In terms of how these changes are reflected in the code, they are minor changes. In the following listing, the changes are in bold.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1168518"></a>Listing 14.4 The function generating training/validation data sets from flower data set</p>
+  <pre class="programlisting">def get_flower_datasets(image_dir, batch_size, flatten_images=False):
+ 
+    dataset = tf.data.Dataset.list_files(
+        os.path.join(image_dir,'*.jpg'), shuffle=False          <span class="fm-combinumeral">❶</span>
+    )
+ 
+    def get_image_and_label(file_path):                         <span class="fm-combinumeral">❷</span>
+ 
+        tokens = tf.strings.split(file_path, os.path.sep)       <span class="fm-combinumeral">❸</span>
+        label = (tf.strings.to_number(
+            tf.strings.split(
+                tf.strings.split(tokens[-1],'.')[0], '_')[-1]   <span class="fm-combinumeral">❸</span>
+            ) - 1
+        )//80
+ 
+        img = tf.io.read_file(file_path)                        <span class="fm-combinumeral">❹</span>
+        img = tf.image.decode_jpeg(img, channels=3)             <span class="fm-combinumeral">❹</span>
+ 
+        return tf.image.resize(img, [64, 64]), label
+ 
+    dataset = dataset.map(
+        get_image_and_label,
+        <i class="fm-italics">num_parallel_calls=tf.data.AUTOTUNE        </i>             <span class="fm-combinumeral">❺</span>
+    ).shuffle(400)
+ 
+    # Make the validation dataset the first 10000 data
+    valid_ds = dataset.take(250).batch(batch_size)
+    # Make training dataset the rest
+    train_ds = dataset.skip(250).batch(batch_size).<b class="fm-bold">prefetch(
+        tf.data.experimental.AUTOTUNE          </b>                 <span class="fm-combinumeral">❻</span>
+<b class="fm-bold">    )</b>
+ 
+    return train_ds, valid_ds</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1185606"></a><span class="fm-combinumeral">❶</span> Get the training data set, shuffle it, and output a tuple of (image, label).</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1185634"></a><span class="fm-combinumeral">❷</span> Define a function to get the image and the label given a file name.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1185651"></a><span class="fm-combinumeral">❸</span> Get the tokens in the file path and compute the label from the image ID.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1185668"></a><span class="fm-combinumeral">❹</span> Read the image and convert to a tensor.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1185685"></a><span class="fm-combinumeral">❺</span> Parallelize the map function.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1185702"></a><span class="fm-combinumeral">❻</span> Incorporate prefetching.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168559"></a>To parallelize the <span class="fm-code-in-text">dataset.map()</span> function<a class="calibre8" id="marker-1168558"></a>, we add the <span class="fm-code-in-text">num_parallel_calls=tf.data .AUTOTUNE</span> argument<a class="calibre8" id="marker-1168560"></a>, which will cause TensorFlow to execute the map function in parallel, where the number of threads will be determined by the workload carried out by the host at the time. Next, we invoke the <span class="fm-code-in-text">prefetch()</span> function<a class="calibre8" id="marker-1168561"></a> on the data after batching to make sure the model training is not hindered by waiting for the data to become available.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168563"></a>Next, we will set a special environment variable called <span class="fm-code-in-text">TF_GPU_THREAD_MODE</span><a class="calibre8" id="marker-1168562"></a>. To understand the effects of this variable, you first need to grok how GPUs execute instructions at a high level. When you run deep learning models on a machine with a GPU, most of the data-parallel operations (i.e., operations that can be parallelly executed on data) get executed on the GPU. But how do data and instructions get to the GPU? Assume use of a GPU to execute an element-wise multiplication between two matrices. Since individual elements can be multiplied in parallel, this is a data-parallel operation. To execute this operation (defined as a set of instructions and referred to as a <i class="fm-italics">kernel</i>) on the GPU, the host (CPU) first needs to launch the kernel in order for the GPU to use that function on data. Particularly, a thread in the CPU (a modern Intel CPU has around two threads per core) will need to trigger this. Think about what will happen if all the threads in the CPU are very busy. In other words, if there are a lot of CPU-bound operations happening (e.g., doing lot of reads from the disk), it can create CPU contention, causing these GPU kernel launches to be delayed. This, in turn, delays code getting executed on the GPU. With the <span class="fm-code-in-text">TF_GPU_THREAD_MODE</span> <i class="fm-italics">variable, you can alleviate the delays on the GPU caused by CPU contention</i>. More concretely, this variable controls how CPU threads are allocated to launch kernels on the GPU. It can take three different values:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1168564"></a><span class="fm-code-in-text">Global</span>—There is no special preference as to how threads are allocated for the different processes (default).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168565"></a><span class="fm-code-in-text">gpu_private</span>—A number of dedicated threads are allocated to launch kernels for the GPU. This way, kernel launch will not be delayed, even when a CPU is executing a significant load. If there are multiple GPUs, they will have their own private threads. The number of threads defaults to two and can be changed by setting the <span class="fm-code-in-text">TF_GPU_THREAD_COUNT</span> variable.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1168566"></a><span class="fm-code-in-text">shared</span>—Same as <span class="fm-code-in-text">gpu_private</span>, except in multi-GPU environments, a pool of threads will be shared between the GPUs.</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168567"></a>We will set this variable to <span class="fm-code-in-text">gpu_private</span>. We will keep the number of dedicate threads to two, so it will not create the <span class="fm-code-in-text">TF_GPU_THREAD_COUNT</span> variable<a class="calibre8" id="marker-1168568"></a>.</p>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1168569"></a>Setting environment variables</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168570"></a>To set the TF_GPU_THREAD_MODE environment variable, you can do the following:</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168571"></a><b class="fm-bold">Linux operating systems (e.g., Ubuntu)</b></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168572"></a>To set the environment variable</p>
+
+    <ul class="calibre9">
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1168573"></a>Open a terminal.</p>
+      </li>
+
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1168574"></a>Run export <span class="fm-code-in-text1">TF_GPU_THREAD_MODE=gpu_private</span>.</p>
+      </li>
+
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1168575"></a>Verify the environment variable is set by calling <span class="fm-code-in-text1">echo $TF_GPU_THREAD_MODE</span>.</p>
+      </li>
+
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1168576"></a>Open a new shell and start the Jupyter notebook server.</p>
+      </li>
+    </ul>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168577"></a><b class="fm-bold">Windows operating system</b></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168578"></a>To the environment variable</p>
+
+    <ul class="calibre9">
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1168579"></a>From the start menu, select Edit the system environment variables.</p>
+      </li>
+
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1168580"></a>Click the button called environment variables.</p>
+      </li>
+
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1168582"></a>Add a new environment variable, <span class="fm-code-in-text1">TF_GPU_THREAD_MODE=gpu_private</span><a id="marker-1187718"></a>, in the opened dialog.</p>
+      </li>
+
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1168583"></a>Open a new command prompt and start the Jupyter notebook server.</p>
+      </li>
+    </ul>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168584"></a><b class="fm-bold">conda environment (Anaconda)</b></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168585"></a>To set environment variables in a conda environment</p>
+
+    <ul class="calibre9">
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1168586"></a>Activate the conda environment with <span class="fm-code-in-text1">conda activate manning.tf2</span>.</p>
+      </li>
+
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1168587"></a>Run <span class="fm-code-in-text1">conda env config vars set TF_GPU_THREAD_MODE=gpu_private</span><a id="marker-1178105"></a>.</p>
+      </li>
+
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1168588"></a>Deactivate and reactivate the environment for the variable to take effect.</p>
+      </li>
+
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1168589"></a>Start the Jupyter notebook server.</p>
+      </li>
+    </ul>
+  </div>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168591"></a>It is important to restart the notebook server after changing environment variables in your operating system or the conda environment. Refer to the following sidebar for more details.</p>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1168592"></a>Important: Restart the notebook server after setting the environment variable</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168593"></a>When you create the notebook server from a shell (e.g., Command prompt on Windows or Terminal on Linux), the notebook server is created as a child process of the shell. The changes you do to the environment (e.g., adding an environment variable) after starting the notebook server will not be reflected in that child process. Therefore, you have to kill any existing notebook servers, change the environment variables, and then restart the notebook server to see the effects.</p>
+  </div>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168594"></a>We introduced three optimizations to our <span class="fm-code-in-text">tf.data</span> pipeline:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1168595"></a>Prefetching batches of data</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168597"></a>Using the parallelized <span class="fm-code-in-text">map()</span> function<a class="calibre8" id="marker-1168596"></a> instead of the standard <span class="fm-code-in-text">map()</span> function</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1168602"></a>Using dedicated kernel launch threads by<a class="calibre8" id="marker-1168598"></a><a class="calibre8" id="marker-1168599"></a><a class="calibre8" id="marker-1168600"></a><a class="calibre8" id="marker-1168601"></a> setting <span class="fm-code-in-text">TF_GPU_THREAD_MODE=gpu_ private</span></p>
+    </li>
+  </ul>
+
+  <h3 class="fm-head1" id="sigil_toc_id_186"><a id="pgfId-1168603"></a>14.4.2 Mixed precision training</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168608"></a>As<a class="calibre8" id="marker-1168604"></a><a class="calibre8" id="marker-1168605"></a><a class="calibre8" id="marker-1168606"></a><a class="calibre8" id="marker-1168607"></a> explained earlier, mixed precision training refers to employing a combination of 16-bit and 32-bit operations in model training. For example, the trainable parameters (i.e., variables) are kept as 32-bit floating point values and operations (e.g., matrix multiplication) and produce 16-bit floating point outputs.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168609"></a>In Keras, it’s very easy to enable mixed precision training. You simply import the <span class="fm-code-in-text">mixed_precision</span> namespace<a class="calibre8" id="marker-1168610"></a> from Keras and create a policy that uses mixed precision data types by passing <span class="fm-code-in-text">mixed_float16</span>. Finally, you set it as a global policy. Then, whenever you define a new model, it will use this policy to determine the data types for the model:</p>
+  <pre class="programlisting">from tensorflow.keras import mixed_precision
+policy = mixed_precision.Policy('mixed_float16')
+mixed_precision.set_global_policy(policy)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168614"></a>Let’s redefine the CNN model we defined and do a quick check on data types to understand how this new policy has changed the model data types:</p>
+  <pre class="programlisting">conv_model = get_cnn_model()</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168616"></a>Now we will pick a layer and check the data types of the inputs/internal parameters (e.g., trainable weights) and outputs:</p>
+  <pre class="programlisting">print("Input to the layers have the data type: {}".format(
+    conv_model.get_layer("conv2d_1").input.dtype)
+)
+print("Variables in the layers have the data type: {}".format(
+    conv_model.get_layer("conv2d_1").trainable_variables[0].dtype)
+)
+print("Output of the layers have the data type: {}".format(
+    conv_model.get_layer("conv2d_1").output.dtype)
+)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168626"></a>This will print</p>
+  <pre class="programlisting">Input to the layers have the data type: &lt;dtype: 'float16'&gt;
+Variables in the layers have the data type: &lt;dtype: 'float32'&gt;
+Output of the layers have the data type: &lt;dtype: 'float16'&gt;</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168631"></a>As you can see, the inputs and outputs have the <span class="fm-code-in-text">float16</span> data type<a class="calibre8" id="marker-1168630"></a>, whereas the variables have the <span class="fm-code-in-text">float32</span> type<a class="calibre8" id="marker-1168632"></a>. This is a design principle incorporated by mixed precision training. The variables are kept as type <span class="fm-code-in-text">float32</span> to make sure the precision is preserved as the weights are updated.</p>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1168633"></a>Loss scaling to avoid numerical underflow</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168634"></a>When mixed precision training is used, the loss needs to be treated with care. Half precision floating point (float16) values have a smaller dynamic range than single precision floating point values (float32). Dynamic range refers to the range of values each data type can represent. For example, the maximum value that can be represented by float16 is 65,504 (minimum positive 0.000000059604645), whereas float32 can go up to 3.4 × 10^38 (minimum positive 1.4012984643 × 10 − 45). Due to this small dynamic range of the float16 data type, the loss value can easily underflow (or overflow), causing numerical issues during back propagation. To avoid this, the loss needs to be scaled by an appropriate value, such that the gradients stay within the dynamic range of float16 values. Fortunately, Keras automatically takes care of this.</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168635"></a>When the policy is set to <span class="fm-code-in-text1">mixed_float16</span> and you call <span class="fm-code-in-text1">model.compile()</span>, the optimizer is automatically wrapped in a <span class="fm-code-in-text1">tf.keras.mixed_precision.LossScaleOptimizer()</span> <i class="fm-italics">(</i><span class="fm-hyperlink"><a class="url" href="http://mng.bz/Aydo">http://mng.bz/Aydo</a></span><i class="fm-italics">)</i>. The <span class="fm-code-in-text1">LossScaleOptimizer()</span> will automatically scale the loss dynamically during model optimization to avoid numerical issues. If you did not using Keras to build the model, then you have to manually take care of this.</p>
+  </div>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168638"></a>With that, rerun the model training:</p>
+  <pre class="programlisting">batch_size = 32
+tr_ds, v_ds = get_flower_datasets(
+    os.path.join('data', '17flowers','jpg'), batch_size=batch_size, 
+<span class="fm-code-continuation-arrow">➥</span> flatten_images=False
+)
+ 
+# This tensorboard call back does the following
+# 1. Log loss and accuracy
+# 2. Profile the model memory/time for 10  batches
+tb_callback = tf.keras.callbacks.TensorBoard(
+    log_dir=profile_log_dir, profile_batch=[10, 20]
+)
+ 
+conv_model.fit(
+    tr_ds, validation_data=v_ds, epochs=2, callbacks=[tb_callback]
+)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168655"></a>After running the model training with the various optimization steps that we introduced, we can compare the results by changing the run on the TensorBoard. For example, we show a side-by-side comparison of the elements on the overview page with and without optimizations. We can see that the time has reduced significantly after introducing the <span class="fm-code-in-text">tf.data</span> pipeline-related optimizations (figure 14.11).</p>
+
+  <p class="fm-figure"><img alt="14-11" class="calibre10" src="../../OEBPS/Images/14-11.png" width="994" height="831"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1188451"></a>Figure 14.11 Side-by-side comparison of the profiling overview with and without data- and model-related optimizations. We can see a significant reduction of the input time after introducing the optimizations.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168663"></a>You might be thinking that the device compute time has not gone down much after incorporating the 16-bit operations. The largest benefit of using 16-bit operations is in the memory consumption of the GPU. The TensorBoard provides a separate view called the <i class="fm-italics">memory profile</i> to analyze the memory profile of the model (figure 14.12). You can use this view to analyze memory bottlenecks or memory leaks of the model.</p>
+
+  <p class="fm-figure"><img alt="14-12" class="calibre10" src="../../OEBPS/Images/14-12.png" width="1086" height="550"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1188485"></a>Figure 14.12 Memory profile with and without the optimizations. The difference from using 16-bit operations is very clear, as it has reduced the memory consumption of the model significantly.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168670"></a>You can clearly see how the memory requirements have taken a plunge after incorporating mixed precision training. The model’s appetite for memory has gone down by approximately 76% when mixed precision training is used (from 5.48 GB to 1.25 GB).</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168671"></a>The graph specifically refers to two types of memory: <i class="fm-italics">heap</i> and <i class="fm-italics">stack</i>. These are fundamental memory spaces used by programs to keep track of variables a function calls when a program is executed. From these, the heap will help us to learn about memory usage patterns or memory-related issues, as that’s where various objects and variables created during program execution are kept. For example, if memory leaks are present, you will see an increasing amount of memory used by the heap. Here, we can see that the memory usage is quite linear and can assume that there are no significant memory leaks. You can read more about heaps and stacks in the sidebar on the next page.</p>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1168672"></a>Stack vs. heap</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168673"></a>Memory of a running program is kept either in the stack or in the heap. For example, function calls are kept in a stack, where the last call is on top of the stack and the oldest is at the bottom. When these function calls create objects, for example, they are written to the heap (the term “heap” comes from a collection of objects that has nothing to do with the heap data structure). You can imagine that the heap contains many objects and attributes, without a particular order (thus the term “heap”). Items are automatically popped out from the stack as function calls end. But it is up to the programmer to free up the heap when objects are no longer used, as they persist even after the function call has ended. However, in modern programming languages, the garbage collector automatically takes care of this. (See <span class="fm-hyperlink"><a class="url" href="http://mng.bz/VMZ5">http://mng.bz/VMZ5</a></span> and <span class="fm-hyperlink"><a class="url" href="http://mng.bz/ZAER">http://mng.bz/ZAER</a></span>.)</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168676"></a>You probably have heard the term “stack overflow,” which happens when recursive function calls in the code do not meet termination conditions in a reasonable manner, leading the large number of function calls to spill the stack. On a different note, we cannot ignore how the name of a popular website among developers came to be (<span class="fm-hyperlink"><a class="url" href="http://stackoverflow.com">stackoverflow.com</a></span>). I can’t think of a better resource than Stack Overflow itself to explain this: <span class="fm-hyperlink"><a class="url" href="http://mng.bz/R4ZZ">http://mng.bz/R4ZZ</a></span>.</p>
+  </div>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168681"></a>We also can see fine-grained details about which operations used how much memory. For example, we know that the main bottleneck of a CNN is the first <span class="fm-code-in-text">Dense</span> layer after a series of convolutional/pooling layers. Table 14.1 confirms that. That is, it shows that the <span class="fm-code-in-text">Dense</span> layer, with a shape of [115200, 512] (i.e., first <span class="fm-code-in-text">Dense</span> layer), uses the most memory.</p>
+
+  <p class="fm-table-caption"><a id="pgfId-1171380"></a>Table 14.1 Memory breakdown table. The table shows the memory usage of various TensorFlow operations along with their data shape.</p>
+
+  <table border="1" class="contenttable" width="100%">
+    <colgroup class="calibre12">
+      <col class="calibre13" span="1" width="14%"/>
+      <col class="calibre13" span="1" width="14%"/>
+      <col class="calibre13" span="1" width="14%"/>
+      <col class="calibre13" span="1" width="14%"/>
+      <col class="calibre13" span="1" width="14%"/>
+      <col class="calibre13" span="1" width="14%"/>
+      <col class="calibre13" span="1" width="14%"/>
+    </colgroup>
+
+    <tr class="calibre14">
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1171384"></a><b class="fm-bold">Op name</b></p>
+      </th>
+
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1171466"></a><b class="fm-bold">Allocation size (GiBs)</b></p>
+      </th>
+
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1171468"></a><b class="fm-bold">Requested size (GiBs)</b></p>
+      </th>
+
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1171470"></a><b class="fm-bold">Occurrences</b></p>
+      </th>
+
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1171472"></a><b class="fm-bold">Region type</b></p>
+      </th>
+
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1171474"></a><b class="fm-bold">Data type</b></p>
+      </th>
+
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1171386"></a><b class="fm-bold">Shape</b></p>
+      </th>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171388"></a>preallocated/unknown</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171476"></a>0.743</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171478"></a>0.743</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171480"></a>1</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171482"></a>persist/dynamic</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171484"></a>INVALID</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171390"></a>unknown</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171392"></a>gradient_tape/sequential/</p>
+
+        <p class="fm-table-body">dense/MatMul/Cast/Cast</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171486"></a>0.220</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171488"></a>0.220</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171490"></a>1</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171492"></a>output</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171494"></a>float</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171394"></a>[115200,512]</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171396"></a>gradient_tape/sequential/</p>
+
+        <p class="fm-table-body">batch_normalisation_3/</p>
+
+        <p class="fm-table-body">FusedBatchNormGradV3</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171496"></a>0.051</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171498"></a>0.029</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171500"></a>1</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171502"></a>temp</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171504"></a>half</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171398"></a>[32,512,31,31]</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171400"></a>gradient_tape/sequential/</p>
+
+        <p class="fm-table-body">average_pooling2d/</p>
+
+        <p class="fm-table-body">AvgPool/AvgPoolGrad</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171506"></a>0.036</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171508"></a>0.029</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171510"></a>1</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171512"></a>output</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171514"></a>half</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171402"></a>[32,31,31,512]</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171404"></a>gradient_tape/sequential/</p>
+
+        <p class="fm-table-body">batch_normalisation_3/</p>
+
+        <p class="fm-table-body">FusedBatchNormGradV3</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171516"></a>0.029</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171518"></a>0.029</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171520"></a>1</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171522"></a>output</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171524"></a>half</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171406"></a>[32,31,31,512]</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171408"></a>gradient_tape/sequential/</p>
+
+        <p class="fm-table-body">batch_normalisation_3/</p>
+
+        <p class="fm-table-body">FusedBatchNormGradV3</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171526"></a>0.029</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171528"></a>0.029</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171530"></a>2</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171532"></a>temp</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171534"></a>half</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1171410"></a>[32,512,31,31]</p>
+      </td>
+    </tr>
+  </table>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168688"></a>Finally, you have the <i class="fm-italics">trace viewer</i>. This gives a longitudinal view of how various operations were executed on the CPU or GPU and how much time it took. This gives a very detailed view of when and how various operations were scheduled and executed.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168689"></a>On your left, you can see what was executed on your CPU versus on the GPU. For example, you can see that most model-related operations (e.g., convolution) were executed on the GPU, whereas <span class="fm-code-in-text">tf.data</span> operations (e.g., decoding images) were executed on the GPU. You can also note that the trace viewer shows GPU private threads separately.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168690"></a>TensorBoard has far more uses than what we have listed here. To know more about these, please refer the following sidebar.</p>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1168691"></a>Other views on the TensorBoard</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168692"></a>There are many different views available for the TensorBoard. We have discussed the most used view, and I will leave it to the readers to explore the views we haven’t discussed. However, out of the ones left out, there are views that are worth noting:</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168693"></a><b class="fm-bold">Debugger v2</b></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168694"></a>Debugger v2 is a tool introduced since TensorFlow 2.3. The primary purpose of it is to debug numerical issues in models. For example, NaN values creeping in during model training are a very common issue for deep networks. Debugger v2 will provide a comprehensive step-by-step breakdown of various elements in your model (e.g. ,input and output tensors) and which ones produced numerical errors. For more information, visit <span class="fm-hyperlink"><a class="url" href="https://www.tensorflow.org/tensorboard/debugger_v2">https://www.tensorflow.org/tensorboard/debugger_v2</a></span>.</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168696"></a><b class="fm-bold">HParams</b></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168697"></a>Hparams is a view that helps hyperparameter optimization and allows you to dive into individual runs to understand which parameters help improve model performance. The <span class="fm-code-in-text1">tensorboard.plugins.hparams.api</span> provides various useful functions and callbacks to hyperparameter-optimize Keras models easily. Then, the trials that happened during the hyperparameter optimization can be viewed in the HParams view. For more information, visit <span class="fm-hyperlink"><a class="url" href="http://mng.bz/2nKg">http://mng.bz/2nKg</a></span>.</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168699"></a><b class="fm-bold">What-If Tool</b></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168700"></a>What-If is a tool that can give valuable insights into black-box models, helping with the interpretability of such models. For example, you can run a model inference with some data. Then you can modify the data and see how the output changes through the What-If tool. Furthermore, it provides various tools for analyzing the performance and fairness of models. For more information, visit <span class="fm-hyperlink"><a class="url" href="http://mng.bz/AyjW">http://mng.bz/AyjW</a></span>.</p>
+  </div>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168703"></a>In the next section, we will discuss how we can visualize and interact with word vectors on the TensorBoard.</p>
+
+  <p class="fm-head2"><a id="pgfId-1168704"></a>Exercise 4</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168705"></a>You have a model that you have already profiled. You have seen the following overview of times:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1168706"></a>Input time: 1.5 ms</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168707"></a>Device compute time: 6.7 ms</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168708"></a>Kernel launch time: 9.8 ms</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168709"></a>Output time: 10.1 ms</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1168710"></a>Host compute time: 21.2 ms</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168711"></a>For this scenario, assume a time recorded more than 5 ms is an opportunity for improvement. List three code/environment change recommendations to improve the<a class="calibre8" id="marker-1168712"></a><a class="calibre8" id="marker-1168713"></a><a class="calibre8" id="marker-1168714"></a><a class="calibre8" id="marker-1168715"></a> model<a class="calibre8" id="marker-1168716"></a><a class="calibre8" id="marker-1168717"></a><a class="calibre8" id="marker-1168718"></a><a class="calibre8" id="marker-1168719"></a> performance.</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_187"><a id="pgfId-1168720"></a>14.5 Visualizing word vectors with the TensorBoard</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168723"></a>You<a class="calibre8" id="marker-1168721"></a><a class="calibre8" id="marker-1168722"></a> are working as an NLP engineer for a movie recommendation company and have been tasked with developing a movie recommendation model that can be trained on small devices. To reduce the training overhead, one of the techniques used is using pretrained word vectors and freezing them (i.e., not training them). You think GloVe word vectors will give a good initial point and plan to use them. But before that, you have to make sure the vectors capture the semantics/relationships in the movie-specific terminology/words adequately. For that, you need to visualize word vectors for these words on TensorBoard and analyze whether GloVe vectors represent sensible relationships between words.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168724"></a>The first thing we need to do is download the GloVe word vectors. You have been provided the code to download GloVe vectors in the notebook, and it is very similar to how we have downloaded datasets in the past. Therefore, we will not discuss the download in detail. The GloVe word vectors are obtained from <span class="fm-hyperlink"><a class="url" href="https://nlp.stanford.edu/projects/glove/">https://nlp.stanford.edu/projects/glove/</a></span>. There are several different versions of GloVe vectors; they have different dimensionalities and vocabulary sizes:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1168726"></a>Trained on Wikipedia 2014 + Gigaword 5 data sets with 6 billion tokens; 400,000 vocabulary; uncased tokens; and 50D, 100D, 200D, and 300D vectors</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168727"></a>Trained on the Common Crawl data set with 42 billion tokens, 1,900,000 vocabulary, uncased tokens, and 300D vectors</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168728"></a>Trained on the Common Crawl data set with 840 billion tokens, 2,200,000 vocabulary, cased tokens, and 300D vectors</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1168729"></a>Trained on the Twitter data set with 2 billion tweets; 27 billion tokens; 1,200,000 vocabulary; uncased tokens; and 25D, 50D, 100D, and 200D vectors</p>
+    </li>
+  </ul>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1168730"></a>GloVe word vectors</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168731"></a>GloVe (standing for <i class="fm-italics">Glo</i>bal <i class="fm-italics">Ve</i>ctors) is a word vector algorithm that generates word vectors by looking at both global and local statistics of a corpus. For example, word vector algorithms such as Skip-gram or Continuous Bag-of-Words rely only on the local context of a given word to learn the word vector for that word. The lack of attention to global information about how the word is used in a larger corpus leads to suboptimal word vectors. GloVe incorporates the global statistics by computing a large co-occurrence matrix to indicate the co-occurrence frequency (i.e., if a given word appears in the context of another word) between all words. For more information about GloVe vectors, see <span class="fm-hyperlink"><a class="url" href="http://mng.bz/1oGX">http://mng.bz/1oGX</a></span>.</p>
+  </div>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168733"></a>We will use the 50-dimensional word vectors from the first category (which is the smallest). A 50-dimensional word vector will have 50 values in each word vector designated for each token in the corpus. Once the data is extracted by running the code in the notebook, you will see a file with the name <span class="fm-code-in-text">glove.6B.50d.txt</span> in the <span class="fm-code-in-text">data</span> folder. Let’s load that as a pandas DataFrame using the <span class="fm-code-in-text">pd.read_csv()</span> function<a class="calibre8" id="marker-1168734"></a>:</p>
+  <pre class="programlisting">df = pd.read_csv(
+    os.path.join('data', 'glove.6B.50d.txt'), 
+    header=None, 
+    index_col=0, 
+    sep=None, 
+    error_bad_lines=False, 
+    encoding='utf-8'
+)
+df.head()</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1180004"></a>This will return table 14.2. Now we will download the IMDB movie reviews data set (<span class="fm-hyperlink"><a class="url" href="https://ai.stanford.edu/~amaas/data/sentiment/">https://ai.stanford.edu/~amaas/data/sentiment/</a></span>). Since this data set is readily available as a TensorFlow data set (through the <span class="fm-code-in-text">tensorflow_datasets</span> library), we can use that:</p>
+  <pre class="programlisting">review_ds = tfds.load('imdb_reviews')
+train_review_ds = review_ds["train"]</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168756"></a>Once we download the data, we will create a corpus that contains all the reviews (text) in the training set as a list of strings:</p>
+  <pre class="programlisting">corpus = []
+for data in train_review_ds:      
+    txt = str(np.char.decode(data["text"].numpy(), encoding='utf-8')).lower()
+    corpus.append(str(txt))</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168761"></a>Next, we want to get the most common 5,000 words in this corpus so that we can compare the GloVe vectors of these common words to see if they contain sensible relationships. To get the most common words, we will use the built-in <span class="fm-code-in-text">Counter</span> object. The <span class="fm-code-in-text">Counter</span> object counts the frequencies of the words in the vocabulary:</p>
+  <pre class="programlisting">from collections import Counter
+ 
+corpus = " ".join(corpus)
+ 
+cnt = Counter(corpus.split())
+most_common_words = [w for w,_ in cnt.most_common(5000)]
+print(cnt.most_common(100))</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168770"></a>This will print</p>
+  <pre class="programlisting">[('the', 322198), ('a', 159953), ('and', 158572), ('of', 144462), ('to', 
+<span class="fm-code-continuation-arrow">➥</span> 133967), ('is', 104171), ('in', 90527), ('i', 70480), ('this', 69714), 
+<span class="fm-code-continuation-arrow">➥</span> ('that', 66292), ('it', 65505), ('/&gt;&lt;br', 50935), ('was', 47024), 
+<span class="fm-code-continuation-arrow">➥</span> ('as', 45102), ('for', 42843), ('with', 42729), ('but', 39764), ('on', 
+<span class="fm-code-continuation-arrow">➥</span> 31619), ('movie', 30887), ('his', 29059), 
+<span class="fm-code-continuation-arrow">➥</span> ... ,
+<span class="fm-code-continuation-arrow">➥</span> ('other', 8229), ('also', 8007), ('first', 7985), ('its', 7963), 
+<span class="fm-code-continuation-arrow">➥</span> ('time', 7945), ('do', 7904), ("don't", 7879), ('me', 7722), ('great', 
+<span class="fm-code-continuation-arrow">➥</span> 7714), ('people', 7676), ('could', 7594), ('make', 7590), ('any', 
+<span class="fm-code-continuation-arrow">➥</span> 7507), ('/&gt;the', 7409), ('after', 7118), ('made', 7041), ('then', 
+<span class="fm-code-continuation-arrow">➥</span> 6945), ('bad', 6816), ('think', 6773), ('being', 6390), ('many', 6388), 
+<span class="fm-code-continuation-arrow">➥</span> ('him', 6385)]</pre>
+
+  <p class="fm-figure"><img alt="14-12_table_14-2" src="../../OEBPS/Images/14-12_table_14-2.png" class="calibre10" width="297" height="1561"/><br class="calibre2"/></p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168775"></a>With both the GloVe vectors and the corpus containing the most common 5,000 words in the IMDB movie reviews data set, we find the common tokens between the two sets for visualization:</p>
+  <pre class="programlisting">df_common = df.loc[df.index.isin(most_common_words)]</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168779"></a>This will give a list of roughly 3,600 tokens that appear in both sets.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168780"></a>Next, we can visualize these vectors on the TensorBoard. To reiterate, word vectors are numerical representations of tokens in a given corpus. The specialty of these word vectors (as opposed to one-hot encoding words) is that they capture the semantics of words. For example, if you compute the distance between the word vector of “cat” and “dog,” they will be a lot closer than “cat” and “volcano.” But when analyzing relationships between a larger set of tokens, we prefer a visual aid. It would be great if there was a way to visualize these word vectors on a 2D or 3D plane, which is much easier to visualize and understand. There are dimensionality-reduction algorithms such as Principal Component Analysis<a class="calibre8" id="marker-1184588"></a><a class="calibre8" id="marker-1184589"></a> (PCA) (<span class="fm-hyperlink"><a class="url" href="http://mng.bz/PnZw">http://mng.bz/PnZw</a></span>) or t-SNE (<span class="fm-hyperlink"><a class="url" href="https://distill.pub/2016/misread-tsne/">https://distill.pub/2016/misread-tsne/</a></span>) that can achieve this. The specific algorithms used for this are out of scope for this book. The good news is that with TensorBoard, you can do this. TensorBoard can map these high-dimensional vectors to a smaller projection space. To do that, we have to first load these weights as a TensorFlow variable and then save it to the disk as a TensorFlow checkpoint. Then we also save the words or tokens as a new file, with one token per line, corresponding to each vector in the set of word vectors we just saved. With that, you can visualize the word vectors on the TensorBoard (see the next listing).</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1168785"></a>Listing 14.5 Visualizing word vectors on TensorBoard</p>
+  <pre class="programlisting">from tensorboard.plugins import projector
+ 
+log_dir=os.path.join('logs', 'embeddings')
+weights = tf.Variable(df_common.values)                          <span class="fm-combinumeral">❶</span>
+ 
+checkpoint = tf.train.Checkpoint(embedding=weights)              <span class="fm-combinumeral">❷</span>
+checkpoint.save(os.path.join(log_dir, "embedding.ckpt"))         <span class="fm-combinumeral">❷</span>
+ 
+with open(os.path.join(log_dir, 'metadata.tsv'), 'w') as f:      <span class="fm-combinumeral">❸</span>
+    for w in df_common.index:
+        f.write(w+'\n')
+        
+ 
+config = projector.ProjectorConfig()                             <span class="fm-combinumeral">❹</span>
+embedding = config.embeddings.add()
+embedding.metadata_path = 'metadata.tsv'                         <span class="fm-combinumeral">❺</span>
+projector.visualize_embeddings(log_dir, config)</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1185284"></a><span class="fm-combinumeral">❶</span> Create a tf.Variable with the embeddings we captured.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1185320"></a><span class="fm-combinumeral">❷</span> Save the embeddings as a TensorFlow checkpoint.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1185337"></a><span class="fm-combinumeral">❸</span> Save the metadata (a TSV file), where each word corresponding to the embeddings is appended as a new line.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1185354"></a><span class="fm-combinumeral">❹</span> Create a configuration specific to the projector and embeddings (details are discussed in the text).</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1185285"></a><span class="fm-combinumeral">❺</span> Set the metadata path so that TensorBoard can incorporate that in the visualization.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168809"></a>To visualize the word vectors from the saved TensorFlow checkpoint and the metadata (i.e., tokens corresponding to the word vectors saved), we use the <span class="fm-code-in-text">tensorboard.plugins .projector</span> object<a class="calibre8" id="marker-1174708"></a>. We then define a <span class="fm-code-in-text">ProjectorConfig</span> object and an embedding config. We will keep them with the default configurations, which suit our problem. When <span class="fm-code-in-text">config.embeddings.add()</span> is invoked, it will generate an embedding config (of type <span class="fm-code-in-text">EmbeddingInfo</span> object) with default configuration. The <span class="fm-code-in-text">ProjectorConfig</span> contains information such as the following:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1168812"></a><span class="fm-code-in-text">model_checkpoint_directory</span>—The directory to which the checkpoint containing embeddings was saved</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168813"></a>The <span class="fm-code-in-text">EmbeddingInfo</span> contains</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1168814"></a><span class="fm-code-in-text">tensor_name</span>—If a special tensor name was used for embeddings</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1168815"></a><span class="fm-code-in-text">metadata_path</span>—The path to a TSV file that contains the labels of the embeddings</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168816"></a>To see a full list of available configurations, refer to the file at <span class="fm-hyperlink"><a class="url" href="http://mng.bz/J2Zo">http://mng.bz/J2Zo</a></span>. In its current state, the projector’s config does not support a lot of customizations. For this reason, we will keep them as default. One config we will set in the <span class="fm-code-in-text">EmbeddingInfo</span> config is the <span class="fm-code-in-text">metadata_path</span>. We will set the <span class="fm-code-in-text">metadata_path</span> to the file containing the tokens and finally pass it to the <span class="fm-code-in-text">projecter.visualize_embeddings()</span> function<a class="calibre8" id="marker-1168817"></a>. We give it a logging directory, and the projector will automatically detect the TensorFlow checkpoint and load it.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168818"></a>We’re all good to go. On your notebook, execute the following line to bring up the TensorBoard:</p>
+  <pre class="programlisting">%tensorboard --logdir logs/embeddings/ --port 6007</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168821"></a>To visualize word vectors, they need to be in the exact directory the <span class="fm-code-in-text">--logdir</span> is pointing to (i.e., not in a nested folder). Therefore, we need a new TensorBoard server. This line will open a new TensorBoard server on port 6007. Figure 14.13 depicts what is displayed in the TensorBoard.</p>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1168822"></a>Interesting facts about the %tensorboard magic command</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1168823"></a>The <span class="fm-code-in-text1">%tensorboard</span> magic command is smart enough to know when to open a new TensorBoard server and when not to. If you are executing the same command over and over again, it will reuse the existing TensorBoard. However, if you execute a command with a different <span class="fm-code-in-text1">--logdir</span> or a <span class="fm-code-in-text1">--port</span>, it will open a new TensorBoard server.</p>
+  </div>
+
+  <p class="fm-figure"><img alt="14-13" class="calibre10" src="../../OEBPS/Images/14-13.png" width="1003" height="514"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1188519"></a>Figure 14.13 The word vector view on the TensorBoard. You have the ability to pick which dimensionality-reduction algorithm (along with parameters) to use in order to get a 2D or 3D representation of the word vectors. Hovering over the dots in the visualization will show the word represented by the dot.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168825"></a>You can hover over the dots shown in the visualization, and they will show which word in the corpus they represent. You have the ability to visualize the word vectors in a 2D or a 3D space by toggling the dimensionality controller. You might be wondering about the word vectors that we chose. They initially had 50 dimensions—how can we visualize such high-dimensional data in a 2D or 3D space? There’s a suite of dimensionality-reduction algorithms that can do this for us. A few examples are t-SNE (<span class="fm-hyperlink"><a class="url" href="http://mng.bz/woxO">http://mng.bz/woxO</a></span>), PCA (principal component analysis; <span class="fm-hyperlink"><a class="url" href="http://mng.bz/ZAmZ">http://mng.bz/ZAmZ</a></span>), and UMAP (Uniform Manifold Approximation and Projection; <span class="fm-hyperlink"><a class="url" href="https://arxiv.org/pdf/1802.03426.pdf">https://arxiv.org/pdf/1802.03426.pdf</a></span>). Refer to the accompanied links to learn more about these algorithms.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168834"></a>You can do more than a plain visualization of word vectors on the TensorBoard. You can do more detailed analysis by highlighting specific words in the visualization. For that, you can employ regular expressions. For example, the visualization shown in figure 14.14 is generated using the regular expression <span class="fm-code-in-text">(?:fred|larry|mrs\.|mr\ .|michelle|sea|denzel|beach|comedy|theater|idiotic|sadistic|marvelous| loving|gorg|bus|truck|lugosi)</span>.</p>
+
+  <p class="fm-figure"><img alt="14-14" class="calibre10" src="../../OEBPS/Images/14-14.png" width="1003" height="606"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1188551"></a>Figure 14.14 Searching words in the visualizations. You can use regular expressions to search combinations of words.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168841"></a>This concludes our discussion about the TensorBoard. In the next chapter, we will discuss how TensorFlow can help us to create machine learning pipelines and deploy models with ease.</p>
+
+  <p class="fm-head2"><a id="pgfId-1168842"></a>Exercise 5</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168843"></a>Instead of just the word, say you want to include a unique ID when displaying word vectors in the TensorBoard. For example, instead of the word “loving” you want to see “loving; 218,” where 218 is the unique ID given to the word. To do this, you need to change what’s written to the metadata.tsv file. Instead of just the word, write an incrementing ID separated by a semicolon on each line. For example, if the words are [“a”, “b”, “c”], in that order, then the new lines should be [“a;1”, “b;2”, “c;3”]. How would you make<a class="calibre8" id="marker-1168844"></a><a class="calibre8" id="marker-1168845"></a> changes?</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_188"><a id="pgfId-1168846"></a>Summary</h2>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1168847"></a>TensorBoard is a great visualization aid for visualizing data (e.g., images) and tracking model performance in real time.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168848"></a>When building models with Keras, you can use the convenient <span class="fm-code-in-text">tf.keras.callbacks.TensorBoard()</span> callback to log model performance, layer activation histograms, and much more.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168849"></a>If you have custom metrics that you want to log to the TensorBoard, you can use the corresponding data type in the <span class="fm-code-in-text">tf.summary</span> namespace (e.g., use <span class="fm-code-in-text">tf.summary.scalar()</span> if you want to log a scalar value, like model accuracy over time).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168850"></a>Each session where you log information to the TensorBoard is called a run. You should incorporate a readable and robust naming convention for the different runs. A good naming convention should capture major changes you did and the date/time the run was executed.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168851"></a>TensorBoard Profile provides a diverse collection of profiling (using <span class="fm-code-in-text">libcupti</span> library by NVIDIA) results such as time taken by various subtasks during model training (e.g., device compute time, host compute time, input time, etc.), memory used by the model, and a sequential view of when and how various operations are carried out.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1168852"></a>TensorBoard is a great tool for visualizing high-dimensional data like images and word vectors.</p>
+    </li>
+  </ul>
+
+  <h2 class="fm-head" id="sigil_toc_id_189"><a id="pgfId-1168853"></a>Answers to exercises</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168854"></a><b class="fm-bold">Exercise 1</b></p>
+  <pre class="programlisting">image_writer = tf.summary.create_file_writer(image_logdir)
+ 
+with image_writer.as_default():
+    for bi, batch in enumerate(steps_image_batches):
+        tf.summary.image(
+            “batch_{}”.format(bi), 
+            batch, 
+            max_outputs=10, 
+            step=bi
+        )</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168866"></a><b class="fm-bold">Exercise 2</b></p>
+  <pre class="programlisting">log_dir = "./logs "
+ 
+classif_model.compile(
+    loss=’binary_crossentropy', 
+    optimizer=’adam’, 
+    metrics=[tf.keras.metrics.Precision(), tf.keras.metrics.Recall()]
+)
+    
+tb_callback = tf.keras.callbacks.TensorBoard(
+    log_dir=log_dir, histogram_freq=1, profile_batch=0
+)
+ 
+classif_model.fit(tr_ds, validation_data=v_ds, epochs=10, callbacks=[tb_callback])</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168880"></a><b class="fm-bold">Exercise 3</b></p>
+  <pre class="programlisting"> writer = tf.summary.create_file_writer(log_dir)
+    
+ x_n_minus_1 = 1
+ x_n_minus_2 = 0
+ 
+ with writer.as_default():        
+     for i in range(100):
+         x_n = x_n_minus_1 + x_n_minus_2
+         x_n_minus_1 = x_n
+      x_n_minus_2 = x_n_minus_1
+      
+      tf.summary.scalar("fibonacci", x_n, step=i)
+      
+      writer.flush()</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168896"></a><b class="fm-bold">Exercise 4</b></p>
+
+  <ol class="calibre11">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1168897"></a>There are a lot of computations happening on the host. This could be because the device (e.g., GPU) does not have enough memory. Using mixed precision training will help to alleviate the issue. Furthermore, there might be too much non-TensorFlow code that cannot run on the GPU. For that, using more TensorFlow operations and converting such code to TensorFlow will gain speed-ups.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1168898"></a>The Kernel launch time has increased. This could be because the workload is heavily CPU-bound. In this case, we can incorporate the <span class="fm-code-in-text">TF_GPU_THREAD_MODE</span> environment variable and set it to <span class="fm-code-in-text">gpu_private</span>. This will make sure there will be several dedicated threads to launch kernels for the GPU.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1168899"></a>Output time is significantly high. This could be because of writing too many outputs too frequently to the disk. To solve that, we can incorporate keeping data in memory for longer and flushing it to the disk only a few times.</p>
+    </li>
+  </ol>
+
+  <p class="body"><a class="calibre8" id="pgfId-1168902"></a><b class="fm-bold">Exercise 5</b><a class="calibre8" id="marker-1168900"></a><a class="calibre8" id="marker-1168901"></a></p>
+  <pre class="programlisting">log_dir=os.path.join('logs', 'embeddings')
+ 
+weights = tf.Variable(df_common.values)
+   checkpoint = tf.train.Checkpoint(embedding=weights)
+checkpoint.save(os.path.join(log_dir, "embedding.ckpt"))
+ 
+with open(os.path.join(log_dir, 'metadata.tsv'), 'w') as f:
+    for i, w in enumerate(df_common.index):
+        f.write(w+'; '+str(i)+'\n')</pre>
+</div>
+</div>
+</body>
+</html>

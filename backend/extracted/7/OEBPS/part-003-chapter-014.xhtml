@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+ "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xml:lang="en" xmlns:epub="http://www.idpf.org/2007/ops" xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+  <title>Chapter 14: Testing</title>
+  <link rel="stylesheet"
+        type="text/css"
+        href="css/style.css" />
+  <link rel="stylesheet"
+        type="text/css"
+        href="css/media.css" />
+</head>
+<body>
+  <div id="part-3-chapter-4" class="element element-bodymatter element-container-single element-type-chapter element-with-heading">
+    <div class="heading heading-container-single heading-size-full heading-format-full heading-alignment-flexible heading-without-image">
+      <div class="heading-contents">
+        <div class="title-subtitle-block title-block-with-element-number">
+          <div class="element-number-block">
+            <div class="element-number case-upper"><span class="element-number-term">CHAPTER</span> <span class="element-number-number">14</span></div>
+          </div>
+          <div class="title-block">
+            <h1 class="element-title case-upper">TESTING</h1>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="text" id="part-3-chapter-4-text">
+      <p class="first first-in-chapter first-full-width">Testing is a healthy software engineering practice and a sizable enough topic to merit its own chapter in this book.</p>
+      <p class="subsq">How do you ensure a piece of software works as expected? You test it. Broadly speaking, there are three ways:</p>
+      <ul>
+        <li>Manually verify all scenarios and edge cases. For example, manually testing use cases as part of declaring a feature complete</li>
+        <li>Automatically verify all scenarios and edge cases. For example, run these tests as part of the continuous integration/continuous deployment pipeline</li>
+        <li>Monitor how the software behaves in production and detect malfunctions. When a gap is found, teams build automated tests and add them to the CI/CD system</li>
+      </ul>
+      <p class="subsq">Testing is a core part of any tech company’s engineering culture. The question is not whether an engineering team tests; it is how do they test, and which tests are used.</p>
+      <p class="subsq">When it comes to automated tests, there’s a variety of ways to create them. In this chapter, we cover:</p>
+      <ol>
+        <li><a class="content-external-link" href="part-003-chapter-014.xhtml#subhead-1">Unit tests</a></li>
+        <li><a class="content-external-link" href="part-003-chapter-014.xhtml#subhead-2">Integration tests</a></li>
+        <li><a class="content-external-link" href="part-003-chapter-014.xhtml#subhead-3">UI tests – aka end-to-end tests</a></li>
+        <li><a class="content-external-link" href="part-003-chapter-014.xhtml#subhead-4">Mental models for automated testing</a></li>
+        <li><a class="content-external-link" href="part-003-chapter-014.xhtml#subhead-5">Specialized tests</a></li>
+        <li><a class="content-external-link" href="part-003-chapter-014.xhtml#subhead-6">Testing in production</a></li>
+        <li><a class="content-external-link" href="part-003-chapter-014.xhtml#subhead-7">Benefits and drawbacks of automated testing</a></li>
+      </ol>
+      <h2 id="subhead-1" class="section-title subhead keep-with-next paragraph-follows case-upper">1. UNIT TESTS</h2>
+      <p class="first first-after-subhead">The simplest of all automated tests. These test an isolated component, aka the ”unit”. Most mobile unit tests exercise a class, a method, or a behavior of a class.</p>
+      <p class="subsq">As the codebase grows, unit testing classes with many dependencies becomes challenging and slow, unless you introduce dependency injection to the codebase. Doing this may seem an overhead at first, but is worthwhile because it makes the codebase unit testable. It also makes class dependencies explicit and the application’s architecture more modular.</p>
+      <p class="subsq">The larger the codebase, the more important it is for unit testing to have these characteristics:</p>
+      <ul>
+        <li><b>Fast. </b>Are the tests quick to execute, and require as little setup as possible? Do they use lightweight mocks over expensive-to-instantiate implementations?</li>
+        <li><b>Reliable. </b>Are the tests deterministic and non-flaky? Do they depend on no local configuration or regional settings to run in the same way?</li>
+        <li><b>Focused.</b> Are tests atomic, as in they test as little as possible? Focused tests are fast and easy to debug, which should keep them reliable.</li>
+      </ul>
+      <p class="subsq">There is a compounding benefit of unit testing code, which grows as the system and its development team do. The tests help validate code changes, force you to separate concerns, and help to document the code’s behavior. They also help reduce accidental regressions in the codebase and act as a safety net when refactoring parts of it.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">The senior engineer</span> who wrote zero unit tests</b></p>
+      <p class="subsq">I once worked on a team where one of the most senior developers didn’t believe in writing unit tests. Let’s call them “Sam.” He was a C++ wizard, who had worked in the video games industry for a decade and had shipped major, hit titles, and was responsible for coding the most complex parts of game engines. Sam insisted his code almost never had bugs, and even when it did, the bugs were undetectable by unit tests. On that basis, Sam declared unit tests of any kind a waste of time, and that he was better employed on more productive tasks.</p>
+      <p class="subsq">This caused our team to split in two; people who wrote unit tests, and those who sided with Sam in believing unit tests were not worth the trouble.</p>
+      <p class="subsq">Things went fine until Sam carried out a major refactoring of the codebase. When he checked in the changes, all hell broke loose. The app started breaking everywhere and it took two days to fix all the breakages. Sam claimed these breakages were inevitable and not his fault; indeed, his code changes had <i>surfaced</i> existing issues. Despite this, more of us were skeptical about his “<i>no bugs from me</i>” claim.</p>
+      <p class="subsq">The unit tests broke because Sam’s changes introduced several regressions. As Jess and Sam walked through the reasons for the changes, every one of them was a code change by Sam. Reluctantly, he fixed these regressions one by one and checked in the code when the test suite succeeded. Jess told Sam the obvious conclusion she’d reached: “<i>It seems you do make mistakes in code, and that unit tests can, indeed catch them. When they’re written, that is.</i>”</p>
+      <p class="subsq">After this event, Jess put a CI system in place that ran the unit test suite, and the team decided engineers would write unit tests for their code. Jess was soon promoted to team lead, thanks to the quality improvement she drove across the team, with the number of bugs dropping, and Sam’s changes no longer breaking the main branch as often.</p>
+      <p class="subsq">I took two lessons from this episode. First, it is possible to write good software without unit tests. Sam <i>did</i> ship successful games for a decade with no tests. However, at game development studios there were manual testers and other, gaming-specific advanced testing methods like AI which played the game. Basically, there are environments where unit tests make less sense, and regressions are caught differently.</p>
+      <p class="subsq">The second takeaway is that not having unit tests makes it difficult to refactor a large codebase without introducing bugs. If Sam had written unit tests from the start and when refactoring, there would’ve been a safety net to validate that the code worked as expected. Much time would’ve been saved and frustration avoided.</p>
+      <h2 id="subhead-2" class="section-title subhead keep-with-next paragraph-follows case-upper">2. INTEGRATION TESTS</h2>
+      <p class="first first-after-subhead">Integration tests exercise multiple units at once. They are more complex unit tests, often spanning several classes, exercising how they work together.</p>
+      <p class="subsq">Integration tests include testing two or more “units” working together, such as testing both the business logic “unit” and the database “unit.” It could mean testing that two services interact correctly while mocking out other dependencies outside of those services.</p>
+      <p class="subsq">Integration tests sit between very simple unit tests and much more complex end-to-end tests. As such, some teams write integration tests using the same libraries as for unit tests – except they do not mock out all dependencies of the tests. And some teams use frameworks also used for end-to-end tests when integration testing, except they mock some components for the test.</p>
+      <h2 id="subhead-3" class="section-title subhead keep-with-next paragraph-follows case-upper">3. UI TESTS</h2>
+      <p class="first first-after-subhead">UI tests – often called “end-to-end” tests – spin up the application and then exercise it as if a user were entering input. They don’t use any mocking; the test runs the web or mobile application and uses UI automation to simulate user input, such as taps, clicks, text input, and other actions.</p>
+      <p class="subsq">The biggest upside of UI tests is that they come closest to simulating real usage of an application, by going through the same flows that users experience. However, there is a tradeoff of this more powerful capability: more brittle tests, and slowness.</p>
+      <ul>
+        <li>More brittle tests: UI tests tend to be the most brittle, between unit and integration tests. This is because end-to-end tests can break for minor reasons, like a button’s text changing and the test being unable to locate it.</li>
+        <li>Slowness: the tests have more latency because they have to wait for the network. Also, some scenarios can be difficult to simulate; for example, having the server return certain error messages.</li>
+      </ul>
+      <p class="subsq">Some engineers build end-to-end tests which aren’t fully end-to-end and simulate the network layer. This is done to speed up the tests and make it easier to test edge cases with special network responses. Some teams will refer to such tests as integration tests, while other teams stick with the UI test naming. My view is that the name is less important, so long as the team is clear about what they mean by integration and UI testing.</p>
+      <h2 id="subhead-4" class="section-title subhead keep-with-next paragraph-follows case-upper">4. MENTAL MODELS FOR AUTOMATED TESTING</h2>
+      <p class="first first-after-subhead">Here are common characteristics of unit, integration and end-to-end tests:</p>
+      <div class="inline-image inline-image-kind-photograph inline-image-size-full inline-image-flow-center inline-image-flow-within-text inline-image-aspect-wide block-height-not-mult-of-line-height inline-image-with-caption inline-image-after-section-begin inline-image-before-element-end">
+        <div class="inline-image-container">
+          <img src="images/kindle_chapter_14_table_1.jpg"
+               alt="Common characteristics of three types of automated tests" />
+        </div>
+        <p class="inline-image-caption"><i>Common characteristics of three types of automated tests</i></p>
+      </div>
+      <p class="subsq">Note that this is a generalization and specifics can differ by platform, language, and environment. For example, there are end-to-end frameworks in certain platforms that make writing and maintaining end-to-end tests much easier, and comparable to writing or maintaining unit tests in some environments.</p>
+      <p class="subsq">Still, assuming the table is accurate, what is a good ratio of unit, integration, and end-to-end tests? There are two popular mental models for this.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">The testing pyramid</span></b></p>
+      <div class="inline-image inline-image-kind-photograph inline-image-size-full inline-image-flow-center inline-image-flow-within-text inline-image-aspect-wide block-height-not-mult-of-line-height inline-image-with-caption inline-image-after-section-begin inline-image-before-element-end">
+        <div class="inline-image-container">
+          <img src="images/image22.jpg"
+               alt="The testing pyramid: a mental model suggesting it’s worth writing simpler, cheap-to-maintain tests, like unit tests" />
+        </div>
+        <p class="inline-image-caption"><i>The testing pyramid: a mental model suggesting it’s worth writing simpler, cheap-to-maintain tests, like unit tests</i></p>
+      </div>
+      <p class="subsq">The testing pyramid was introduced by Mike Cohn in his 2009 book, “Succeeding with Agile.” The idea of the testing pyramid is to cover as much of the testing surface as possible with unit tests, as little of the surface as possible with UI tests, and somewhere in between for integration tests. This model quickly caught on and became the most common model for testing in the software engineering industry.</p>
+      <p class="subsq">The testing pyramid approach tends to work pretty well for backend systems with little to no UI. It also holds up for some native mobile applications for which end-to-end testing and integration testing are difficult.</p>
+      <p class="subsq">An area in which the testing pyramid is less useful is frontend development. When building for the frontend, unit testing tends to be less useful, and integration testing much more so.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">The testing trophy</span></b></p>
+      <p class="subsq">The testing trophy is a phrase coined by software engineer, Kent C. Dodds, in 2019. The idea was inspired by this insight<sup><a id="part-3-chapter-4-endnote-1" class="endnote-source" href="part-003-chapter-014.xhtml#part-3-chapter-4-endnote-1-text">1</a></sup> from Guillermo Rauch, founder and CEO of Vercel: “Write tests. Not too many. Mostly integration.”</p>
+      <p class="subsq">This is what it looks like:</p>
+      <div class="inline-image inline-image-kind-photograph inline-image-size-full inline-image-flow-center inline-image-flow-within-text inline-image-aspect-tall block-height-not-mult-of-line-height inline-image-with-caption inline-image-after-section-begin inline-image-before-element-end">
+        <div class="inline-image-container">
+          <img src="images/image25.jpg"
+               alt="The testing trophy. First shared on the blog of Kent C. Dodds" />
+        </div>
+        <p class="inline-image-caption"><i>The testing trophy. First shared on the blog of Kent C. Dodds</i></p>
+      </div>
+      <p class="subsq">Why did the testing trophy emerge? It’s because in the years since the test pyramid appeared, many things have changed, especially in frontend development:</p>
+      <ul>
+        <li>Code has become much more modular, so many bugs occur between components</li>
+        <li>Testing frameworks have become more powerful and tests easier to write</li>
+        <li>Unit testing frameworks can be used for integration testing with relative ease</li>
+        <li>Static analysis tools have evolved and can indicate runtime errors</li>
+      </ul>
+      <p class="subsq">It’s true that for frontend development, integration testing offers the best “bang per buck” in terms of time spent writing them and the breadth of what they cover. It’s increasingly true for full-stack applications, too. Read more about the testing trophy in the article The testing trophy and testing classifications<sup><a id="part-3-chapter-4-endnote-2" class="endnote-source" href="part-003-chapter-014.xhtml#part-3-chapter-4-endnote-2-text">2</a></sup> by Kent C. Dodds.</p>
+      <p class="subsq"><b>There is no single best approach for how to invest in tests. </b>The testing pyramid and the testing trophy are mental models for thinking about categories of automated tests. But instead of trying to make your testing approach fit a model, do it the other way around.</p>
+      <p class="subsq">Ask what would be great automated testing on your system. Then choose your approach and keep refining it. If it doesn’t mirror a model, don’t worry. It’s more important the automated tests achieve their goal of ensuring quality even as teams move fast, than that they conform to a mental model.</p>
+      <p class="subsq">When seeking guidance on how to approach testing, it can be helpful to reach out to engineers working at companies at a similar stage as yours, or in a similar industry. For example, Meta is a company that has historically invested less in automated testing, but more in monitoring and automated rollouts, thanks to having billions of users using its products. Banks and more traditional companies with less frequent releases often invest more in manual testing, and much of Big Tech like Google or Uber, invests heavily in unit and integration testing.</p>
+      <h2 id="subhead-5" class="section-title subhead keep-with-next paragraph-follows case-upper">5. SPECIALIZED TESTS</h2>
+      <p class="first first-after-subhead">Beyond generic categories of unit, integration, and UI tests, there are several other automated tests with more niche usage which can be handy in specialized cases.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Performance tests</span></b></p>
+      <p class="subsq">These tests measure the latency or responsiveness of a system. Performance tests can be used in many cases, such as verifying that a code change:</p>
+      <ul>
+        <li>Did not introduce a UI performance regression to a mobile app</li>
+        <li>Has not increased latency on a backend endpoint</li>
+      </ul>
+      <p class="subsq">Automated performance tests are tricky to do well because there’s a lot of nuance in capturing an application’s performance, such as other processes impacting the performance of the target code being measured, non-deterministic events impacting the measurement, or the measurements running on different machines which makes results hard to compare.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Load tests</span></b></p>
+      <p class="subsq">Load tests ensure a system performs adequately under a specific load. For example, an e-commerce company knows it will get about 10x the normal traffic on Black Friday, and wants to test that its backend systems respond with reasonable latency. For this, a load test is conducted.</p>
+      <p class="subsq">Load tests are specific to backend systems and there’s several ways to do them:</p>
+      <ul>
+        <li><b>Dedicated testing infrastructure. </b> that sends test requests to systems to be tested. In this case, a testing infrastructure needs to be set up which generates the request.</li>
+        <li><b>Batching existing production requests.</b> In this setup, production requests are delayed on purpose. After enough batching, all production requests are sent at an increased rate to the production systems. This approach works with non-time-sensitive requests.</li>
+        <li><b>Production testing with smaller infrastructure.</b> Instead of testing whether the current infrastructure can handle 10x traffic volume, a valid test is to check if 1/10th of the infrastructure can handle current traffic volumes.</li>
+      </ul>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Chaos tests</span></b></p>
+      <p class="subsq">Around 2008, Netflix moved its architecture from a monolithic setup, to one spread across hundreds of smaller services. Running so many services helped reduce a single point of failure, but it led to seemingly random outages where a small service misbehaving or going down, took down other seemingly unrelated parts of the system.</p>
+      <p class="subsq">The Netflix engineering team came up with an unconventional way to simulate these outages. A 2010 blog post<sup><a id="part-3-chapter-4-endnote-3" class="endnote-source" href="part-003-chapter-014.xhtml#part-3-chapter-4-endnote-3-text">3</a></sup> explained:</p>
+      <div class="blockquote-container prose without-attribution within-prose-element">
+        <blockquote class="prose without-attribution within-prose-element">
+        <p class="first blockquote-content blockquote-content-prose blockquote-position-first blockquote-position-last">“One of the first systems our engineers built in AWS is called the “Chaos Monkey.” The Chaos Monkey’s job is to randomly kill instances and services within our architecture. If we aren’t constantly testing our ability to succeed despite failure, then it isn’t likely to work when it matters most — in the event of an unexpected outage.”</p>
+      </blockquote>
+      </div>
+      <p class="subsq">Netflix has since open-sourced its Chaos Monkey implementation<sup><a id="part-3-chapter-4-endnote-4" class="endnote-source" href="part-003-chapter-014.xhtml#part-3-chapter-4-endnote-4-text">4</a></sup> and it’s popular at companies running a large number of services. Infrastructure teams implement a similar approach of shutting down services, or deliberately degrading them, to observe how the system responds.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Snapshot Tests</span></b></p>
+      <p class="subsq">Snapshot tests compare the output of a test to a pre-recorded output. They are most frequently used in web and mobile development, and the “snapshot” is an image of a screen. The test compares whether or not a webpage or mobile application looks exactly like the snapshot.</p>
+      <p class="subsq">Snapshot tests for UI validation are especially popular for mobile apps. They’re cheap to write, and fast to run compared to mobile UI tests. They are also easy to debug: when a test fails, you can compare the image the test generated to the reference image, and see the differences immediately.</p>
+      <p class="subsq">A major downside of using snapshot test suites for UI validation is that reference images used for comparison, can quickly grow too large to keep in the same repository as the test code. It’s common enough for companies with a large number of snapshot tests to store the reference images outside of the code repository.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Application size/bundle</span> size tests</b></p>
+      <p class="subsq">For mobile applications and web applications, the size of an application or the initially loaded bundle, can be a focus. There are teams that put monitoring in place to alert when the size of a mobile app or a web bundle increases above a given size.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Smoke</span> tests</b></p>
+      <p class="subsq">The term smoke testing comes from electronic hardware testing. In the book Lessons Learned in Software Testing by Cem Kaner, James Bach, and Brett Pettichord, this is how they define the origin of this term:</p>
+      <div class="blockquote-container prose without-attribution within-prose-element">
+        <blockquote class="prose without-attribution within-prose-element">
+        <p class="first blockquote-content blockquote-content-prose blockquote-position-first blockquote-position-last">“The phrase ‘smoke test’ comes from hardware testing. You plug in a new board and turn on the power. If you see smoke coming from the board, turn off the power.”</p>
+      </blockquote>
+      </div>
+      <p class="subsq">Smoke coming out from a circuit board is bad as it means that the board is melting down. The idea behind smoke testing is to run simple tests – almost always automated ones – that can verify if there is something obviously wrong with the product.</p>
+      <p class="subsq">Smoke tests are the subset of the full test suite and are meant to be executed frequently and before any production release. A few examples of more common smoke tests are these:</p>
+      <ul>
+        <li>Does the application launch, without crashing?</li>
+        <li>Does a page load in an application, without errors?</li>
+        <li>Does basic connectivity work: does the application successfully connect to the backend or to a database?</li>
+        <li>Does a core functionality work: such as logging in, or navigating to a frequently used part of the application?</li>
+      </ul>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Manual tests</span> and sanity tests</b></p>
+      <p class="subsq">Sanity tests are a collection of manual tests that should be run to confirm an application works as expected before every major release. These tests might be executed by the engineering team or a dedicated quality assurance team.</p>
+      <p class="subsq">Sanity tests tend to have detailed instructions on what to execute and what to observe as output. Thanks to such detailed instructions, when teams have more bandwidth to invest in automation, these tests can be a prime candidate to partially or fully automate as UI, or end-to-end tests.</p>
+      <p class="subsq">But why are all sanity tests not automated? It might be because the team didn’t get around to it. In some cases, automating could be impractical – for example, if certain sanity tests are rarely run, the team may decide it’s not worth the effort to build and maintain automated tests. And there are tests that can be challenging to automate, such as looking at a user interface and confirming that the layout looks good.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Other tests</span></b></p>
+      <p class="subsq">Automated testing is an ever-evolving field. The main thing is that an automated test helps validate the correct functioning of a system. It’s less important what it’s called; what matters is that they’re in place to exercise the system.</p>
+      <p class="subsq">A few other types of automated tests include:</p>
+      <ul>
+        <li><b>Accessibility testing.</b> Especially relevant for mobile applications, web applications, and desktop applications. This type of test might be tricky to automate.</li>
+        <li><b>Security testing.</b> Some of these could be automated, and others might need to be performed manually.</li>
+        <li><b>Compatibility testing.</b> Verifying that software works as expected on various hardware or operating systems.</li>
+      </ul>
+      <h2 id="subhead-6" class="section-title subhead keep-with-next paragraph-follows case-upper">6. TESTING IN PRODUCTION</h2>
+      <p class="first first-after-subhead">Where do you run your automated and manual test suite? The answer for a long time was in dedicated test environments, such as a staging environment, or a User Acceptance Test (UAT) environment.</p>
+      <p class="subsq">Today, an increasingly popular place to test software is in the production environment which end users also use. While this approach is riskier, it has significant upsides to testing in a dedicated environment – when done right.</p>
+      <p class="subsq">How do you test in production, safely? A few approaches:</p>
+      <ul>
+        <li><b>Feature flags. </b>To test a new feature in production, put it behind a feature flag. Once deployed to production, turn on the feature flag for automated tests and manual tests to be completed. When the team is confident this approach is working, roll the feature out to more users. We cover more on feature flags in <a class="content-external-link" href="part-004-chapter-017.xhtml">Part IV: ”Shipping to production”</a></li>
+        <li><b>Canary deployments.</b> Roll out production changes to a small number of servers or users (the “canary” group.) Run tests here, and monitor observability results. If there are no alarming signals, continue the rollout to all users and servers.</li>
+        <li><b>Blue-green deployments. </b>Maintain two different environments: a “blue” one and a “green” one. Only one environment is live at any one time. Deploy the changes to the idle environment, run all tests, and once you’re confident about the changes, switch traffic to that deployment.</li>
+        <li><b>Automated rollbacks:</b> combining canary deployments or blue-green deployments, with an automated monitoring setup. If the system detects an anomaly upon rolling out the feature, the changes are rolled back automatically for the team to investigate.</li>
+        <li><b>Multi-tenancy environments.</b> The idea behind tenancies is that the tenancy context is propagated with requests. Services receiving a request can tell if it’s a production request, a test tenancy, a beta tenancy, or another. Services have logic built in to support tenancies and might process or route requests differently. Uber describes its multi-tenancy approach in this blog post<sup><a id="part-3-chapter-4-endnote-5" class="endnote-source" href="part-003-chapter-014.xhtml#part-3-chapter-4-endnote-5-text">5</a></sup> .</li>
+      </ul>
+      <p class="subsq">The biggest benefits of testing in production:</p>
+      <ul>
+        <li><b>Confidence. </b>Tests are run in the production environment, so you can be far more confident they work as expected.</li>
+        <li><b>More straightforward debugging.</b> If you spot an issue to debug, you should have the tools to do it in production. Once you’ve identified the issue, you can then write a test case for it using production data!</li>
+        <li><b>Fewer environments</b> → less infrastructure complexity. Testing in production reduces the number of test environments to maintain. Maintaining a test environment is expensive in both hardware costs and time invested to ensure the environment represents production closely enough.</li>
+      </ul>
+      <p class="subsq">There are plenty of challenges to testing in production, though:</p>
+      <ul>
+        <li><b>Infrastructure investment. </b>There is a lot of legwork which teams must do to ensure safe testing in production. For example, moving to a multi-tenancy setup can be a long, painful process. Similarly, building a system with canarying that does automated rollbacks is a complex, time-consuming mission.</li>
+        <li><b>Compliance and legal challenges.</b> Testing in production does not mean engineers should be able to access sensitive user data, such as personally identifiable information (PII.) Tooling might need to be built to ensure relevant privacy regulations are followed when debugging and testing in production.</li>
+      </ul>
+      <h2 id="subhead-7" class="section-title subhead keep-with-next paragraph-follows case-upper">7. BENEFITS AND DRAWBACKS OF AUTOMATED TESTING</h2>
+      <p class="first first-after-subhead">Writing automated tests involves a pretty big time investment. So, what are its benefits to a team? Here’s the most common:</p>
+      <ul>
+        <li><b>Validating correctness. </b>The immediate benefit of any automated test is validation the code works according to what the test specifies. If writing tests before the code itself – test-driven development (TDD) – then the expectation is specified upfront, and the code is written to satisfy the test.</li>
+        <li><b>Catching regressions.</b> With automated tests, regressions can be caught early. This happens before code is merged, if the automated test suite is integrated to the CI system. If integrated with the CD system, then regressions can be caught before shipping the code to production.</li>
+        <li><b>Documentation.</b> Tests can help establish what the code intends to do, and how it should behave for edge cases. But documentation becomes dated, so the test suite needs to be up to date, or the tests will fail.</li>
+        <li><b>A contract. </b>Tests can be a way to validate formal contracts, like how an interface or API should behave, to ensure it behaves exactly as described to users.</li>
+        <li><b>A safety net when making large changes.</b> Codebases with thorough automated test suites provide engineers with an extra safety net. Large code changes like major refactors can be done with more confidence thanks to the test suite.</li>
+      </ul>
+      <p class="subsq">Automated tests have downsides, too:</p>
+      <ul>
+        <li><b>Time to write. </b>The biggest, most obvious downside is that tests take time to write, which can feel wasted on code you assume is already correct. Of course, the benefit of the test is only partly to verify your work. The other upside is that a test can catch regressions.</li>
+        <li><b>Slow tests.</b> A test suite can become slow to run over time, due to a large number of automated tests, or them being slow to run. A sluggish test suite can slow down the cadence of development.</li>
+        <li><b>Flakey tests.</b> Some test types are more prone to flakiness and failing when the application works correctly. For example, UI tests can break when there’s a network delay, but the application works fine. Flakey tests introduce noise and degrade the test suite’s usefulness.</li>
+        <li><b>Maintenance cost.</b> When changing code, the related tests must also be updated. This is straightforward for simple tests like unit tests. But changing more complex tests so they work as expected, can be more effort than writing the code!</li>
+      </ul>
+      <p class="subsq">Testing is a core part of software engineering and always has been since the very early days of software development. Writing code is only the first part of development; validating how it works, shipping it to production, and maintaining the code, all follow. Automated tests help in all phases after the code is written.</p>
+      <p class="subsq">For software that’s maintainable and can be supported across a longer timeframe, automated tests are a baseline requirement, and also for making iteration faster on the codebase. For that reason, embrace testing and try out a variety of approaches. This way, you build up a broad testing toolset, and use the best type of test for your current project.</p>
+    </div>
+    <div class="fewer-than-100-notes">
+      <div class="endnotes">
+        <div class="endnotes-separator">
+        </div>
+        <div>
+          <div id="part-3-chapter-4-endnote-1-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-003-chapter-014.xhtml#part-3-chapter-4-endnote-1">1</a> </span><a class="content-external-link text-is-url" href="https://kentcdodds.com/blog/write-tests">https://kentcdodds.com/blog/write-tests</a></p>
+          </div>
+          <div id="part-3-chapter-4-endnote-2-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-003-chapter-014.xhtml#part-3-chapter-4-endnote-2">2</a> </span><a class="content-external-link text-is-url" href="https://kentcdodds.com/blog/the-testing-trophy-and-testing-classifications">https://kentcdodds.com/blog/the-testing-trophy-and-testing-classifications</a></p>
+          </div>
+          <div id="part-3-chapter-4-endnote-3-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-003-chapter-014.xhtml#part-3-chapter-4-endnote-3">3</a> </span><a class="content-external-link text-is-url" href="https://pragmaticurl.com/netflix-chaos-monkey">https://pragmaticurl.com/netflix-chaos-monkey</a></p>
+          </div>
+          <div id="part-3-chapter-4-endnote-4-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-003-chapter-014.xhtml#part-3-chapter-4-endnote-4">4</a> </span><a class="content-external-link text-is-url" href="https://netflix.github.io/chaosmonkey">https://netflix.github.io/chaosmonkey</a></p>
+          </div>
+          <div id="part-3-chapter-4-endnote-5-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-003-chapter-014.xhtml#part-3-chapter-4-endnote-5">5</a> </span><a class="content-external-link text-is-url" href="https://www.uber.com/blog/multitenancy-microservice-architecture">https://www.uber.com/blog/multitenancy-microservice-architecture</a></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

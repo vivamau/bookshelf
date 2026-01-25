@@ -1,0 +1,937 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xml:lang="en"
+      lang="en"
+      xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:epub="http://www.idpf.org/2007/ops">
+<head>
+<title>TensorFlow in Action</title>
+<link rel="stylesheet" type="text/css" href="../../override_v1.css"/>
+<link rel="stylesheet" type="text/css" href="../../stylesheet.css"/><link rel="stylesheet" type="text/css" href="../../page_styles.css"/>
+</head>
+<body>
+<div id="book-content">
+<div id="sbo-rt-content" class="calibre"><h1 class="tochead"><a id="pgfId-1089794"></a>5 State-of-the-art in deep learning: Transformers</h1>
+
+  <p class="co-summary-head"><a id="pgfId-1089796"></a>This chapter<a id="marker-1091343"></a> covers</p>
+
+  <ul class="calibre9">
+    <li class="co-summary-bullet"><a class="calibre8" id="pgfId-1089797"></a>Representing text in numerical format for machine learning models</li>
+
+    <li class="co-summary-bullet"><a class="calibre8" id="pgfId-1089798"></a>Building a Transformer model using the Keras sub-classing API</li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089799"></a>We have seen many different <a id="marker-1084226"></a>deep learning models so far, namely fully connected networks, convolutional neural networks, and recurrent neural networks. We used a fully connected network to reconstruct corrupted images, a convolutional neural network to classify vehicles from other images, and finally an RNN to predict future CO2 concentration values. In this chapter we are going to talk about a new type of model known as the Transformer.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089800"></a>Transformers are the latest generation of deep networks to emerge. Vaswani et al., in their paper “Attention Is All You Need” (<span class="fm-hyperlink"><a class="url" href="https://arxiv.org/pdf/1706.03762.pdf">https://arxiv.org/pdf/1706.03762.pdf</a></span>), popularized the idea. They coined the term <i class="fm-italics">Transformer</i> and explained how it shows great promise for the future. In the years following, leading tech companies like Google, OpenAI, and Facebook implemented bigger and better Transformer models that have significantly outperformed other models in the NLP domain. Here, we will refer to the model introduced in their paper by Vaswani et al. to learn about it. Although Transformers do exist for other domains (e.g., computer vision), we will focus on how the Transformer is used in the NLP domain, particularly on a machine translation task (i.e., language translation using machine learning models). This discussion will leave out some of the details from the original Transformer paper to improve clarity, but these details will be covered in a later chapter.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089802"></a>Knowing the inner workings of the Transformer model is a must for anyone who wants to excel at using deep learning models to solve real-world problems. As explained, the Transformer model has proliferated the machine learning field quite rapidly. This is mainly because of the performance it has demonstrated in solving complex machine learning problems.</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_59"><a id="pgfId-1089803"></a>5.1 Representing text as numbers</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089807"></a>Say<a class="calibre8" id="marker-1089804"></a><a class="calibre8" id="marker-1089806"></a> you are taking part in a game show. One challenge in the game is called Word Boxes. There is a matrix of transparent boxes (3 rows, 5 columns, 10 depths). You also have balls with 0 or 1 painted on them. You are given three sentences, and your task is to fill all the boxes with 1s and 0s to represent those sentences. Additionally, you can write a short message (within a minute) that helps someone decipher this later. Later, another team member looks at the boxes and writes down as many words in the original sentences you were initially given.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089808"></a>The challenge is essentially how you can transform text to numbers for machine translation models. This is also an important problem you work on before learning about any NLP model. The data we have seen so far has been numerical data structures. For example, an image can be represented as a 3D array (height, width, and channel dimensions), where each value represents a pixel intensity (i.e., a value between 0 and 255). But what about text? How can we make a computer understand characters, words, or sentences? We will learn how to do this with Transformers in the context of natural language processing (NLP<a class="calibre8" id="marker-1089809"></a>).</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089810"></a>You have the following set of sentences:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1089811"></a>I went to the beach.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1089812"></a>It was cold.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1089813"></a>I came back to the house.</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089814"></a>The first thing you do is assign each word in your vocabulary an ID starting from 1. We will reserve the number 0 for a special token we will see later. Say you assign the following IDs:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1089815"></a>I <span class="fm-symbol">→</span> 1</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1089816"></a>went <span class="fm-symbol">→</span> 2</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1089817"></a>to <span class="fm-symbol">→</span> 3</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1089818"></a>the <span class="fm-symbol">→</span> 4</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1089819"></a>beach <span class="fm-symbol">→</span> 5</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1089820"></a>It <span class="fm-symbol">→</span> 6</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1089821"></a>was <span class="fm-symbol">→</span> 7</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1089822"></a>cold <span class="fm-symbol">→</span> 8</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1089823"></a>came <span class="fm-symbol">→</span> 9</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1089824"></a>back <span class="fm-symbol">→</span> 10</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1089825"></a>house <span class="fm-symbol">→</span> 11</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089826"></a>After mapping the words to the corresponding IDs, our sentences become the following:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1089827"></a>[1, 2, 3, 4, 5]</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1089828"></a>[6, 7, 8]</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1089829"></a>[1, 9, 10, 3, 4, 11]</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089830"></a>Remember, you need to fill in all the boxes and have a maximum length of 5. Note that our last sentence has six words. This means all the sentences need to be represented by a fixed length. Deep learning models face a similar problem. They process data in batches, and to process it efficiently, the sequence length needs to be fixed for that batch. Real-world sentences can vary significantly in terms of their length. Therefore, we need to</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1089831"></a>Pad short sentences with a special token &lt;PAD&gt; (with ID 0)</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1089832"></a>Truncate long sentences</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089833"></a>to make them the same length. If we pad the short sentences and truncate long sentences so that the length is 5, we get the following:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1089834"></a>[1, 2, 3, 4, 5]</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1089835"></a>[6, 7, 8, 0, 0]</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1089836"></a>[1, 9, 10, 3, 4]</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089837"></a>Here, we have a 2D matrix of size 3 × 5, which represents our batch of sentences. The final thing to do is represent each of these IDs as vectors. Because our balls have 1s and 0s, you can represent each word with 11 balls (we have 10 different words and the special token &lt;PAD&gt;), where the ball at the position indicated by the word ID is 1 and the rest are 0s. This method is known as one-hot encoding. For example,</p>
+
+  <p class="fm-equation"><a id="pgfId-1089838"></a>0 <span class="fm-symbol1">→</span> [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]</p>
+
+  <p class="fm-equation"><a id="pgfId-1089839"></a>1 <span class="fm-symbol1">→</span> [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]</p>
+
+  <p class="fm-equation"><a id="pgfId-1089840"></a>. . .</p>
+
+  <p class="fm-equation"><a id="pgfId-1089841"></a>10 <span class="fm-symbol1">→</span> [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0]</p>
+
+  <p class="fm-equation"><a id="pgfId-1089842"></a>11<span class="fm-symbol1">→</span> [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089843"></a>Now you can fill the boxes with 1s and 0s such that you get something like figure 5.1. This way, anyone who has the word for ID mapping (provided in a sheet of paper) can decipher most of the words (except for those truncated) that were initially provided.</p>
+
+  <p class="fm-figure"><img alt="05-01" class="calibre10" src="../../OEBPS/Images/05-01.png" width="881" height="622"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1102974"></a>Figure 5.1 The boxes in the Word Boxes game. The shaded boxes represent a single word (i.e., the first word in the first sentence, “I,” which has an ID of 1). You can see it’s represented by a single ball of 1 and nine balls of 0.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089849"></a>Again, this is a transformation done to words in NLP problems. You might ask, “Why not feed the word IDs directly?” There are two problems:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1089850"></a>The value ranges the neural network sees are very large (0-100,000+) for a real-world problem. This will cause instabilities and make the training difficult.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1089851"></a>Feeding in IDs would falsely indicate that words with similar IDs should be alike (e.g., word ID 4 and 5). This is never the case and would confuse the model and lead to poor performance.</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089852"></a>Therefore, it is important to bring words to some vector representation. There are many ways to turn words into vectors, such as one-hot encoding and word embeddings. You have already seen how one-hot encoding works, and we will discuss word embeddings in detail later. When we represent words as vectors, our 2D matrix becomes a 3D matrix. For example, if we set the vector length to 4, you will have a 3 × 6 × 4 3D tensor. Figure 5.2 depicts what the final matrix looks like.</p>
+
+  <p class="fm-figure"><img alt="05-02" class="calibre10" src="../../OEBPS/Images/05-02.png" width="758" height="469"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1103008"></a>Figure 5.2 3D matrix representing a batch of a sequence of words, where each word is represented by a vector (i.e., the shaded block in the matrix). There are three dimensions: batch, sequence (time), and feature.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089859"></a>Next we will discuss the various components of the popular Transformer model, which will give us a solid grounding in how these models perform<a class="calibre8" id="marker-1089860"></a><a class="calibre8" id="marker-1089862"></a> internally.</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_60"><a id="pgfId-1089863"></a>5.2 Understanding the Transformer model</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089866"></a>You<a class="calibre8" id="marker-1089864"></a><a class="calibre8" id="marker-1089865"></a> are currently working as a deep learning research scientist and were recently invited to conduct a workshop on Transformers at a local TensorFlow conference. Transformers are a new family of deep learning models that have surpassed their older counterparts in a plethora of tasks. You are planning to first explain the architecture of the Transformer network and then walk the participants through several exercises, where they will implement the basic computations found in Transformers as sub-classed Keras layers and finally use these to implement a basic small-scale Transformer using Keras.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_61"><a id="pgfId-1089867"></a>5.2.1 The encoder-decoder view of the Transformer</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089871"></a>The<a class="calibre8" id="marker-1089869"></a><a class="calibre8" id="marker-1089870"></a> Transformer network is based on an encoder-decoder architecture. The encoder-decoder pattern is common in deep learning for certain types of tasks (e.g., machine translation, question answering, unsupervised image reconstruction). The idea is that the encoder takes an input and maps it to some latent (or hidden) representation (typically smaller), and the decoder constructs a meaningful output using latent representation. For example, in machine translation, a sentence from language A is mapped to a latent vector, from which the decoder constructs the translation of that sentence in language B. You can think of the encoder and decoder as two separate machine learning models, where the decoder depends on the output of the encoder. This process is depicted in figure 5.3. At a given time, both the encoder and the decoder consume a batch of a sequence of words (e.g., a batch of sentences). As machine learning models don’t understand text, every word in this batch is represented by a numerical vector. This is done by following a process such as one-hot encoding, similar to what we discussed in section 5.1.</p>
+
+  <p class="fm-figure"><img alt="05-03" class="calibre10" src="../../OEBPS/Images/05-03.png" width="958" height="514"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1103042"></a>Figure 5.3 The encoder-decoder architecture for a machine translation task</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089872"></a>The encoder-decoder pattern is common in real life as well. Say you are a tour guide in France and take a group of tourists to a restaurant. The waiter is explaining the menu in French, and you need to translate this to English for the group. Imagine how you would do that. When the waiter explains the dish in French, you process those words and create a mental image of what the dish is, and then you translate that mental image into a sequence of English words.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089882"></a>Now let’s dive more into the individual components and what they are made<a class="calibre8" id="marker-1089880"></a><a class="calibre8" id="marker-1089881"></a> of.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_62"><a id="pgfId-1089883"></a>5.2.2 Diving deeper</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089884"></a>Naturally, you might be asking yourself, “What do the encoder and the decoder consist of?” This is the topic of this section. Note that the encoder and decoder discussed here are quite different from the autoencoder model you saw in chapter 3. As said previously, the encoder and the decoder individually act like multilayered deep neural networks. They consist of several layers, where each layer comprises sublayers that encapsulate certain computations done on inputs to produce outputs. The output of the previous layer feeds as the input to the next layer. It is also important to note that inputs and outputs of the encoder and the decoder are sequences, such as sentences. Each layer within these models takes in a sequence of elements and outputs another sequence of elements. So, what constitutes a single layer in the encoder and the decoder?</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089885"></a>Each encoder layer comprises two sublayers:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1089886"></a>Self-attention layer</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1089887"></a>Fully connected layer</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089888"></a>The self-attention layer produces its final output similarly to a fully connected layer (i.e., using matrix multiplications and activation functions). A typical fully connected layer will take all elements in the input sequence, process them separately, and output an element in place of each input element. But the self-attention layer can select and combine different elements in the input sequence to output a given element. This makes the self-attention layer much more powerful than a typical fully connected layer (figure 5.4).</p>
+
+  <p class="fm-figure"><img alt="05-04" class="calibre10" src="../../OEBPS/Images/05-04.png" width="769" height="283"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1103076"></a>Figure 5.4 The difference between the self-attention sublayer and the fully connected sublayer. The self-attention sublayer looks at all the inputs in the sequence, whereas the fully connected sublayer only looks at the input that is processed.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089895"></a>Why does it pay to select and combine different input elements this way? In an NLP context, the self-attention layer enables the model to look at other words while it processes a certain word. But what does that mean for the model? This means that while the encoder is processing the word “it” in the sentence “I kicked the <i class="fm-italics">ball</i> and <i class="fm-italics">it</i> disappeared,” the model can attend to the word “ball.” By seeing both words “ball” and “it” at the same time (learning dependencies), disambiguating words is easier. Such capabilities are of paramount importance for language understanding.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089896"></a>We can understand how self-attention helps us solve a task conveniently through a real-world example. Assume you are playing a game with two people: person A and person B. Person A holds a question written on a board, and you need to speak the answer. Say person A reveals just one word at a time, and after the last word of the question, it is revealed that you are answering the question. For long and complex questions, this is challenging, as you cannot physically see the complete question and have to heavily rely on memory when answering the question. This is what it feels like without self-attention. On the other hand, say person B reveals the full question on the board instead of word by word. Now it is much easier to answer the question, as you can see the whole question at once. If the question is complex and requires a complex answer, you can look at different parts of the question as you provide various sections of the full answer. This is what the self-attention layer enables.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089897"></a>Next, the fully connected layer takes the output elements produced by the self-attention sublayer and produces a hidden representation for each output element in an element-wise fashion. This make the model deeper, allowing it to perform better.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089898"></a>Let’s look in more detail at how data flows through the model in order to better understand the organization of layers and sublayers. Assume the task of translating the sentence “Dogs are great” (English) to “<i class="fm-italics">Les chiens sont super</i>” (French). First, the encoder takes in the full sentence “Dogs are great” and produces an output for each word in the sentence. The self-attention layer selects the most important words for each position, computes an output, and sends that information to the fully connected layer to produce a deeper representation. The decoder produces output words iteratively, one after the other. To do that, the decoder looks at the final output sequence of the encoder and all the previous words predicted by the decoder. Assume the final prediction is &lt;SOS&gt; <i class="fm-italics">les chiens sont super</i> &lt;EOS&gt;. Here, &lt;SOS&gt; marks the start of the sentence and &lt;EOS&gt; the end of the sentence. The first input it takes is a special tag that indicates the start of a sentence (&lt;SOS&gt;), along with the encoder outputs, and it produces the next word in the translation: “<i class="fm-italics">les</i>.” The decoder then consumes &lt;SOS&gt; and “<i class="fm-italics">les</i>” as inputs, produces the word “<i class="fm-italics">chiens</i>,” and continues until the model reaches the end of the translation (marked by &lt;EOS&gt;). Figure 5.5 depicts this process.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089899"></a>In the original Transformer paper, the encoder has six layers, and a single layer has a self-attention sublayer and a fully connected sublayer, in that order. First, the self-attention layer takes the English words as a time-series input. However, before feeding these words to the encoder, you need to create a numerical representation of each word, as discussed earlier. In the paper, word embeddings (with some additional encoding) are used to represent the words. Each of these embeddings is a 512-long vector. Then the self-attention layer computes a hidden representation for each word of the input sentence. If we ignore some of the implementation details, this hidden representation at time step <i class="fm-italics">t</i> can be thought as a weighted sum of all the inputs (in a single sequence), where the weight for position <i class="fm-italics">i</i> of the input is determined by how important it is to select (or attend to) the encoder word <i class="fm-italics">ew</i><sub class="fm-subscript">i</sub> in the input sequence while processing the word <i class="fm-italics">ew</i><sub class="fm-subscript">t</sub> in the encoder input. The encoder makes this decision for every position <i class="fm-italics">t</i> in the input sequence. For example, while processing the word “it” in the sentence “I kicked the <i class="fm-italics">ball</i> and <i class="fm-italics">it</i> disappeared,” the encoder needs to pay more attention to the word “ball” than to the word “the.” The weights in the self-attention sublayer are trained to demonstrate such properties. This way, the self-attention layer produces a hidden representation for each encoder input. We call this the <i class="fm-italics">attended representation/output</i>.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089901"></a>The fully connected sublayer then takes over and is quite straightforward. It has two linear layers and a ReLU activation in between the layers. It takes the outputs of the self-attention layer and transforms to a hidden output using</p>
+
+  <p class="fm-equation"><a id="pgfId-1089902"></a><i class="fm-italics">h</i><sub class="fm-subscript">1</sub> = <i class="fm-italics">ReLU</i>(<i class="fm-italics">xW</i><sub class="fm-subscript">1</sub> + <i class="fm-italics">b</i><sub class="fm-subscript">1</sub>)</p>
+
+  <p class="fm-equation"><a id="pgfId-1089903"></a><i class="fm-italics">h</i><sub class="fm-subscript">2</sub> = <i class="fm-italics">h</i><sub class="fm-subscript">1</sub><i class="fm-italics">W</i><sub class="fm-subscript">2</sub> + <i class="fm-italics">b</i><sub class="fm-subscript">2</sub></p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089904"></a>Note that the second layer does not have a nonlinear activation. Next, the decoder has six layers as well, where each layer has three sublayers:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1089905"></a>A masked self-attention layer</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1089906"></a>An encoder-decoder attention layer</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1089907"></a>A fully connected layer</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089908"></a>The masked self-attention layer operates similarly to the self-attention layer. However, while processing the s<sup class="fm-superscript">th</sup> word (i.e., <i class="fm-timesitalic">dw</i><sub class="fm-subscript">s</sub>), it masks the words ahead of <i class="fm-timesitalic">dw</i><sub class="fm-subscript">s</sub>. For example, while processing the word “<i class="fm-italics">chiens</i>,” it can only attend to the words “&lt;sos&gt;” and “<i class="fm-italics">les</i>.” This is important because the decoder must be able to predict the correct word, given only the previous words it predicted, so it makes sense to force the decoder to attend only to the words it has already seen.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089909"></a>Next, the encoder-decoder attention layer takes the encoder output and the outputs produced by the masked self-attention layer and produce a series of outputs. The purpose of this layer is to compute a hidden representation (i.e., an attended representation) at time <i class="fm-timesitalic">s</i> as a weighted sum of encoder inputs, where the weight for position <i class="fm-timesitalic">j</i> is determined by how important it is to attend to encoder input <i class="fm-timesitalic">e w</i><sub class="fm-subscript">j</sub>, while processing the decoder word <i class="fm-timesitalic">dw</i><sub class="fm-subscript">s</sub>.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089910"></a>Finally, a fully connected layer identical to the fully connected layer from the encoder layer takes the output of the self-attention layer to produce the final output of the layer. Figure 5.5 depicts the layers and operations discussed in this section at a high level.</p>
+
+  <p class="fm-figure"><img alt="05-05" class="calibre10" src="../../OEBPS/Images/05-05.png" width="1075" height="658"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1103110"></a>Figure 5.5 Various layers in the encoder and the decoder and various connections formed within the encoder, within the decoder, and between the encoder and the decoder. The squares represent inputs and outputs of the models. The rectangular shaded boxes represent interim outputs of the sublayers.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089917"></a>In the next section, we will discuss what the self-attention layer looks like.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_63"><a id="pgfId-1089918"></a>5.2.3 Self-attention layer</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089922"></a>We<a class="calibre8" id="marker-1089920"></a><a class="calibre8" id="marker-1089921"></a> have covered the purpose of the self-attention layer at an abstract level of understanding. It is to, while processing the word <i class="fm-timesitalic">w</i><sub class="fm-subscript">t</sub> at time step <i class="fm-timesitalic">t</i>, determine how important it is to attend to the <i class="fm-timesitalic">i</i><sup class="fm-superscript">th</sup> word (i.e., <i class="fm-timesitalic">w</i><sub class="fm-subscript">i</sub>) in the input sequence. In other words, the layer needs to determine the importance of all the other words (indexed by <i class="fm-timesitalic">i</i>) for every word (indexed by <i class="fm-timesitalic">t</i>). Let’s now understand the computations involved in this process at a more granular level.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089923"></a>First, there are three different entities involved in the computation:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1089924"></a><i class="fm-italics">A query</i>—The query’s purpose is to represent the word currently being processed.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1089925"></a><i class="fm-italics">A key</i>—The key’s purpose is to represent the candidate words to be attended to while processing the current word.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1089926"></a><i class="fm-italics">A value</i>—The value’s purpose is to compute a weighted sum of all words in the sequence, where the weight for each word is based on how important it is for understanding the current word</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089927"></a>For a given input sequence, query, key, and value need to be calculated for every position of the input. These are calculated by an associated weight matrix with each entity.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089928"></a>Note that this is an oversimplification of their relationship, and the actual relationship is somewhat complex and convoluted. But this understanding provides the motivation for why we need three different entities to compute self-attention outputs.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089929"></a>Next, we will understand how exactly a self-attention layer goes from an input sequence to a query, key, and value tensor and finally to the output sequence. The input word sequence is first converted to a numerical representation using word embedding lookup. Word embeddings are essentially a giant matrix, where there’s a vector of floats (i.e., an embedding vector) for each word in your vocabulary. Typically, these embeddings are several hundreds of elements long. For a given input sequence, we assume the input sequence is <i class="fm-timesitalic">n</i> elements long and each word vector is <i class="fm-timesitalic">d</i><sub class="fm-subscript">model</sub> elements long. Then we have a <i class="fm-timesitalic">n</i> × <i class="fm-timesitalic">d</i><sub class="fm-subscript">model</sub> matrix. In the original Transformer paper, word vectors are 512 elements long.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089930"></a>There are three weight matrices in the self-attention layer: query weights (<i class="fm-timesitalic">W</i><sub class="fm-subscript">q</sub>), key weights (<i class="fm-timesitalic">W</i><sub class="fm-subscript">k</sub>), and value weights (<i class="fm-timesitalic">W</i><sub class="fm-subscript">v</sub>), respectively used to compute the query, key, and value vectors. <i class="fm-timesitalic">W</i><sub class="fm-subscript">q</sub> is <i class="fm-timesitalic">d</i><sub class="fm-subscript">model</sub> × <i class="fm-timesitalic">d</i><sub class="fm-subscript">q</sub>, <i class="fm-timesitalic">W</i><sub class="fm-subscript">k</sub> is <i class="fm-timesitalic">d</i><sub class="fm-subscript">model</sub> × <i class="fm-timesitalic">d</i><sub class="fm-subscript">k</sub>, and <i class="fm-timesitalic">W</i><sub class="fm-subscript">v</sub> is <i class="fm-timesitalic">d</i><sub class="fm-subscript">model</sub> × <i class="fm-timesitalic">d</i><sub class="fm-subscript">v</sub>. Let’s define these elements in TensorFlow assuming a dimensionality of 512, as in the original Transformer paper. That is,</p>
+
+  <p class="fm-equation"><a id="pgfId-1089931"></a><i class="fm-italics">d</i><sub class="fm-subscript">model</sub> = <i class="fm-italics">d</i><sub class="fm-subscript">q</sub> = <i class="fm-italics">d</i><sub class="fm-subscript">k</sub> = <i class="fm-italics">d</i><sub class="fm-subscript">v</sub> = 512</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089932"></a>We will first define our input <span class="fm-code-in-text">x</span> as a <span class="fm-code-in-text">tf.constant</span>, which has three dimensions (batch, time, feature). <span class="fm-code-in-text">Wq</span>, <span class="fm-code-in-text">Wk</span>, and <span class="fm-code-in-text">Wv</span> are declared as <span class="fm-code-in-text">tf.Variable</span> objects, as these are the parameters of the self-attention layer</p>
+  <pre class="programlisting">import tensorflow as tf
+import numpy as np
+ 
+n_seq = 7
+x = tf.constant(np.random.normal(size=(1,n_seq,512)))
+Wq = tf.Variable(np.random.normal(size=(512,512)))
+Wk = tf.Variable (np.random.normal(size=(512,512)))
+Wv = tf.Variable (np.random.normal(size=(512,512)))</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089941"></a>which has shapes</p>
+  <pre class="programlisting">&gt;&gt;&gt; x.shape=(1, 7, 512)
+&gt;&gt;&gt; Wq.shape=(1, 512)
+&gt;&gt;&gt; Wk.shape=(1, 512)
+&gt;&gt;&gt; Wv.shape=(1, 512)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089946"></a>Next, <i class="fm-timesitalic">q</i>, <i class="fm-timesitalic">k</i>, and <i class="fm-timesitalic">v</i> are computed as follows:</p>
+
+  <p class="fm-equation"><a id="pgfId-1089947"></a><i class="fm-italics">q</i> = <i class="fm-italics">xW</i><sub class="fm-subscript">q</sub>; shape transformation: <i class="fm-italics">n</i> × <i class="fm-italics">d</i><sub class="fm-subscript">model</sub>. <i class="fm-italics">d</i><sub class="fm-subscript">model</sub> × <i class="fm-italics">d</i><sub class="fm-subscript">q</sub> = <i class="fm-italics">n × d</i><sub class="fm-subscript">q</sub></p>
+
+  <p class="fm-equation"><a id="pgfId-1089948"></a><i class="fm-italics">k</i> = <i class="fm-italics">xW</i><sub class="fm-subscript">k</sub>; shape transformation: <i class="fm-italics">n</i> × <i class="fm-italics">d</i><sub class="fm-subscript">model</sub>. <i class="fm-italics">d</i><sub class="fm-subscript">model</sub> × <i class="fm-italics">d</i><sub class="fm-subscript">k</sub> = <i class="fm-italics">n × d</i><sub class="fm-subscript">k</sub></p>
+
+  <p class="fm-equation"><a id="pgfId-1089949"></a><i class="fm-italics">v</i> = <i class="fm-italics">xW</i><sub class="fm-subscript">v</sub>; shape transformation: <i class="fm-italics">n</i> × <i class="fm-italics">d</i><sub class="fm-subscript">model</sub>. <i class="fm-italics">d</i><sub class="fm-subscript">model</sub> × <i class="fm-italics">d</i><sub class="fm-subscript">v</sub> = <i class="fm-italics">n × d</i><sub class="fm-subscript">v</sub></p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089950"></a>It is evident that computing <i class="fm-timesitalic">q</i>, <i class="fm-timesitalic">k</i>, and <i class="fm-timesitalic">v</i> is a simple matrix multiplication away. Remember that there is a batch dimension in front of all the inputs (i.e., <span class="fm-code-in-text">x</span>) and output tensors (i.e,. <span class="fm-code-in-text">q</span>, <span class="fm-code-in-text">k</span>, and <span class="fm-code-in-text">v</span>) as we process batches of data. But to avoid clutter, we are going to ignore the batch dimension. Then we compute the final output of the self-attention layer as follows:</p>
+
+  <p class="fm-equation"><img alt="05_05a" class="calibre10" src="../../OEBPS/Images/05_05a.png" width="258" height="90"/><br class="calibre2"/>
+  <a id="pgfId-1091973"></a></p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1089961"></a>Here, the component <img alt="05_05b" class="calibre1" src="../../OEBPS/Images/05_05b.png" width="60" height="60"/><span class="calibre17"> (which will be referred to as</span> <i class="fm-italics">P</i><span class="calibre17">) is a probability matrix. This is all there is in the self-attention layer. Implementing self-attention with TensorFlow is very straightforward. As good data scientists, let’s create it as a reusable Keras layer, as shown in the next listing.</span></p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1089963"></a>Listing 5.1 The self-attention sublayer</p>
+  <pre class="programlisting">import tensorflow as tf
+import tensorflow.keras.layers as layers
+ 
+class SelfAttentionLayer(layers.Layer):
+    
+    def __init__(self, d):
+        super(SelfAttentionLayer, self).__init__()
+        self.d = d                                                                <span class="fm-combinumeral">❶</span>
+    
+    def build(self, input_shape):
+        self.Wq = self.add_weight(                                                <span class="fm-combinumeral">❷</span>
+            shape=(input_shape[-1], self.d), initializer='glorot_uniform',        <span class="fm-combinumeral">❷</span>
+            trainable=True, dtype='float32'                                       <span class="fm-combinumeral">❷</span>
+        )        
+        self.Wk = self.add_weight(                                                <span class="fm-combinumeral">❷</span>
+            shape=(input_shape[-1], self.d), initializer='glorot_uniform',        <span class="fm-combinumeral">❷</span>
+            trainable=True, dtype='float32'                                       <span class="fm-combinumeral">❷</span>
+        )
+        self.Wv = self.add_weight(                                                <span class="fm-combinumeral">❷</span>
+            shape=(input_shape[-1], self.d), initializer='glorot_uniform',        <span class="fm-combinumeral">❷</span>
+            trainable=True, dtype='float32'                                       <span class="fm-combinumeral">❷</span>
+        )
+    
+    def call(self, q_x, k_x, v_x):
+        q = tf.matmul(q_x,self.Wq)                                                <span class="fm-combinumeral">❸</span>
+        k = tf.matmul(k_x,self.Wk)                                                <span class="fm-combinumeral">❸</span>
+        v = tf.matmul(v_x,self.Wv)                                                <span class="fm-combinumeral">❸</span>
+ 
+        p = tf.nn.softmax(tf.matmul(q, k, transpose_b=True)/math.sqrt(self.d))    <span class="fm-combinumeral">❹</span>
+        h = tf.matmul(p, v)                                                       <span class="fm-combinumeral">❺</span>
+        return h,p</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1102112"></a><span class="fm-combinumeral">❶</span> Defining the output dimensionality of the self-attention outputs</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1102140"></a><span class="fm-combinumeral">❷</span> Defining the variables for computing the query, key, and value entities</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1102157"></a><span class="fm-combinumeral">❸</span> Computing the query, key, and value tensors</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1102174"></a><span class="fm-combinumeral">❹</span> Computing the probability matrix</p>
+
+  <p class="fm-code-annotation-mob"><a class="calibre8" id="pgfId-1102191"></a><span class="fm-combinumeral">❺</span> Computing the final output</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090000"></a>Here’s a quick refresher:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1090001"></a><span class="fm-code-in-text">__init__(self, d)</span>—Defines any hyperparameters of the layer</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1090002"></a><span class="fm-code-in-text">build(self, input_shape)</span>—Creates the parameters of the layer as variables</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1090003"></a><span class="fm-code-in-text">call(self, v_x, k_x, q_x)</span>—Defines the computations happening in the layer</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090005"></a>If you look at the <span class="fm-code-in-text">call(self, v_x, k_x, q_x)</span> function, it takes in three inputs: one each for computing value, key, and query. In most cases these are the same input. However, there are instances where different inputs come into these computations (e.g., some computations in the decoder). Also, note that we return both <span class="fm-code-in-text">h</span> (i.e., the final output) and <span class="fm-code-in-text">p</span> (i.e., the probability matrix). The probability matrix is an important visual aid, as it helps us understand when and where the model paid attention to words. If you want to get the output of the layer, you can do the following</p>
+  <pre class="programlisting">layer = SelfAttentionLayer(512)
+h, p = layer(x, x, x)
+print(h.shape)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090009"></a>which will return</p>
+  <pre class="programlisting">&gt;&gt;&gt; (1, 7, 512)</pre>
+
+  <p class="fm-head2"><a id="pgfId-1090011"></a>Exercise 1</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090012"></a>Given the following input</p>
+  <pre class="programlisting">x = tf.constant(np.random.normal(size=(1,10,256)))</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090015"></a>and assuming we need an output of size 512, write the code to create <span class="fm-code-in-text">Wq</span>, <span class="fm-code-in-text">Wk</span>, and <span class="fm-code-in-text">Wv</span> as <span class="fm-code-in-text">tf.Variable</span> objects. Use the <span class="fm-code-in-text">np.random.normal()</span><a class="calibre8" id="marker-1098096"></a><a class="calibre8" id="marker-1098097"></a><a class="calibre8" id="marker-1098085"></a> function to set the initial values.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_64"><a id="pgfId-1090019"></a>5.2.4 Understanding self-attention using scalars</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090023"></a>It<a class="calibre8" id="marker-1090020"></a><a class="calibre8" id="marker-1090021"></a><a class="calibre8" id="marker-1090022"></a> is not yet very clear why the computations are designed the way they are. To understand and visualize what this layer is doing, we will assume a feature dimensionality of 1. That is, a single word is represented by a single value (i.e., a scalar). Figure 5.6 visualizes the computations that happen in the self-attention layer if we assume a single-input sequence and the dimensionality of inputs (<i class="fm-timesitalic">d</i><sub class="fm-subscript">model</sub>), query length (<i class="fm-timesitalic">d</i><sub class="fm-subscript">q</sub>), key length (<i class="fm-timesitalic">d</i><sub class="fm-subscript">k</sub>), and value length (<i class="fm-timesitalic">d</i><sub class="fm-subscript">v</sub>) is 1. As a concrete example, we start with an input sequence <i class="fm-timesitalic">x</i>, which has seven words (i.e., <i class="fm-timesitalic">n</i> × 1 matrix). Under the assumptions we’ve made, <i class="fm-timesitalic">W</i><sub class="fm-subscript">q</sub>, <i class="fm-timesitalic">W</i><sub class="fm-subscript">k</sub>, and <i class="fm-timesitalic">W</i><sub class="fm-subscript">v</sub> will be scalars. The matrix multiplications used for computing <i class="fm-timesitalic">q</i>, <i class="fm-timesitalic">k</i>, and <i class="fm-timesitalic">v</i> essentially become scalar multiplications:</p>
+
+  <p class="fm-equation"><a id="pgfId-1090024"></a><i class="fm-italics">q</i> = (<i class="fm-italics">q</i><sub class="fm-subscript">1</sub>, <i class="fm-italics">q</i><sub class="fm-subscript">2</sub>,..., <i class="fm-italics">q</i><sub class="fm-subscript">7</sub>), where <i class="fm-italics">q</i><sub class="fm-subscript">i</sub> = <i class="fm-italics">x</i><sub class="fm-subscript">i</sub> <i class="fm-italics">W</i><sub class="fm-subscript">q</sub></p>
+
+  <p class="fm-equation"><a id="pgfId-1090025"></a><i class="fm-italics">k</i> = (<i class="fm-italics">k</i><sub class="fm-subscript">1</sub>, <i class="fm-italics">k</i><sub class="fm-subscript">2</sub>,..., <i class="fm-italics">k</i><sub class="fm-subscript">7</sub>), where <i class="fm-italics">k</i><sub class="fm-subscript">i</sub> = <i class="fm-italics">x</i><sub class="fm-subscript">i</sub> <i class="fm-italics">W</i><sub class="fm-subscript">k</sub></p>
+
+  <p class="fm-equation"><a id="pgfId-1090026"></a><i class="fm-italics">v</i> = (<i class="fm-italics">v</i><sub class="fm-subscript">1</sub>, <i class="fm-italics">v</i><sub class="fm-subscript">2</sub>,..., <i class="fm-italics">v</i><sub class="fm-subscript">7</sub>), where <i class="fm-italics">v</i><sub class="fm-subscript">i</sub> = <i class="fm-italics">x</i><sub class="fm-subscript">i</sub> <i class="fm-italics">W</i><sub class="fm-subscript">v</sub></p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090027"></a>Next, we need to compute the <i class="fm-timesitalic">P</i> = softmax ((<i class="fm-timesitalic">Q.K</i><sup class="fm-superscript">T</sup>) / <span class="fm-symbol1">√</span>(<i class="fm-timesitalic">d</i><sub class="fm-subscript">k</sub>)) component. <i class="fm-timesitalic">Q.K</i><sup class="fm-superscript">T</sup> is essentially an <i class="fm-timesitalic">n</i> × <i class="fm-timesitalic">n</i> matrix that has an item representing every query and key combination (figure 5.6). The <i class="fm-timesitalic">i</i> <sup class="fm-superscript">th</sup> row and <i class="fm-timesitalic">j</i> <sup class="fm-superscript">th</sup> column of <i class="fm-timesitalic">Q.K</i><sub class="fm-subscript">(i,j)</sub><sup class="fm-superscript">T</sup> are computed as</p>
+
+  <p class="fm-equation"><a id="pgfId-1090028"></a><i class="fm-italics">Q.K</i><sub class="fm-subscript">(i,j)</sub><sup class="fm-superscript">T</sup> =<i class="fm-italics">q</i> <sub class="fm-subscript">i</sub> × <i class="fm-italics">k</i> <sub class="fm-subscript">j</sub></p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090029"></a>Then, by applying the softmax, this matrix is converted to a row-wise probability distribution. You might have noted a constant <span class="fm-symbol1">√</span>(<i class="fm-timesitalic">d</i><sub class="fm-subscript">k</sub>) appearing within the softmax transformation. This is a normalization constant that helps prevent large gradient values and achieve stable gradients. In our example, you can ignore this as <span class="fm-symbol1">√</span>(<i class="fm-timesitalic">d</i><sub class="fm-subscript">k</sub>) = 1.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090030"></a>Finally, we compute the final output <i class="fm-timesitalic">h</i> = (<i class="fm-timesitalic">h</i><sub class="fm-subscript">1</sub>,<i class="fm-timesitalic">h</i><sub class="fm-subscript">2</sub>,...,<i class="fm-timesitalic">h</i><sub class="fm-subscript">7</sub>), where</p>
+
+  <p class="fm-equation"><a id="pgfId-1090031"></a><i class="fm-italics">h</i><sub class="fm-subscript">i</sub> = <i class="fm-italics">P</i><sub class="fm-subscript">(i</sub>,<sub class="fm-subscript">1)</sub> <i class="fm-italics">v</i><sub class="fm-subscript">1</sub> + <i class="fm-italics">P</i><sub class="fm-subscript">(i</sub>,<sub class="fm-subscript">2)</sub> <i class="fm-italics">v</i><sub class="fm-subscript">2</sub> +...+ <i class="fm-italics">P</i><sub class="fm-subscript">(i</sub>,<sub class="fm-subscript">7)</sub> <i class="fm-italics">v</i><sub class="fm-subscript">7</sub></p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090032"></a>Here, we can more clearly see the relationship between <i class="fm-timesitalic">q</i>, <i class="fm-timesitalic">k</i>, and <i class="fm-timesitalic">v</i>. <i class="fm-timesitalic">q</i> and <i class="fm-timesitalic">k</i> are used to compute a soft-index mechanism for <i class="fm-timesitalic">v</i> when computing the final output. For example, when computing the fourth output (i.e., <i class="fm-timesitalic">h</i><sub class="fm-subscript">4</sub>), we first hard-index the fourth row (following <i class="fm-timesitalic">q</i><sub class="fm-subscript">4</sub>), and then mix various <i class="fm-timesitalic">v</i> values based on the soft index (i.e., probabilities) given by the columns (i.e., <i class="fm-timesitalic">k</i> values) of that row. Now it is more clear what purpose <i class="fm-timesitalic">q</i>, <i class="fm-timesitalic">k</i>, and <i class="fm-timesitalic">v</i> serve:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1090034"></a><i class="fm-italics">Query</i>—Helps build a probability matrix that is eventually used for indexing values (v). Query affects the rows of the matrix and represents the index of the current word that’s being processed.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1090036"></a><i class="fm-italics">Key</i>—Helps build a probability matrix that is eventually used for indexing values (v). Key affects the columns of the matrix and represents the candidate words that need to be mixed depending on the query word.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1090038"></a><i class="fm-italics">Value</i>—Hidden (i.e., attended) representation of the inputs used to compute the final output by indexing using the probability matrix created using query and key</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090045"></a>You can easily take the big gray box in figure 5.6, place it over the self-attention sublayer, and still have the output shape (as shown in figure 5.5) being produced (figure 5.7).</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1103138"></a> </p>
+
+  <p class="fm-figure"><img alt="05-06" class="calibre10" src="../../OEBPS/Images/05-06.png" width="1100" height="828"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1103144"></a>Figure 5.6 The computations in the self-attention layer. The self-attention layer starts with an input sequence and computes sequences of query, key, and value vectors. Then the queries and keys are converted to a probability matrix, which is used to compute the weighted sum of values.</p>
+
+  <p class="fm-figure"><img alt="05-07" class="calibre10" src="../../OEBPS/Images/05-07.png" width="1044" height="1422"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption">Figure 5.7 (top) and figure 5.6 (bottom). You can take the gray box from the bottom and plug it into a self-attention sublayer on the top and see that the same output sequence is being produced.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090052"></a>Now let’s scale up our self-attention layer and revisit the specific computations behind it and why they matter. Going back to our previous notation, we start with a sequence of words, which has <i class="fm-italics">n</i> elements. Then, after the embedding lookup, which retrieves an embedding vector for each word, we have a matrix of size <i class="fm-timesitalic">n</i> × <i class="fm-timesitalic">d</i><sub class="fm-subscript">model</sub>. Next, we have the weights and biases to compute each of the query, key, and value vectors:</p>
+
+  <p class="fm-equation"><a id="pgfId-1092037"></a><i class="fm-italics">q</i> = <i class="fm-italics">xW</i><sub class="fm-subscript">q</sub>, where <i class="fm-italics">x</i> <span class="fm-symbol1">∈</span> ℝ<sup class="fm-superscript">n×dmodel</sup>. <i class="fm-italics">W</i><sub class="fm-subscript">q</sub> <span class="fm-symbol1">∈</span> ℝ<sup class="fm-superscript">dmodel×</sup><i class="fm-italics">dq</i> and <i class="fm-italics">q</i> <span class="fm-symbol1">∈</span> ℝ<sup class="fm-superscript">n×d</sup><i class="fm-italics">q</i></p>
+
+  <p class="fm-equation"><a id="pgfId-1092248"></a><i class="fm-italics">k</i> = <i class="fm-italics">xW</i><sub class="fm-subscript">k</sub>, where <i class="fm-italics">x</i> <span class="fm-symbol1">∈</span> ℝ<sup class="fm-superscript">n×dmodel</sup>. <i class="fm-italics">W</i><sub class="fm-subscript">k</sub> <span class="fm-symbol1">∈</span> ℝ<sup class="fm-superscript">dmodel×</sup><i class="fm-italics">dk</i> and <i class="fm-italics">k</i> <span class="fm-symbol1">∈</span> ℝ<sup class="fm-superscript">n×d</sup><i class="fm-italics">k</i></p>
+
+  <p class="fm-equation"><a id="pgfId-1092260"></a><i class="fm-italics">v</i> = <i class="fm-italics">xW</i><sub class="fm-subscript">v</sub>, where <i class="fm-italics">x</i> <span class="fm-symbol1">∈</span> ℝ<sup class="fm-superscript">n×dmodel</sup>. <i class="fm-italics">W</i><sub class="fm-subscript">v</sub> <span class="fm-symbol1">∈</span> ℝ<sup class="fm-superscript">dmodel×</sup><i class="fm-italics">dv</i> and <i class="fm-italics">v</i> <span class="fm-symbol1">∈</span> ℝ<sup class="fm-superscript">n×d</sup><i class="fm-italics">v</i></p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090058"></a>For example, the query, or <i class="fm-timesitalic">q</i>, is a vector of size n × <i class="fm-timesitalic">d</i><sub class="fm-subscript">q</sub>, obtained by multiplying the input <i class="fm-timesitalic">x</i> of size <i class="fm-timesitalic">n</i> × <i class="fm-timesitalic">d</i><sub class="fm-subscript">model</sub> with the weight matrix <i class="fm-timesitalic">W</i><sub class="fm-subscript">q</sub> of size <i class="fm-timesitalic">d</i><sub class="fm-subscript">model</sub> × <i class="fm-timesitalic">d</i><sub class="fm-subscript">q</sub>. Also remember that, as in the original Transformer paper, we make sure that all of the input embedding of query, key, and value vectors are the same size. In other words,</p>
+
+  <p class="fm-equation"><a id="pgfId-1090059"></a><i class="fm-italics">d</i><sub class="fm-subscript">model</sub> = <i class="fm-italics">d</i><sub class="fm-subscript">q</sub> = <i class="fm-italics">d</i><sub class="fm-subscript">k</sub> = <i class="fm-italics">d</i><sub class="fm-subscript">v</sub> = 512</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090060"></a>Next, we compute the probability matrix using the q and k values we obtained:</p>
+
+  <p class="fm-equation"><img alt="05_06a" class="calibre10" src="../../OEBPS/Images/05_06a.png" width="234" height="89"/><br class="calibre2"/>
+  <a id="pgfId-1092441"></a></p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090065"></a>Finally, we multiply this probably matrix with our value matrix to obtain the final output of the self-attention layer:</p>
+
+  <p class="fm-equation"><img alt="05_06b" class="calibre10" src="../../OEBPS/Images/05_06b.png" width="248" height="81"/><br class="calibre2"/>
+  <a id="pgfId-1092466"></a></p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090070"></a>The self-attention layer takes a batch of a sequence of words (e.g., a batch of sentences of fixed length), where each word is represented by a vector, and produces a batch of a sequence of hidden outputs, where each hidden output is a<a class="calibre8" id="marker-1090071"></a><a class="calibre8" id="marker-1090072"></a><a class="calibre8" id="marker-1090073"></a> vector.</p>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1090076"></a>How does self-attention compare to recurrent neural networks (RNNs<a class="calibre8" id="marker-1093286"></a>)?</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1090077"></a>Before Transformer models, RNNs governed the domain of NLP. RNNs were popular for NLP problems because most are inherently time-series problems. You can think of a sentence/phrase as a sequence of words (i.e., each represented by a feature vector) spread across time. The RNN goes through this sequence, consuming one word at a time (while maintaining a memory/state vector), and produces some output (or a series of outputs) at the end. But you will see that RNNs perform more and more poorly as the length of the sequence increases. This is because by the time the RNN gets to the end of the sequence, it has probably forgotten what it saw at the start.</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1090078"></a>You can see that this problem is alleviated by the self-attention mechanism, which allows the model to look at the full sequence at a given time. This enables Transformer models to perform much better than RNN-based models.</p>
+  </div>
+
+  <h3 class="fm-head1" id="sigil_toc_id_65"><a id="pgfId-1090080"></a>5.2.5 Self-attention as a cooking competition</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090084"></a>The<a class="calibre8" id="marker-1090081"></a><a class="calibre8" id="marker-1090082"></a><a class="calibre8" id="marker-1090083"></a> concept of self-attention might still be a little bit elusive, making it difficult to understand what exactly is transpiring in the self-attention sublayer. The following analogy might alleviate the burden and make it easier. Say you are taking part in a cooking show with six other contestants (seven contestants in total). The game is as follows.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090085"></a>You are at a supermarket and are given a T-shirt with a number on it (from 1-7) and a trolley. The supermarket has seven aisles. You have to sprint to the aisle with the number on your T-shirt, and there will be a name of some beverage (e.g., apple juice, orange juice, lime juice) posted on the wall. You need to pick what’s necessary to make that beverage, sprint to your allocated table, and make that beverage.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090086"></a>Say that you are number 4 and got orange juice, so you’ll make your way to aisle 4 and collect oranges, a bit of salt, a lime, sugar, and so on. Now say the opponent next to you (number 3), had to make lime juice; they will pick limes, sugar, and salt. As you can see, you are picking different items as well as different quantities of the same item. For example, your opponent hasn’t picked oranges, but you have, and you probably picked fewer limes compared to your opponent who is making lime juice.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090087"></a>This is quite similar to what’s happening in the self-attention layer. You and your contestants are the inputs (at a single time step) to the model. The aisles are the queries, and the grocery items you have to pick are the keys. Just like indexing the probability matrix with query and keys to get the “mixing coefficients” (i.e., attention weights) for the values, you index the items you need by the aisle number allocated to you (i.e., query) and the quantity of each item in the aisle (i.e., key). Finally, the beverage you make is the value. Note that this analogy does not have 100% correspondence to the computations in the self-attention sublayer. However, you can draw significant similarities between the two processes at an abstract level. The similarities we discovered are shown in figure 5.8.</p>
+
+  <p class="fm-figure"><img alt="05-08" class="calibre10" src="../../OEBPS/Images/05-08.png" width="914" height="428"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1103183"></a>Figure 5.8 Self-attention depicted with the help of a cooking competition. The contestants are the queries, the keys are the grocery items you have to choose from, and the values are the final beverage you’re making.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090097"></a>Next we will discuss what is meant by a masked self-attention<a class="calibre8" id="marker-1090094"></a><a class="calibre8" id="marker-1090095"></a><a class="calibre8" id="marker-1090096"></a> layer.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_66"><a id="pgfId-1090098"></a>5.2.6 Masked self-attention layers</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090102"></a>As<a class="calibre8" id="marker-1090099"></a><a class="calibre8" id="marker-1090100"></a><a class="calibre8" id="marker-1090101"></a> you have already seen, the decoder has a special additional self-attention sublayer called <i class="fm-italics">masked self-attention</i>. As we have already stated, the idea is to prevent the model from “cheating” by attending to the words it shouldn’t (i.e., the words ahead of the position the model has predicted for). To understand this better, assume two people are teaching a student to translate from English to French. The first person gives an English sentence, asks the student to produce the translation word by word, and provides feedback up to the word translated so far. The second person gives an English sentence and asks the student to produce the translation but provides the full translation in advance. In the second instance, it is much easier for a student to cheat, providing a good quality translation, while having very little knowledge of the languages. Now let’s understand the looming danger of attending to the words it shouldn’t from a machine learning point of view.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090103"></a>Take the task of translating the sentence “dogs are great” to “<i class="fm-italics">les chiens sont super</i>.” When processing the sentence “Dogs are great,” the model should be able to attend to any word in that sentence, as that’s an input fully available to the model at any given time. But, while processing the sentence “<i class="fm-italics">Les chiens sont super</i>,” we need to be careful about what we show to the model and what we don’t. For example, while training the model, we typically feed the full output sequence at once, as opposed to iteratively feeding the words, to enhance computational efficiency. When feeding the full output sequence to the decoder, we must mask all words ahead of what is currently being processed because it is not fair for the model to predict the word “<i class="fm-italics">chiens</i>” when it can see everything that comes after that word. It is imperative you do this. If you don’t, the code will run fine. But ultimately you will have very poor performance when you bring it to the real world. The way to force this is by making the probability matrix <span class="fm-code-in-text">p</span> a lower-triangular matrix. This will essentially give zero probability for mixing any input ahead of itself during the attention/output computation. The differences between standard self-attention and masked self-attention are shown in figure 5.9.</p>
+
+  <p class="fm-figure"><img alt="05-09" class="calibre10" src="../../OEBPS/Images/05-09.png" width="786" height="569"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1103217"></a>Figure 5.9 Standard self-attention versus masked self-attention methods. In the standard attention method, a given step can see an input from any other timestep, regardless of whether those inputs appear before or after the current time step. However, in the masked self-attention method, the current timestep can only see the current input and what came before that time step.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090110"></a>Let’s learn how we can do this in TensorFlow. We do a very simple change to the <span class="fm-code-in-text">call()</span> function<a class="calibre8" id="marker-1090111"></a> by introducing a new argument, <span class="fm-code-in-text">mask</span>, which represents the items the model shouldn’t see with a 1 and the rest with a 0. Then, to those elements the model shouldn’t see, we add a very large negative number (i.e., - 10<sup class="fm-superscript">9</sup>) so that when softmax is applied they become zeros (listing 5.2).</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1090113"></a>Listing 5.2 Masked self-attention sublayer</p>
+  <pre class="programlisting">import tensorflow as tf
+ 
+class SelfAttentionLayer(layers.Layer):
+    
+    def __init__(self, d):
+        ...
+    
+    def build(self, input_shape):
+        ...
+    
+    def call(self, q_x, k_x, v_x, mask=None):   <span class="fm-combinumeral">❶</span>
+        q = tf.matmul(x,self.Wq)
+        k = tf.matmul(x,self.Wk)
+        v = tf.matmul(x,self.Wv)
+ 
+        p = tf.matmul(q, k, transpose_b=True)/math.sqrt(self.d)
+        p = tf.squeeze(p)
+        if mask is None:
+            p = tf.nn.softmax(p)                <span class="fm-combinumeral">❷</span>
+        else:
+            p += mask * -1e9                    <span class="fm-combinumeral">❸</span>
+            p = tf.nn.softmax(p)                <span class="fm-combinumeral">❸</span>
+                
+ 
+        h = tf.matmul(p, v)
+        return h,p</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1101905"></a><span class="fm-combinumeral">❶</span> The call function takes an additional mask argument (i.e., a matrix of 0s and 1s).</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1101926"></a><span class="fm-combinumeral">❷</span> Now, the SelfAttentionLayer supports both masked and unmasked inputs.</p>
+
+  <p class="fm-code-annotation-mob"><a class="calibre8" id="pgfId-1101943"></a><span class="fm-combinumeral">❸</span> If the mask is provided, add a large negative value to make the final probabilities zero for the words not to be seen.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090144"></a>Creating the mask is easy; you can use the <span class="fm-code-in-text">tf.linalg.band_part()</span> function<a class="calibre8" id="marker-1090143"></a> to create triangular matrices</p>
+  <pre class="programlisting">mask = 1 - tf.linalg.band_part(tf.ones((7, 7)), -1, 0)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090146"></a>which gives</p>
+  <pre class="programlisting">&gt;&gt;&gt; tf.Tensor(
+    [[0. 1. 1. 1. 1. 1. 1.]
+     [0. 0. 1. 1. 1. 1. 1.]
+     [0. 0. 0. 1. 1. 1. 1.]
+     [0. 0. 0. 0. 1. 1. 1.]
+     [0. 0. 0. 0. 0. 1. 1.]
+     [0. 0. 0. 0. 0. 0. 1.]
+     [0. 0. 0. 0. 0. 0. 0.]], shape=(7, 7), dtype=float32)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090155"></a>We can easily verify if the masking worked by looking at the probability matrix <span class="fm-code-in-text">p</span>. It must be a lower triangular matrix</p>
+  <pre class="programlisting">layer = SelfAttentionLayer(512)
+h, p = layer(x, x, x, mask)
+print(p.numpy())</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090159"></a>which gives</p>
+  <pre class="programlisting">&gt;&gt;&gt; [[1.    0.    0.    0.    0.    0.    0.   ]
+     [0.37  0.63  0.    0.    0.    0.    0.   ]
+     [0.051 0.764 0.185 0.    0.    0.    0.   ]
+     [0.138 0.263 0.072 0.526 0.    0.    0.   ]
+     [0.298 0.099 0.201 0.11  0.293 0.    0.   ]
+     [0.18  0.344 0.087 0.25  0.029 0.108 0.   ]
+     [0.044 0.044 0.125 0.284 0.351 0.106 0.045]]</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090167"></a>Now, when computing the value, the model cannot see or attend the words it hasn’t seen by the time it comes to the current<a class="calibre8" id="marker-1090169"></a><a class="calibre8" id="marker-1090170"></a><a class="calibre8" id="marker-1090171"></a> word.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_67"><a id="pgfId-1090172"></a>5.2.7 Multi-head attention</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090176"></a>The<a class="calibre8" id="marker-1090174"></a><a class="calibre8" id="marker-1090175"></a> original Transformer paper discusses something called multi-head attention, which is an extension of the self-attention layer. The idea is simple once you understand the self-attention mechanism. The multi-head attention creates multiple parallel self-attention heads. The motivation for this is that, practically, when the model is given the opportunity to learn multiple attention patterns (i.e., multiple sets of weights) for an input sequence, it performs better.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090177"></a>Remember that in a single attention head we had all query, key, and value dimensionality set to 512. In other words,</p>
+
+  <p class="fm-equation"><a id="pgfId-1090178"></a><i class="fm-italics">d</i><sub class="fm-subscript">q</sub> = <i class="fm-italics">d</i><sub class="fm-subscript">k</sub> = <i class="fm-italics">d</i><sub class="fm-subscript">v</sub> = 512</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090179"></a>With multi-head attention, assuming we are using eight attention heads,</p>
+
+  <p class="fm-equation"><a id="pgfId-1090180"></a><i class="fm-italics">d</i><sub class="fm-subscript">q</sub> = <i class="fm-italics">d</i><sub class="fm-subscript">k</sub> = <i class="fm-italics">d</i><sub class="fm-subscript">v</sub> = 512/8 = 64</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090181"></a>Then the final outputs of all attention heads are concatenated to create the final output, which will have a dimensionality of 64 × 8 = 512</p>
+
+  <p class="fm-equation"><a id="pgfId-1090182"></a><i class="fm-italics">H</i> = <i class="fm-italics">Concat</i> (<i class="fm-italics">h</i><sup class="fm-superscript">1</sup>, <i class="fm-italics">h</i><sup class="fm-superscript">2</sup>, ... , <i class="fm-italics">h</i><sup class="fm-superscript">8</sup>)</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090183"></a>where <i class="fm-timesitalic">h</i><sup class="fm-superscript">i</sup> is the output of the <i class="fm-timesitalic">i</i><sup class="fm-superscript">th</sup> attention head. Using the <span class="fm-code-in-text">SelfAttentionLayer</span> we just implemented, the code becomes</p>
+  <pre class="programlisting">multi_attn_head = [SelfAttentionLayer(64) for i in range(8)]
+outputs = [head(x, x, x)[0] for head in multi_attn_head]
+outputs = tf.concat(outputs, axis=-1)
+print(outputs.shape)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090188"></a>which gives</p>
+  <pre class="programlisting">&gt;&gt;&gt; (1, 7, 512)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090190"></a>As you can see, it still has the same shape as before (without multiple heads). However, this output is computed using multiple heads, which have smaller dimensionality than the original self-attention<a class="calibre8" id="marker-1090192"></a><a class="calibre8" id="marker-1090193"></a> layer.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_68"><a id="pgfId-1090194"></a>5.2.8 Fully connected layer</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090198"></a>The<a class="calibre8" id="marker-1090196"></a><a class="calibre8" id="marker-1090197"></a> fully connected layer is a piece of cake compared to what we just learned. So far, the self-attention layer has produced a <i class="fm-timesitalic">n</i> × <i class="fm-timesitalic">d</i><sub class="fm-subscript">v</sub>-sized output (ignoring the batch dimension). The fully connected layer takes this input and performs the following transformation</p>
+
+  <p class="fm-equation"><a id="pgfId-1090199"></a><i class="fm-italics">h</i><sub class="fm-subscript">1</sub> = <i class="fm-italics">ReLU</i>(<i class="fm-italics">xW</i><sub class="fm-subscript">1</sub> + <i class="fm-italics">b</i><sub class="fm-subscript">1</sub>)</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090200"></a>where <i class="fm-timesitalic">W</i><sub class="fm-subscript">1</sub> is a <i class="fm-timesitalic">d</i><sub class="fm-subscript">v</sub> × <i class="fm-timesitalic">d</i><sub class="fm-subscript">ff1</sub> matrix and <i class="fm-timesitalic">b</i><sub class="fm-subscript">1</sub> is a <i class="fm-timesitalic">d</i><sub class="fm-subscript">ff1</sub>-sized vector. Therefore, this operation gives out a <i class="fm-timesitalic">n</i>×<i class="fm-timesitalic">d</i><sub class="fm-subscript">ff1</sub>-sized tensor. The resulting output is passed onto another layer, which does the following computation</p>
+
+  <p class="fm-equation"><a id="pgfId-1090201"></a><i class="fm-italics">h</i><sub class="fm-subscript">2</sub> = <i class="fm-italics">h</i><sub class="fm-subscript">1</sub> <i class="fm-italics">W</i><sub class="fm-subscript">2</sub> + <i class="fm-italics">b</i> <sub class="fm-subscript">2</sub></p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090202"></a>where <i class="fm-timesitalic">W</i><sub class="fm-subscript">2</sub> is a <i class="fm-timesitalic">d</i><sub class="fm-subscript">ff1</sub> × <i class="fm-timesitalic">d</i><sub class="fm-subscript">ff2</sub>-sized matrix and <i class="fm-timesitalic">b</i><sub class="fm-subscript">2</sub> is a <i class="fm-timesitalic">d</i><sub class="fm-subscript">ff2</sub>-sized vector. This operation gives a tensor of size <i class="fm-timesitalic">n</i> × <i class="fm-timesitalic">d</i><sub class="fm-subscript">ff2</sub>. In TensorFlow parlance, we can again encapsulate these computations as a reusable Keras layer (see the next listing).</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1090204"></a>Listing 5.3 The fully connected sublayer</p>
+  <pre class="programlisting">import tensorflow as tf
+ 
+class FCLayer(layers.Layer):
+    def __init__(self, d1, d2):
+        super(FCLayer, self).__init__()
+        self.d1 = d1                                                       <span class="fm-combinumeral">❶</span>
+        self.d2 = d2                                                       <span class="fm-combinumeral">❷</span>
+    
+    def build(self, input_shape):
+        self.W1 = self.add_weight(                                         <span class="fm-combinumeral">❸</span>
+            shape=(input_shape[-1], self.d1), initializer='glorot_uniform',<span class="fm-combinumeral">❸</span>
+            trainable=True, dtype='float32'                                <span class="fm-combinumeral">❸</span>
+        )
+        self.b1 = self.add_weight(                                         <span class="fm-combinumeral">❸</span>
+            shape=(self.d1,), initializer='glorot_uniform',                <span class="fm-combinumeral">❸</span>
+            trainable=True, dtype='float32'                                <span class="fm-combinumeral">❸</span>
+        )        
+        self.W2 = self.add_weight(                                         <span class="fm-combinumeral">❸</span>
+            shape=(input_shape[-1], self.d2), initializer='glorot_uniform',<span class="fm-combinumeral">❸</span>
+            trainable=True, dtype='float32'                                <span class="fm-combinumeral">❸</span>
+        )
+        self.b2 = self.add_weight(                                         <span class="fm-combinumeral">❸</span>
+            shape=(self.d2,), initializer='glorot_uniform',                <span class="fm-combinumeral">❸</span>
+            trainable=True, dtype='float32'                                <span class="fm-combinumeral">❸</span>
+        )  
+    
+    def call(self, x):
+        ff1 = tf.nn.relu(tf.matmul(x,self.W1)+self.b1)                     <span class="fm-combinumeral">❹</span>
+        ff2 = tf.matmul(ff1,self.W2)+self.b2                               <span class="fm-combinumeral">❺</span>
+        return ff2</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1101400"></a><span class="fm-combinumeral">❶</span> The output dimensionality of the first fully connected computation</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1101421"></a><span class="fm-combinumeral">❷</span> The output dimensionality of the second fully connected computation</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1101438"></a><span class="fm-combinumeral">❸</span> Defining W1, b1, W2, and b2 accordingly. We use glorot_uniform as the initializer.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1101455"></a><span class="fm-combinumeral">❹</span> Computing the first fully connected computation</p>
+
+  <p class="fm-code-annotation-mob"><a class="calibre8" id="pgfId-1101472"></a><span class="fm-combinumeral">❺</span> Computing the second fully connected computation</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090242"></a>Here, you could use the <span class="fm-code-in-text">tensorflow.keras.layers.Dense()</span> layer<a class="calibre8" id="marker-1090241"></a> to implement this functionality. However, we will do it with raw TensorFlow operations as an exercise to familiarize ourselves with low-level TensorFlow. In this setup, we will change the FCLayer, as shown in the following listing.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1090244"></a>Listing 5.4 The fully connected layer implemented using Keras <span class="fm-code-in-listingcaption">Dense</span> layers</p>
+  <pre class="programlisting">import tensorflow as tf
+import tensorflow.keras.layers as layers
+ 
+class FCLayer(layers.Layer):
+    
+    def __init__(self, d1, d2):
+        super(FCLayer, self).__init__()
+        self.dense_layer_1 = layer.Dense(d1, activation='relu')  <span class="fm-combinumeral">❶</span>
+        self.dense_layer_2 = layers.Dense(d2)                    <span class="fm-combinumeral">❷</span>
+    
+    def call(self, x):
+        ff1 = self.dense_layer_1(x)                              <span class="fm-combinumeral">❸</span>
+        ff2 = self.dense_layer_2(ff1)                            <span class="fm-combinumeral">❹</span>
+        return ff2</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1101136"></a><span class="fm-combinumeral">❶</span> Defining the first Dense layer in the __init__ function of the subclassed layer</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1101160"></a><span class="fm-combinumeral">❷</span> Defining the second Dense layer. Note how we are not specifying an activation function.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1101177"></a><span class="fm-combinumeral">❸</span> Calling the first dense layer to get the output</p>
+
+  <p class="fm-code-annotation-mob"><a class="calibre8" id="pgfId-1101194"></a><span class="fm-combinumeral">❹</span> Calling the second dense layer with the output of the first Dense layer to get the final output</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090263"></a>Now you know what computations take place in the Transformer architecture and how to implement them with TensorFlow. But keep in mind that there are various fine-grained details explained in the original Transformer paper, which we haven’t discussed. Most of these details will be discussed in a later chapter.</p>
+
+  <p class="fm-head2"><a id="pgfId-1090264"></a>Exercise 2</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090265"></a>Say you have been asked to experiment with a new type of multi-head attention mechanism. Instead of concatenating outputs from smaller heads (of size 64), the outputs (of size 512) are summed. Write TensorFlow code using the <span class="fm-code-in-text">SelfAttentionLayer</span> to achieve this effect. You can use the <span class="fm-code-in-text">tf.math.add_n()</span> function<a class="calibre8" id="marker-1090266"></a> to sum a list of tensors element<a class="calibre8" id="marker-1090268"></a><a class="calibre8" id="marker-1090269"></a>-wise.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_69"><a id="pgfId-1090270"></a>5.2.9 Putting everything together</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090271"></a>Let’s bring all these elements together to create a Transformer network. Let’s first create an encoder layer, which contains a set of <span class="fm-code-in-text">SelfAttentionLayer</span> objects<a class="calibre8" id="marker-1090272"></a> (one for each head) and a <span class="fm-code-in-text">FCLayer</span> (see the next listing).</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1090274"></a>Listing 5.5 The encoder layer</p>
+  <pre class="programlisting">import tensorflow as tf
+ 
+class EncoderLayer(layers.Layer):
+    
+    def __init__(self, d, n_heads):
+        super(EncoderLayer, self).__init__()
+        self.d = d
+        self.d_head = int(d/n_heads) 
+        self.n_heads = n_heads
+        self.attn_heads = [
+            SelfAttentionLayer(self.d_head) for i in range(self.n_heads)
+        ]                                           <span class="fm-combinumeral">❶</span>
+        self.fc_layer = FCLayer(2048, self.d)       <span class="fm-combinumeral">❷</span>
+  
+    def call(self, x):
+        def compute_multihead_output(x):            <span class="fm-combinumeral">❸</span>
+            outputs = [head(x, x, x)[0] for head in self.attn_heads] 
+            outputs = tf.concat(outputs, axis=-1)
+            return outputs
+ 
+        h1 = compute_multihead_output(x)            <span class="fm-combinumeral">❹</span>
+        y = self.fc_layer(h1)                       <span class="fm-combinumeral">❺</span>
+        
+        return y</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1100846"></a><span class="fm-combinumeral">❶</span> Create multiple attention heads. Each attention head has d/n_heads-sized feature dimensionality.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1100867"></a><span class="fm-combinumeral">❷</span> Create the fully connected layer, where the intermediate layer has 2,048 nodes and the final sublayer has d nodes.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1100886"></a><span class="fm-combinumeral">❸</span> Create a function that computes the multi-head attention output given an input.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1100903"></a><span class="fm-combinumeral">❹</span> Compute multi-head attention using the defined function.</p>
+
+  <p class="fm-code-annotation-mob"><a class="calibre8" id="pgfId-1100923"></a><span class="fm-combinumeral">❺</span> Get the final output of the layer.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090304"></a>The <span class="fm-code-in-text">EncoderLayer</span> takes in two parameters during initialization: <span class="fm-code-in-text">d</span> (dimensionality of the output) and <span class="fm-code-in-text">n_heads</span> (number of attention heads). Then, when calling the layer, a single input <span class="fm-code-in-text">x</span> is passed. First, the attended output of the attention heads (<span class="fm-code-in-text">SelfAttentionLayer</span>) is computed, followed by the output of the fully connected layer (<span class="fm-code-in-text">FCLayer</span>). This wraps the crux of an encoder layer. Next, we create a <span class="fm-code-in-text">Decoder</span> layer<a class="calibre8" id="marker-1090308"></a> (see the next listing).</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1090310"></a>Listing 5.6 The <span class="fm-code-in-listingcaption">DecoderLayer</span></p>
+  <pre class="programlisting">import tensorflow as tf
+ 
+class DecoderLayer(layers.Layer):
+    
+    def __init__(self, d, n_heads):
+        super(DecoderLayer, self).__init__()
+        self.d = d
+        self.d_head = int(d/n_heads)
+        self.dec_attn_heads = [
+            SelfAttentionLayer(self.d_head) for i in range(n_heads)
+        ]                                                           <span class="fm-combinumeral">❶</span>
+        self.attn_heads = [
+            SelfAttentionLayer(self.d_head) for i in range(n_heads)
+        ]                                                           <span class="fm-combinumeral">❷</span>
+        self.fc_layer = FCLayer(2048, self.d)                       <span class="fm-combinumeral">❸</span>
+        
+    def call(self, de_x, en_x, mask=None):
+        def compute_multihead_output(de_x, en_x, mask=None):        <span class="fm-combinumeral">❹</span>
+            outputs = [
+                head(en_x, en_x, de_x, mask)[0] for head in 
+<span class="fm-code-continuation-arrow">➥</span> self.attn_heads]                                                 <span class="fm-combinumeral">❺</span>
+            outputs = tf.concat(outputs, axis=-1)
+            return outputs
+        
+        h1 = compute_multihead_output(de_x, de_x, mask)             <span class="fm-combinumeral">❻</span>
+        h2 = compute_multihead_output(h1, en_x)                     <span class="fm-combinumeral">❼</span>
+        y = self.fc_layer(h2)                                       <span class="fm-combinumeral">❽</span>
+        return y</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1100288"></a><span class="fm-combinumeral">❶</span> Create the attention heads that process the decoder input only.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1100312"></a><span class="fm-combinumeral">❷</span> Create the attention heads that process both the encoder output and decoder input.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1100329"></a><span class="fm-combinumeral">❸</span> The final fully connected sublayer</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1100346"></a><span class="fm-combinumeral">❹</span> The function that computes the multi-head attention. This function takes three inputs (decoder’s previous output, encoder output, and an optional mask).</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1100363"></a><span class="fm-combinumeral">❺</span> Each head takes the first argument of the function as the query and key and the second argument of the function as the value.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1100380"></a><span class="fm-combinumeral">❻</span> Compute the first attended output. This only looks at the decoder inputs.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1100397"></a><span class="fm-combinumeral">❼</span> Compute the second attended output. This looks at both the previous decoder output and the encoder output.</p>
+
+  <p class="fm-code-annotation-mob"><a class="calibre8" id="pgfId-1100414"></a><span class="fm-combinumeral">❽</span> Compute the final output of the layer by feeding the output through a fully connected sublayer.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090347"></a>The decoder layer has several differences compared to the encoder layer. It contains two multi-head attention layers (one masked and one unmasked) and a fully connected layer. First, the output of the first multi-head attention layer (masked) is computed. Remember that we are masking any decoder input that is ahead of the current decoder input that’s been processed. We use the decoder inputs to compute the output of the first attention layer. However, the computations happening in the second layer are a bit tricky. Brace yourselves! The second attention layer takes the encoder network’s last attended output as query and key; then, to compute the value, the output of the first attention layer is used. Think of this layer as a mixer that mixes attended encoder outputs and attended decoder inputs.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090348"></a>With that, we can create a simple Transformer model with two encoder layers and two decoder layers). We’ll use the Keras functional API (see the next listing).</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1090350"></a>Listing 5.7 The full Transformer model</p>
+  <pre class="programlisting">import tensorflow as tf
+ 
+n_steps = 25                                                              <span class="fm-combinumeral">❶</span>
+n_en_vocab = 300                                                          <span class="fm-combinumeral">❶</span>
+n_de_vocab = 400                                                          <span class="fm-combinumeral">❶</span>
+n_heads = 8                                                               <span class="fm-combinumeral">❶</span>
+d = 512                                                                   <span class="fm-combinumeral">❶</span>
+mask = 1 - tf.linalg.band_part(tf.ones((n_steps, n_steps)), -1, 0)        <span class="fm-combinumeral">❷</span>
+ 
+en_inp = layers.Input(shape=(n_steps,))                                   <span class="fm-combinumeral">❸</span>
+en_emb = layers.Embedding(n_en_vocab, 512, input_length=n_steps)(en_inp)  <span class="fm-combinumeral">❹</span>
+en_out1 = EncoderLayer(d, n_heads)(en_emb)                                <span class="fm-combinumeral">❺</span>
+en_out2 = EncoderLayer(d, n_heads)(en_out1)
+ 
+de_inp = layers.Input(shape=(n_steps,))                                   <span class="fm-combinumeral">❻</span>
+de_emb = layers.Embedding(n_de_vocab, 512, input_length=n_steps)(de_inp)  <span class="fm-combinumeral">❼</span>
+de_out1 = DecoderLayer(d, n_heads)(de_emb, en_out2, mask)                 <span class="fm-combinumeral">❽</span>
+de_out2 = DecoderLayer(d, n_heads)(de_out1, en_out2, mask)
+de_pred = layers.Dense(n_de_vocab, activation='softmax')(de_out2)         <span class="fm-combinumeral">❾</span>
+ 
+transformer = models.Model(
+    inputs=[en_inp, de_inp], outputs=de_pred, name='MinTransformer'       <span class="fm-combinumeral">❿</span>
+)
+transformer.compile(
+    loss='categorical_crossentropy', optimizer='adam', metrics=['acc']
+)</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1099368"></a><span class="fm-combinumeral">❶</span> The hyperparameters of the Transformer model</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1099404"></a><span class="fm-combinumeral">❷</span> The mask that will be used to mask decoder inputs</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1099421"></a><span class="fm-combinumeral">❸</span> The encoder’s input layer. It accepts a batch of a sequence of word IDs.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1099438"></a><span class="fm-combinumeral">❹</span> The embedding layer that will look up the word ID and return an embedding vector for that ID</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1099455"></a><span class="fm-combinumeral">❺</span> Compute the output of the first encoder layer.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1099472"></a><span class="fm-combinumeral">❻</span> The decoder’s input layer. It accepts a batch of a sequence of word IDs.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1099489"></a><span class="fm-combinumeral">❼</span> The decoder’s embedding layer</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1099506"></a><span class="fm-combinumeral">❽</span> Compute the output of the first decoder layer.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1099523"></a><span class="fm-combinumeral">❾</span> The final prediction layer that predicts the correct output sequence</p>
+
+  <p class="fm-code-annotation-mob"><a class="calibre8" id="pgfId-1099369"></a><span class="fm-combinumeral">❿</span> Defining the model. Note how we are providing a name for the model.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090387"></a>Before diving into the details, let’s refresh our memory with what the Transformer architecture looks like (figure 5.10).</p>
+
+  <p class="fm-figure"><img alt="05-10" class="calibre10" src="../../OEBPS/Images/05-10.png" width="1089" height="750"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1103251"></a>Figure 5.10 The Transformer model architecture</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090394"></a>Since we have explored the underpinning elements quite intensively, the network should be very easy to follow. All we have to do is set up the encoder model, set up the decoder model, and combine these appropriately by creating a <span class="fm-code-in-text">Model</span> object<a class="calibre8" id="marker-1090395"></a>. Initially we define several hyperparameters. Our model takes <span class="fm-code-in-text">n_steps-</span>long sentences. This means that if a given sentence is shorter than <span class="fm-code-in-text">n_steps</span>, we will pad a special token to make it <span class="fm-code-in-text">n_steps</span> long. If a given sentence is longer than <span class="fm-code-in-text">n_steps</span>, we will truncate the sentence up to <span class="fm-code-in-text">n_steps</span> words. The larger the <span class="fm-code-in-text">n_steps</span> value, the more information you retain in the sentences, but also the more memory your model will consume. Next, we have the vocabulary size of the encoder inputs (i.e., the number of unique words in the data set fed to the encoder) (<span class="fm-code-in-text">n_en_vocab</span>), the vocabulary size of the decoder inputs (<span class="fm-code-in-text">n_de_vocab</span>), the number of heads (<span class="fm-code-in-text">n_heads</span>), and the output dimensionality (<span class="fm-code-in-text">d</span>).</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090396"></a>With that we have defined the encoder input layer, which takes a batch of <span class="fm-code-in-text">n_steps</span>-long sentences. In these sentences, each word will be represented by a unique ID. For example, the sentence “The cat sat on the mat” will be converted to [1, 2, 3, 4, 1, 5]. Next, we have a special layer called <span class="fm-code-in-text">Embedding</span><a class="calibre8" id="marker-1090397"></a>, which provides a <span class="fm-code-in-text">d</span> elements-long representation for each word (i.e., word vectors). After this transformation, you have a (<span class="fm-code-in-text">batch size, n_steps, d</span>)-sized output, which is the format of the output that should go into the self-attention layer. We discussed this transformation briefly in chapter 3 (section 3.4.3). The <span class="fm-code-in-text">Embedding</span> layer<a class="calibre8" id="marker-1090398"></a> is essentially a lookup table. Given a unique ID (each ID represents a word), it gives out a vector that is <span class="fm-code-in-text">d</span> elements long. In other words, this layer encapsulates a large matrix of size (vocabulary size, d). You can see that when defining the <span class="fm-code-in-text">Embedding</span> layer:</p>
+  <pre class="programlisting">layers.Embedding(n_en_vocab, 512, input_length=n_steps)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090401"></a>We need to provide the vocabulary size (the first argument) and the output dimensionality (the second argument), and finally, since we are processing an input sequence of length <span class="fm-code-in-text">n_steps</span>, we need to specify the <span class="fm-code-in-text">input_length</span> argument. With that, we can pass the output of the embedding layer (<span class="fm-code-in-text">en_emb</span>) to an <span class="fm-code-in-text">Encoder</span> layer. You can see that we have two encoder layers in our model.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090403"></a>Next, moving on to the decoder, everything at a high level looks identical to the encoder, except for two differences:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1090405"></a>The <span class="fm-code-in-text">Decoder</span> layer<a class="calibre8" id="marker-1090404"></a> takes both the encoder output (<span class="fm-code-in-text">en_out2</span>) and the decoder input (<span class="fm-code-in-text">de_emb</span> or <span class="fm-code-in-text">de_out1</span>) as inputs.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1090408"></a>The <span class="fm-code-in-text">Decoder</span> layer<a class="calibre8" id="marker-1090406"></a> also has a final <span class="fm-code-in-text">Dense</span> layer<a class="calibre8" id="marker-1090407"></a> that produces the correct output sequence (e.g., in a machine translation task, these would be the translated word probabilities for each time step).</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090409"></a>You can now define and compile the model as</p>
+  <pre class="programlisting">transformer = models.Model(
+    inputs=[en_inp, de_inp], outputs=de_pred, name=’MinTransformer’
+)
+transformer.compile(
+    loss='categorical_crossentropy', optimizer='adam', metrics=['acc']
+)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090416"></a>Note that we can provide a name for our model when defining it. We will name our model “MinTransformer.” As the final step, let’s look at the model summary,</p>
+  <pre class="programlisting">transformer.summary()</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090418"></a>which will provide the following output:</p>
+  <pre class="programlisting">Model: "MinTransformer"
+_____________________________________________________________________________________________
+Layer (type)                    Output Shape         Param #     Connected to                
+=============================================================================================
+input_1 (InputLayer)            [(None, 25)]         0                                       
+_____________________________________________________________________________________________
+embedding (Embedding)           (None, 25, 512)      153600      input_1[0][0]               
+_____________________________________________________________________________________________
+input_2 (InputLayer)            [(None, 25)]         0                                       
+_____________________________________________________________________________________________
+encoder_layer (EncoderLayer)    (None, 25, 512)      2886144     embedding[0][0]             
+_____________________________________________________________________________________________
+embedding_1 (Embedding)         (None, 25, 512)      204800      input_2[0][0]               
+_____________________________________________________________________________________________
+encoder_layer_1 (EncoderLayer)  (None, 25, 512)      2886144     encoder_layer[0][0]         
+_____________________________________________________________________________________________
+decoder_layer (DecoderLayer)    (None, 25, 512)      3672576     embedding_1[0][0]           
+                                                                 encoder_layer_1[0][0]       
+_____________________________________________________________________________________________
+decoder_layer_1 (DecoderLayer)  (None, 25, 512)      3672576     decoder_layer[0][0]         
+                                                                 encoder_layer_1[0][0]       
+_____________________________________________________________________________________________
+dense (Dense)                   (None, 25, 400)      205200      decoder_layer_1[0][0]       
+=============================================================================================
+Total params: 13,681,040
+Trainable params: 13,681,040
+Non-trainable params: 0
+_____________________________________________________________________________________________</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090447"></a>The workshop participants are going to walk out of this workshop a happy bunch. You have covered the essentials of Transformer networks while teaching the participants to implement their own. We first explained that the Transformer has an encoder-decoder architecture. We then looked at the composition of the encoder and the decoder, which are made of self-attention layers and fully connected layers. The self-attention layer allows the model to attend to other input words while processing a given input word, which is important when processing natural language. We also saw that, in practice, the model uses multiple attention heads in a single attention layer to improve performance. Next, the fully connected layer creates a nonlinear representation of the attended output. After understanding the basic elements, we implemented a basic small-scale Transformer network using reusable custom layers we created for the self-attention (<span class="fm-code-in-text">SelfAttentionLayer</span>) and fully connected layer (<span class="fm-code-in-text">FCLayer</span>).</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090448"></a>The next step is to train this model on an NLP data set (e.g., machine translation). However, training these models is a topic for a separate chapter. There’s a lot more to Transformers than what we have discussed. For example, there are pretrained transformer-based models that you can use readily to solve NLP tasks. We will revisit Transformers again in a later<a class="calibre8" id="marker-1090449"></a><a class="calibre8" id="marker-1090450"></a> chapter.</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_70"><a id="pgfId-1090451"></a>Summary</h2>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1090452"></a>Transformer networks have outperformed other models in almost all NLP tasks.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1090453"></a>Transformers are an encoder-decoder-type neural network that is mainly used for learning NLP tasks.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1090454"></a>With Transformers, the encoder and decoder are made of two computational sublayers: self-attention layers and fully connected layers.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1090455"></a>The self-attention layer produces a weighted sum of inputs for a given time step, based on how important it is to attend to other positions in the sequence while processing the current position.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1090456"></a>The fully connected layer creates a nonlinear representation of the attended output produced by the self-attention layer.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1090457"></a>The decoder uses masking in its self-attention layer to make sure that the decoder does not see any future predictions while producing the current prediction.</p>
+    </li>
+  </ul>
+
+  <h2 class="fm-head" id="sigil_toc_id_71"><a id="pgfId-1090458"></a>Answers to exercises</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090459"></a><b class="fm-bold">Exercise 1</b></p>
+  <pre class="programlisting">Wq = tf.Variable(np.random.normal(size=(256,512)))
+Wk = tf.Variable (np.random.normal(size=(256,512)))
+Wv = tf.Variable (np.random.normal(size=(256,512)))</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1090464"></a><b class="fm-bold">Exercise 2</b></p>
+  <pre class="programlisting">multi_attn_head = [SelfAttentionLayer(512) for i in range(8)]
+outputs = [head(x)[0] for head in multi_attn_head]
+outputs = tf.math.add_n(outputs)</pre>
+</div>
+</div>
+</body>
+</html>

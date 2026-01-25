@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+ "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xml:lang="en" xmlns:epub="http://www.idpf.org/2007/ops" xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+  <title>Chapter 24: Reliable Software Systems</title>
+  <link rel="stylesheet"
+        type="text/css"
+        href="css/style.css" />
+  <link rel="stylesheet"
+        type="text/css"
+        href="css/media.css" />
+</head>
+<body>
+  <div id="part-5-chapter-4" class="element element-bodymatter element-container-single element-type-chapter element-with-heading">
+    <div class="heading heading-container-single heading-size-full heading-format-full heading-alignment-flexible heading-without-image">
+      <div class="heading-contents">
+        <div class="title-subtitle-block title-block-with-element-number">
+          <div class="element-number-block">
+            <div class="element-number case-upper"><span class="element-number-term">CHAPTER</span> <span class="element-number-number">24</span></div>
+          </div>
+          <div class="title-block">
+            <h1 class="element-title case-upper">RELIABLE SOFTWARE SYSTEMS</h1>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="text" id="part-5-chapter-4-text">
+      <p class="first first-in-chapter first-full-width">There’s a fair chance your organization implicitly or explicitly expects staff+ engineers to lead efforts to make systems more reliable.</p>
+      <p class="subsq">In this chapter, we cover common approaches for building and maintaining reliable systems, including:</p>
+      <ol>
+        <li><a class="content-external-link" href="part-005-chapter-024.xhtml#subhead-1">Owning reliability</a></li>
+        <li><a class="content-external-link" href="part-005-chapter-024.xhtml#subhead-2">Logging</a></li>
+        <li><a class="content-external-link" href="part-005-chapter-024.xhtml#subhead-3">Monitoring</a></li>
+        <li><a class="content-external-link" href="part-005-chapter-024.xhtml#subhead-4">Alerting</a></li>
+        <li><a class="content-external-link" href="part-005-chapter-024.xhtml#subhead-5">Oncall</a></li>
+        <li><a class="content-external-link" href="part-005-chapter-024.xhtml#subhead-6">Incident management</a></li>
+        <li><a class="content-external-link" href="part-005-chapter-024.xhtml#subhead-7">Building resilient systems</a></li>
+      </ol>
+      <h2 id="subhead-1" class="section-title subhead keep-with-next paragraph-follows case-upper">1. OWNING RELIABILITY</h2>
+      <p class="first first-after-subhead">What role do you play in reliability as a staff+ engineer? In Big Tech, it’s often an explicit expectation that you own reliability within your sphere of influence, be that on your own team or other teams. This means it’s your responsibility to ensure reliability is measured, plans are put in place to improve it and to advocate for extra engineering bandwidth to improve reliability.</p>
+      <p class="subsq">An OKR is often a helpful way to improve the reliability of systems. For example, you can capture objectives to make systems more reliable, performant, and efficient. Then you can define measurable key performance indicators (KPIs,) such as:</p>
+      <ul>
+        <li>Improve the p95 latency for System X by 10%</li>
+        <li>Increase the throughput of System Y by 30%, without increasing the hardware footprint</li>
+        <li>Decrease the cold start time of System Z by 15%</li>
+      </ul>
+      <p class="subsq"><b>You almost always need to partner with engineering managers to move the needle on reliability. </b>At the end of the day, engineering managers are responsible and accountable for the performance of their teams and the reliability of their systems. However, as a staff+ engineer, you possess the skills to recognize when reliability is a problem and to employ various approaches to improve this. You can – and should! – bring data to engineering managers to highlight why it’s important to invest in reliability, and what the return on this investment would be.</p>
+      <p class="subsq"><i>We covered more on OKRs and KPIs in <a class="content-external-link" href="part-005-chapter-021.xhtml">Part V: ”Understanding the Business.”</a></i></p>
+      <h2 id="subhead-2" class="section-title subhead keep-with-next paragraph-follows case-upper">2. LOGGING</h2>
+      <p class="first first-after-subhead">Before we dive into logging approaches, let’s put the record straight about why it matters. Logs are meant to help an engineering team debug production issues, by capturing missing but necessary information for future reference during troubleshooting.</p>
+      <p class="subsq">Which logging strategy can help your team debug its production issues? Well, this depends on your application, platform, and business environment.</p>
+      <p class="subsq">There’s a logging toolset that can be helpful when deciding how and what to log:</p>
+      <ul>
+        <li><b>Log levels. </b>Most logging tools provide ways to log various logging levels, such as “debug,” “info,” “warning,” and “error.” These are levels that can be used when filtering logs. How they’re used depends on your environment and team practices.</li>
+        <li><b>Log structure.</b> Which details do logs capture, are local variables logged, do logs capture timestamps – down to milliseconds or nanoseconds – to make it easy to tell which one of two logging events happened first? Do these timestamps include timezones?</li>
+        <li><b>Automated logging.</b> Which parts of the system log automatically, so logging isn’t dependent on an engineer remembering to do it?</li>
+        <li><b>Log retention.</b> How long are logs retained on client devices, and for how long are they on the backend? Retaining logs for longer can be useful, but takes up space and could end up costing more in data storage.</li>
+        <li><b>Toggling logging levels.</b> For applications, it’s common practice to have “debug builds” where all log levels are outputted, but only warning or error log levels are logged on a production build. The details depend on platform-level implementation and team practices.</li>
+      </ul>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Make</span> your logging practices explicit</b></p>
+      <p class="subsq">Consider introducing logging practices if the teams you work with don’t have any. Logging is an area which engineers often wish they’d pushed for agreement on what and how to log, when they’re trying and failing to find information in the logs.</p>
+      <p class="subsq">Putting a short logging guide together for the team is a matter of talking with a few engineers, and empowering a team member to make a proposal – or doing it yourself. For logging basics, agreeing on something is better than nothing, as long as the team knows it owns this guide and can change it.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">A logging guide</span> that’s stood the test of time</b></p>
+      <p class="subsq">The guide below is from 2008, by Anton Chuvakin<sup><a id="part-5-chapter-4-endnote-1" class="endnote-source" href="part-005-chapter-024.xhtml#part-5-chapter-4-endnote-1-text">1</a></sup>, who was then chief logging evangelist at LogLogic. This logging guide remains relevant, and so with Anton’s consent, here it is:</p>
+      <p class="subsq"><b>The best logs:</b></p>
+      <ul>
+        <li>Tell you exactly what happened: when, where, how</li>
+        <li>Are suitable for manual, semi-automated, and automated analysis</li>
+        <li>Can be analyzed without the application that produced them being to hand</li>
+        <li>Don’t slow the system down</li>
+        <li>Can be proven as reliable if used as evidence</li>
+      </ul>
+      <p class="subsq"><b>Events To Log</b></p>
+      <ul>
+        <li>Authentication/authorization decisions (including logoff)</li>
+        <li>System access, data access</li>
+        <li>System/application changes (especially privilege changes)</li>
+        <li>Data changes: add/edit/delete</li>
+        <li>Invalid input (possible badness/threats)</li>
+        <li>Resources (RAM, Disk, CPU, Bandwidth, any other hard or soft limits)</li>
+        <li>Health/availability: startups/shutdowns, faults/errors, delays, backups success/failure</li>
+      </ul>
+      <p class="subsq"><b>What To Log – Every Event Should Have:</b></p>
+      <ul>
+        <li>Timestamp &amp; timezone (when)</li>
+        <li>System, application, or component (where); IP’s and contemporaneous DNS lookups of involved parties; names/roles of systems involved (what servers are we talking to?), name/role of local application (what is this server?)</li>
+        <li>User (who)</li>
+        <li>Action (what)</li>
+        <li>Status (result)</li>
+        <li>Priority (severity, importance, rank, level, etc)</li>
+        <li>Reason</li>
+      </ul>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Have</span> a framework that makes logging the “right” way easy</b></p>
+      <p class="subsq">How does your team do logging, does everyone invoke logs however they see fit? This approach makes sense for very small teams with senior engineers, but on larger teams it tends to result in ad hoc logging approaches: devs log to the console, use a third-party logging vendor, or invoke an in-house logging solution.</p>
+      <p class="subsq">A relatively straightforward way to improve consistency is to reach an agreement on the logging approach – for example, which strategies to use – and then make it really hard to log the “wrong” way by introducing a lightweight but opinionated logging framework.</p>
+      <p class="subsq">But why put another framework in place, just for logging? Creating a simple interface helps abstract the underlying vendor in use, which could be especially relevant at larger companies where vendors change and it’s helpful to make migrations far easier. It can also help analyze logging usage in future. Of course, don’t build a new framework for its own sake; do it when it solves the problem of ad-hoc, inconsistent logging, and unclear guidelines for which frameworks to use.</p>
+      <h2 id="subhead-3" class="section-title subhead keep-with-next paragraph-follows case-upper">3. MONITORING</h2>
+      <p class="first first-after-subhead">How can you tell if a system is healthy or not? The most reliable way is to monitor key characteristics and trigger an alert when a metric seems unhealthy.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">50th,</span> 95th, 99th percentile</b></p>
+      <p class="subsq">Percentiles are a key concept in monitoring and service level agreements (SLAs.) When monitoring things like load times or response times, it’s not enough to look only at average numbers. Why not? They can mask worst-case scenarios that impact many customers. To avoid this, consider monitoring the following percentiles:</p>
+      <ul>
+        <li><b>p50</b>: the 50th percentile or median value. 50% of data points are below this number, and 50% are above. This value represents the “average” use case pretty well.</li>
+        <li><b>p95</b>: the 95th percentile. This represents the worst-performing 5% of data points. This value is particularly important in performance-monitoring scenarios because the worst performing 5% of data points could refer to power users.</li>
+        <li><b>p99</b>: the 99th percentile. This number represents measurements which 1% of customers or requests see longer times for. It could be acceptable for this number to be an outlier in some use cases.</li>
+      </ul>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Things to monitor</span></b></p>
+      <p class="subsq">So what should you monitor? There are plenty of obvious choices which provide health information about a system or app, including:</p>
+      <ul>
+        <li><b>Uptime. </b>For what percentage of time is the system or app fully operational?</li>
+        <li><b>CPU, memory, disk space. </b>Monitoring resource usage can provide useful indicators for when a service or app risks becoming unhealthy.</li>
+        <li><b>Response times.</b> How long does it take a system or app to respond? What is the median, and what’s the experience of the slowest 5% of requests or users (p95), and the slowest 1% (p99)?</li>
+        <li><b>Error rates.</b> How frequent are errors, such as exceptions thrown, 4XX responses on HTTP services, and other error states? What percentage of all requests are errors?</li>
+      </ul>
+      <p class="subsq">For backend services:</p>
+      <ul>
+        <li><b>HTTP status code responses. </b>If there is a spike in error codes like 5XX or 4XX, it could indicate a problem</li>
+        <li><b>Latency metrics. </b>What are the p50, p95, and p99 latencies of server responses?</li>
+      </ul>
+      <p class="subsq">For web apps and mobile apps, additional metrics are worth monitoring:</p>
+      <ul>
+        <li><b>Page load time. </b>How long does the webpage take to load? How does this compare across p50, p75 and p95?</li>
+        <li><b>Core Web Vitals metrics</b>. Google released “Web Vitals” in 2020, which are quality signals to deliver a great user experience. These metrics can capture a more detailed picture of web performance. The core signals are Largest Contentful Paint (LCP,) First Input Delay (FID,) and Cumulative Layout Shift (CLS.)</li>
+      </ul>
+      <p class="subsq">For a mobile app, additional metrics worth monitoring are:</p>
+      <ul>
+        <li><b>Start-up time. </b>How long does it take for the app to start? The longer this takes, the more likely customer churn is.</li>
+        <li><b>Crash rate.</b> What percentage of sessions end with the app crashing?</li>
+        <li><b>App bundle size.</b> How does this change over time? This is important for apps because a larger size could mean fewer users install it.</li>
+      </ul>
+      <p class="subsq">Business metrics tell the “real” story of how healthy apps or services are. The metrics above are more generic and infrastructural; they indicate fundamental problems. However, the above metrics can look good, and a service or app can still be unhealthy.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Monitoring</span> business metrics</b></p>
+      <p class="subsq">To get a full picture of system health, you need to monitor business metrics that are highly specific to the product. For example, at Uber, core business metrics for the Rides products were lifecycle events:</p>
+      <ul>
+        <li>How many people are requesting a ride?</li>
+        <li>How long does a request stay in the “pending” state?</li>
+        <li>How many of these requests are accepted or rejected?</li>
+      </ul>
+      <p class="subsq">Changes in metrics like a plummeting rate of rides being accepted could indicate an outage.</p>
+      <p class="subsq">On my Payments team within the Rides product, the business metrics we monitored were:</p>
+      <ul>
+        <li>Number of successful additions of a new payment method (e.g., a credit card.)</li>
+        <li>Number of errors during the add payment flow</li>
+        <li>Time taken to complete the add payment flow – the p50 figure</li>
+      </ul>
+      <p class="subsq">We measured the business metrics for payment methods like credit card, PayPal, Apple Pay, and others. Business metrics are specific to your business unit, but some are widespread, such as:</p>
+      <ul>
+        <li><b>Customer onboarding. </b>How many customers entered the signup funnel, which ratio of exits are successful, how many people get “stuck” at certain steps, and how long does a signup take?</li>
+        <li><b>Success and error rates for business-specific actions.</b> What is the ratio of successful and unsuccessful business-specific actions? For example, on Uber’s Payments team the action is adding a payment method.</li>
+        <li><b>Daily/weekly/monthly active users (DAU, WAU, MAU.)</b> How many users are active per day/week/month?</li>
+        <li><b>Revenue.</b> What’s the total revenue generated on a daily, weekly, and hourly basis? What about average revenue per user?</li>
+        <li><b>Usage numbers.</b> For how long does a user interact with the app or service, and how many actions do they make? Statistics like p50, p75, and p90 identify median users, frequent users, and power users.</li>
+        <li><b>Number of support tickets.</b> What is the number of total support tickets coming in, and how are they split by category? When splitting by category, it can be useful to track how this occurs, as spikes may indicate bugs or outages.</li>
+        <li><b>Retention and churn.</b> What percentage of users are retained on a weekly, monthly, and quarterly basis, i.e., what percentage return? What’s the ratio of users who cancel, such as by deleting their accounts?</li>
+      </ul>
+      <p class="subsq">Monitoring alone isn’t sufficient to ensure a system is reliable. Alerts need to be fired when the metrics look wrong, which an oncall engineer must receive, investigate, and mitigate.</p>
+      <h2 id="subhead-4" class="section-title subhead keep-with-next paragraph-follows case-upper">4. ALERTING</h2>
+      <p class="first first-after-subhead">Decide which metrics need alerts assigned to them. There are many things to monitor, but which specific metrics should have alerting in place for when they trend in the wrong direction?</p>
+      <p class="subsq">One way to answer this question is to start with the business and product. Ask questions like:</p>
+      <ul>
+        <li><b>What does “healthy” look like?</b> Which metrics tell us things look good? Add alerts to metrics that indicate things are not good.</li>
+        <li><b>What outages happened previously?</b> Which metrics could indicate something is wrong, in the future? Add alerts to metrics which would alert for a previous outage.</li>
+        <li><b>What do customers notice when things are not working?</b> Add monitoring and alerting to catch them. You might need to look at percentiles like p95 to catch outlier use cases related to long latency.</li>
+      </ul>
+      <p class="subsq">Just by verbalizing what “healthy” and “unhealthy” states look like, you should be able to figure out which areas of a system to monitor and alert for.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Urgency of alerts</span></b></p>
+      <p class="subsq">Not all alerts are equal. A system going down for all customers sounds like a very important alert, whereas a small functionality breaking for a fraction of users – for example, a ticketing system’s ‘import users’ function – has a much smaller impact. For this reason, categorize the urgency of alerts. Here’s a simple but efficient system:</p>
+      <ul>
+        <li><b>Urgent alert: </b>fires alerts that need to be acknowledged and acted on, ASAP. This alert will send a push notification, attempt to call a phone number, and escalate along a chain of command if there’s no response.</li>
+        <li><b>Non-urgent alerts:</b> this alert doesn’t disrupt people outside of business hours. These alerts are important to check but can wait until office hours.</li>
+      </ul>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Alert</span> noise</b></p>
+      <p class="subsq">Track the “noisiness” of alerts and act on it. A noisy alert is one that’s not actionable. It’s stressful to be woken up in the middle of the night by an alert, and even worse when it’s for no real reason. At the same time, missing an outage due to an alert not being sent is less than ideal. So what’s the right balance to strike? Measuring precision and recall are two concepts that help.</p>
+      <p class="subsq"><b>Precision. </b>This measures the percentage of alerts which indicate a real issue. A system with 30% precision means 3 in 10 alerts are outages, and the rest are noise. The higher the precision percentage, the less noisiness there is. A system with 100% precision fires only alerts which indicate outages.</p>
+      <p class="subsq"><b>Recall. </b>This measures the percentage of outages for which alerts are fired. A system with 30% recall means alerts are fired for 3 in 10 outages. A system with 100% recall means alerts are sent for every outage.</p>
+      <p class="subsq">The ideal oncall system has 100% precision with no noisy alerts, and detects 100% of outages. But in the real world there tends to be tradeoffs, such as:</p>
+      <ul>
+        <li>When you remove noisy alerts you boost precision, but risk missing outages due to alerts not firing. This reduces recall.</li>
+        <li>To improve alerting of outages, it’s common to add more alerts to boost recall. But this may reduce precision.</li>
+      </ul>
+      <p class="subsq">Measure both the precision and recall of alerts to see which area you need to focus more on. A common method:</p>
+      <ul>
+        <li>Have the oncall engineer record whether each alert is for an outage, or if it’s noise. <i>Most oncall tooling helps track this. If not, build or buy this functionality.</i></li>
+        <li>In incident reviews, go through all recent outages and answer the question: “did an alert fire which indicated an outage was happening?” This will show the recall percentage.</li>
+      </ul>
+      <p class="subsq">Measuring precision and recall rates involves engineers following the two manual steps above. Engineers need to tag alerts to confirm if an alert was for an outage, and incident reviewers should tag whether an outage was preceded by an alert. Capturing this information might already be possible with your existing oncall system. If not, you might need to build this functionality or extend the oncall system.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Static thresholds</span> vs anomaly detection</b></p>
+      <p class="subsq">How do you decide when to fire an alert for a metric? There are two common approaches:</p>
+      <p class="subsq"><b>1. Static thresholds. </b>Manually define a threshold for when to fire an alert. For example, put a rule in place stating, “if this metric drops to zero for more than 60 seconds: fire an alert,” or “if this metric is above 500/minute where the usual number is 100, raise an alert.”</p>
+      <p class="subsq">The upside of static thresholds is that they are easy to define, and it’s easy to understand exactly why an alert fired. They are also easy to tweak. The downside is that it’s hard to predict in advance what static thresholds to set, and it’s more common to put static thresholds in place after an outage which a static threshold alert could have caught.</p>
+      <p class="subsq"><b>2. Anomaly detection. </b>Instead of manually defining thresholds, let a machine learning system detect anomalies in the traffic patterns related to a metric. The only configuration input is how sensitive these alerts should be.</p>
+      <p class="subsq">The upside of anomaly detection is that it picks up on far more variance than static thresholds do. With a well-trained and well-configured anomaly detection system, alerts are fired in the case of unexpected traffic surges or traffic drops. Anomaly detection is also much less of an effort to deploy across a variety of metrics, assuming there’s an anomaly detection framework to use.</p>
+      <p class="subsq">The downside is that anomaly detection can be overly noisy when not trained or configured well, so that it fires too many alerts, even for normal traffic patterns. I remember when we first deployed anomaly detection for our payments system at Uber; during the first few weeks while the system was training and we were configuring it, we got so many alerts that it was necessary to turn off live alerts.</p>
+      <p class="subsq">Anomaly detection can have the opposite problem of being too insensitive to detect real anomalies. Configuring anomaly detection is often more work than it seems, and you’ll likely need to have this system take into account things like usual traffic patterns during different times of week. It could also fire alerts for predictably low or high traffic – such as a traffic surge or drop during Black Friday for an e-commerce business.</p>
+      <p class="subsq"><b>Use good judgment to decide which types of alerts to use, and when. </b>It takes hands-on experience with both types of alerts to decide which one is more beneficial for a specific use case. Use both of these alerts on different projects if you’ve not done so already!</p>
+      <p class="subsq">Often, the most practical approach is a mix of the two: anomaly detection for most metrics, combined with static thresholds for expected traffic increases/drops, and to capture key metrics dropping to zero.</p>
+      <h2 id="subhead-5" class="section-title subhead keep-with-next paragraph-follows case-upper">5. ONCALL</h2>
+      <p class="first first-after-subhead">Until the 2000s, it was common for companies to operate an ops model, with “ops” meaning operations. Developers wrote and tested code, committed it to a “next release” branch in source control, and over weeks or months the Release Candidate would be finalized and tested. The ops team would then take over and ship the release by deploying the code across servers, and applying database schema updates. For downloadable applications, the ops team updated the binary, and the update scripts. Then ops monitored the application.</p>
+      <p class="subsq">Today, with much shorter iteration cycles, engineering teams frequently deploy multiple times per day. It’s no longer an ops team which monitors the code, but the engineering team that makes changes and defines oncall rotations.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Typical oncall rotations</span></b></p>
+      <p class="subsq">At tech companies, a typical oncall setup looks like this:</p>
+      <ul>
+        <li><b>Primary oncall: </b>the engineer who receives alerts for the team’s systems in production.</li>
+        <li><b>Pager application:</b> the app that routes alerts to the primary oncall. The most popular pager application vendor is PagerDuty, and other solutions like ZenDuty, incident.io, Jeli, FireHydrant, and Spike, are also used. Some large tech companies build in-house pager applications.</li>
+        <li><b>Secondary and tertiary oncall:</b> when an alert comes in, the oncall engineer needs to acknowledge it within a given amount of time, say, 10 minutes. If there’s no acknowledgment, the alert escalates and pages the next person in the oncall chain, who’s the secondary oncall. If the secondary oncall doesn’t acknowledge in time, then the propagation continues to the tertiary oncall, and so on.</li>
+      </ul>
+      <p class="subsq">Most tech companies define a primary and secondary oncall rotation comprising team members. The tertiary layer tends to be engineering managers, and then the engineering management chain – such as directors and VPs in the engineering organization.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Dedicated oncall</span> team vs every team being oncall</b></p>
+      <p class="subsq">At most of Big Tech, it’s common for engineering teams to own their own oncall rotation and to both define and staff it. At smaller tech companies it’s not uncommon to have a dedicated oncall team that handles all high-priority alerts. This is often a virtual oncall team, and engineers are usually compensated for their extra time and effort.</p>
+      <p class="subsq">At more traditional companies, or those beginning a digital transformation, it’s pretty common for a DevOps team to handle alerts, given runbooks are associated with alerts.</p>
+      <p class="subsq">What’s the ideal size of an oncall team? However an oncall team is staffed, it’s typical for an engineer to be oncall for a week. This means a team size of at least 5, if no engineer is to be oncall more than once a month: given a month has 4.5 weeks, on average. A team size of 6 accounts for holidays and illness; a good rule of thumb is that there’s at least 6 people in a healthy oncall rotation.</p>
+      <p class="subsq">If engineers also serve as secondary oncalls on top of their primary oncall duty, then a healthy rotation has 10-12 people, so that members aren’t oncall too often.</p>
+      <p class="subsq">At companies with a single oncall team, it’s usually easier to ensure it’s of a healthy size. But at companies where every team is oncall, people will be oncall more than once a month if they’re on a team of fewer than 6. In such cases, it’s common for two smaller teams in related domains to merge their oncalls to create a healthier cadence.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Oncall runbooks</span></b></p>
+      <p class="subsq">When an alert fires, it’s typically the oncall engineer who gets the notification. They then take action to determine if the alert indicates an outage.</p>
+      <p class="subsq">An alert runbook helps to debug alerts and take steps to mitigate an outage. “Oncall runbook” is the collective term for alert runbooks, or the “master” alert runbook. Oncall runbooks can also be called “incident response runbooks.”</p>
+      <p class="subsq">Having an alert runbook attached to each alert makes oncall much more efficient. A useful alert runbook contains the following information:</p>
+      <ul>
+        <li><b>Diagnostic steps. </b>How can the oncall engineer determine if an alert indicates an outage? Which dashboards, metrics, or other resources should they access for this? Which steps should they take to definitively determine if there’s an outage? Ideally, the runbook has direct links to resources for diagnosing the issue.</li>
+        <li><b>Pointers to mitigate an outage.</b> Assuming an alert indicates an outage, what are the steps to resolve it? Most alerts tend to indicate specific types of outages, and the runbook contains details about them.</li>
+        <li><b>Relevant previous incidents.</b> What outages did this alert indicate previously? A pointer to the outage document can help review diagnostic steps, as well as mitigation, and could be handy when an alert fires.</li>
+      </ul>
+      <p class="subsq">Alert runbooks need to be kept up to date. Unfortunately, it’s not possible to write the “perfect” alert runbook which never needs updating! Alert runbooks need to be updated when new incidents occur, including details on how to diagnose outages, as well as when systems are changed.</p>
+      <p class="subsq">A healthy incident review process includes updates of oncall runbooks as part of each and every oncall event, or at least a review of whether the runbooks should be updated.</p>
+      <p class="subsq">There are similarities between documenting code and writing alert runbooks. Both are useful for future reference – like when an engineer wants to understand what’s going on – but it’s tempting to de-prioritize these documents in the present. This means it falls to engineers who’ve been burnt by a lack of oncall runbooks to lead by example and be proactive in writing them.</p>
+      <p class="subsq">As a staff+ engineer, defining a “master” oncall runbook is an easy way to make oncall more efficient. Try and work with the engineering team to create runbooks for common alerts, and make reviewing and updating alert runbooks part of the incident response process.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Oncall compensation</span></b></p>
+      <p class="subsq">Whether or not oncall is paid depends on a few things:</p>
+      <ul>
+        <li><b>Regulation.</b> In countries like Spain and Brazil, oncall pay is clearly regulated and applies to software engineers.</li>
+        <li><b>Whether being oncall is the only job.</b> Some companies – mostly traditional ones – hire dedicated DevOps or oncall engineers whose sole job is oncall rotation. At these places, there is no additional compensation for oncall.</li>
+        <li><b>Is oncall voluntary.</b> At places where oncall is voluntary, it’s common to incentivize people to volunteer by offering payment.</li>
+      </ul>
+      <p class="subsq">At Big Tech and other companies paying closer to the top of the market – Tier 3 or Tier 2 compensation packages, as per the categorization in the chapter, Part I: “Compensation” – being oncall tends to be a widespread practice with no extra compensation. The likes of Amazon, Meta, Apple, and Microsoft, all follow this model. The exception is countries where oncall compensation is mandated.</p>
+      <p class="subsq">Google is the only Big Tech company that compensates oncall<sup><a id="part-5-chapter-4-endnote-2" class="endnote-source" href="part-005-chapter-024.xhtml#part-5-chapter-4-endnote-2-text">2</a></sup>, and also limits the time spent oncall.</p>
+      <p class="subsq">Companies with more “centralized” oncall rotations which engineers can volunteer to join, almost always compensate oncall. For a list of companies that pay, and how much, see my article, Oncall compensation for software engineers<sup><a id="part-5-chapter-4-endnote-3" class="endnote-source" href="part-005-chapter-024.xhtml#part-5-chapter-4-endnote-3-text">3</a></sup>.</p>
+      <p class="subsq">Companies that pay closer to the middle of the market or below it, tend to need to pay for oncall because it’s an additional time commitment and a source of stress outside of normal work hours. At well-paying companies, engineers will often accept the additional responsibility as part of a decent compensation package. However, if engineers feel they are not compensated sufficiently for it, they may seek jobs which pay more, or that pay similarly but without oncall pressure.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Should engineers do “normal”</span> work while oncall?</b></p>
+      <p class="subsq">There are a few teams on which being oncall is like a fulltime job, with frequent outages taking up people’s time on cleaning up and executing follow-up actions. But for most teams, the work is not so intense, and during “good” oncall weeks there’s barely any additional work. So should an oncall engineer do “normal” work while oncall?</p>
+      <p class="subsq">Ultimately, this is a decision for the team manager. Here are common approaches for defining the weekly work of the oncall engineer:</p>
+      <ul>
+        <li><b>Combine oncall with support engineering. </b>If a team is customer-facing, there will be plenty of inbound support requests from customers. Many teams combine the oncall role with support engineering, with the oncall engineer going through inbound requests which might be bug reports to investigate, data cleaning requests that involve writing and running scripts, and more. During oncall week, an engineer stops their “normal” work and oncall becomes their first priority. When not doing oncall work, they pick up support tasks.</li>
+        <li><b>Assume zero project work and only oncall work.</b> For teams where oncall is a major source of labor, the oncall engineer can work only on oncall-related tasks, and when not handling outages they work on improving the oncall system, for example, by reducing alerts’ noisiness, improving system reliability, or writing and improving runbooks.</li>
+        <li><b>Assume an engineer has no capacity for project work while oncall.</b> A conservative approach is for a team to assume the oncall engineer is busy with oncall the whole week, and to plan accordingly. In reality, there will be additional time to contribute to project work, but strictly on a “best-effort” basis. This is a helpful approach, unless it’s expected the engineer will spend most of their time working on a project, of course!</li>
+        <li><b>Assume the engineer will be at X% of capacity.</b> Some managers assume an engineer on call will have a certain amount of capacity for project work, which is fine when the oncall load is as expected. But the problem with oncall is that it’s unpredictable!</li>
+      </ul>
+      <p class="subsq">As a staff+ engineer, you will likely be able to influence the decision of how to plan oncall. Take oncall load and team dynamics into account when deciding the best approach.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Oncall burnout</span></b></p>
+      <p class="subsq">A common axiom states “people quit managers, not companies.” Here’s a related observation by me: People don’t only quit managers, they also quit terrible oncall rotations.</p>
+      <p class="subsq">“Oncall burnout” is very real and something I’ve seen several times. It tends to happen in a combination of two or more factors:</p>
+      <ul>
+        <li>Engineers go oncall more than once a week per month</li>
+        <li>The oncall rotation is noisy, meaning most alerts are non-actionable</li>
+        <li>Engineers are awoken at night more than once a week per rotation</li>
+        <li>Many outages happen, with lots of fires to put out</li>
+        <li>Engineers are expected to do “normal” work while oncall</li>
+      </ul>
+      <p class="subsq">People respond to oncall burnout in different ways. Some recognize it’s happening and take steps to change their situation by moving teams or leaving the company. Others keep pushing on, but their performance is negatively impacted, which they may not even notice! The impact of a stressful oncall is familiar; it wears people down.</p>
+      <p class="subsq">As a staff+ engineer, you’re likely one of the few individual contributors whose voice is taken seriously by management. So if you observe a team or individual getting close to burnout, make a case to improve oncall dynamics. Managers are responsible for team health, but if a manager is hands-off it might be down to you to deliver a diagnosis on the state of oncall, and offer an improvement.</p>
+      <h2 id="subhead-6" class="section-title subhead keep-with-next paragraph-follows case-upper">6. INCIDENT MANAGEMENT</h2>
+      <p class="first first-after-subhead">What happens when an alert is fired and the oncall engineer confirms it’s an outage? This is when the incident management process begins. The goal of incident management is to restore the system to normal operation as fast as possible, and prevent it from happening again.</p>
+      <p class="subsq">There are various frameworks related to incident management, and your workplace might already use one. Typical incident lifecycle steps are:</p>
+      <ol>
+        <li>Detect an incident</li>
+        <li>Fix it</li>
+        <li>Follow-up after the incident</li>
+      </ol>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">#1:</span> Detect an incident</b></p>
+      <p class="subsq">Monitoring and alerting are key ways to detect incidents quickly, ideally within minutes. Once an alert fires, the oncall engineer needs to assess whether an outage is happening.</p>
+      <p class="subsq"><b>Declaring an incident</b> is the first step of the incident management process. This is done by creating a new incident with the company’s preferred incident management tool.</p>
+      <p class="subsq"><b>Categorizing and prioritizing an incident</b> often happens when it’s declared. There’s a big difference between an outage that impacts a small cohort of customers, and a system going down for all customers.</p>
+      <p class="subsq">Incident levels and categorization is something most tech companies have in place from the early days. Some opt to define incidents by different levels. For example, Amazon defines levels by severity: SEV-0 is the highest impact and most widespread, with SEV-1, SEV-2, SEV-3 all increasingly lower priority. At Uber, level 5 (L5) was the most serious, and L4, L3, L2 were all lower by impact and percentage of users affected. Some companies define two parts of an incident: impact (High/Medium/Low,) and how widespread it is (High/Medium/Low)</p>
+      <p class="subsq">There should be clear criteria for how to categorize an incident, which is based on easy-to-measure metrics like service level indicators (SLIs.) If you find your company is vague about how to categorize severity, it may be an opportunity to improve this area!</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">#2:</span> Fix it</b></p>
+      <p class="subsq"><b>Incident management roles </b>should be clear from when an incident is declared. Who coordinates the incident response and who updates stakeholders? It’s common enough for the “incident commander” role to be the response coordinator. This might not be the person who detected the incident. Most engineering teams quickly learn it’s helpful to make this role explicit.</p>
+      <p class="subsq">Most incident management tools require an assigned incident commander when declaring an incident. Like the severity of the incident, this role can be changed later. It’s not uncommon for incident commanders to change, especially when an outage starts small, but develops into a more severe one.</p>
+      <p class="subsq"><b>Mitigation</b> is the most pressing step after declaring an outage. Fixing an incident as quickly as possible is sometimes straightforward; for example, if it was caused by a recent code change, then rolling back that change may be a quick fix.</p>
+      <p class="subsq">Mitigating efficiently tends to involve these steps:</p>
+      <ul>
+        <li>When mitigation steps are known, execute them. This is why runbooks are so valuable; they make mitigation much easier</li>
+        <li>When mitigation steps are unknown, get people with relevant expertise involved and start mitigating. This could involve paging or calling them. Knowing who the right people are is easier with an oncall runbook.</li>
+        <li>Communicate with stakeholders. Outage stakeholders are people in the management chain with an interest in what’s happening with an outage, or business stakeholders, or customers</li>
+        <li>Verify whether a mitigation step has worked. After attempting to mitigate, verify its effectiveness. Outages can be tricky beasts and may require multiple steps in order to be resolved. Occasionally, mitigation efforts can make an outage worse</li>
+      </ul>
+      <p class="subsq"><b>Assessing the root cause of an outage isn’t the biggest priority. </b>A common mistake less experienced engineers make is trying to understand why an outage occurred, and to only start fixing it when they know. It is logical to not want to fix without first understanding the cause, but this approach can slow down efforts to mitigate an outage as quickly as possible.</p>
+      <p class="subsq">If there are obvious mitigation steps that can be started, like rolling back a code change, or executing a rollback plan, <b>do these first</b>. Once the outage is mitigated, there will be plenty of time to understand its cause.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">#3:</span> Follow-up after an incident</b></p>
+      <p class="subsq">Once an incident is mitigated, it’s time to take a breath. If mitigation took place outside of business hours, then take a well-earned rest and follow up the next workday.</p>
+      <p class="subsq"><b>Incident analysis/postmortem</b> is typically the next step in the incident-handling lifecycle. Common questions include what caused the incident, what was the exact timeline of events, and how to avoid a repeat in future?</p>
+      <p class="subsq"><b>The incident review</b> is a meeting in which a bigger group reviews the incident analysis documents of high-impact outages. Some companies have dedicated incident management teams for this, others hold weekly or bi-weekly meetings with some managers present, while others do it ad hoc.</p>
+      <p class="subsq"><b>Incident follow-up actions </b>are those the team identifies as necessary to avoid similar incidents in future. But it’s easy enough for these to be deprioritized after mitigation, especially if they require a lot of engineering work. Every team and company has a different way to track these items and ensure they are done. As a staff+ engineer, you can – and should! – help create time for the team to do this follow-up work, sometimes even at the expense of other tasks.</p>
+      <p class="subsq"><b>Blameless reviews </b>are a common approach across the tech industry. When doing an incident analysis, avoid making it a witch hunt process of finding someone to blame.</p>
+      <p class="subsq">Most outages are caused by configuration or code changes which someone made, and it’s very easy to find out exactly who. But rather than directly or indirectly pinning blame on one person, go deeper and look into why systems allowed those changes to happen without feedback. If the conditions that allowed an incident to occur are unaddressed, they could easily trip up someone else in future.</p>
+      <p class="subsq">Some people resist the idea of blameless postmortems. “Will this lead to a lack of accountability?”, they ask. But accountability and a blameless culture are distinct things which go hand in hand, in my view. Accountability means people take responsibility for their work, and when things inevitably go wrong, they take ownership for fixing them. A blameless approach recognizes that it’s counterproductive to blame someone for doing something which they were unaware would cause an outage, especially when they take accountability for addressing the causes.</p>
+      <p class="subsq"><b>Consider whether your incident review process prioritizes learning from incidents. </b>In the article, Incident review and postmortem best practices<sup><a id="part-5-chapter-4-endnote-4" class="endnote-source" href="part-005-chapter-024.xhtml#part-5-chapter-4-endnote-4-text">4</a></sup>, I talk with John Allspaw – former CTO of Etsy, and founder of Adaptive Capacity Labs. John helps companies improve their incident management processes, and shared an interesting observation:</p>
+      <div class="blockquote-container prose without-attribution within-prose-element">
+        <blockquote class="prose without-attribution within-prose-element">
+        <p class="first blockquote-content blockquote-content-prose blockquote-position-first">“Most incidents are written to be filed, not to be read or learned from. This is what we come across again and again. Teams go through incidents, they file a report, pat themselves on the back, and think they’ve learned from it. In reality, the learning has been a fraction of what it could have been.</p>
+        <p class="subsq blockquote-content blockquote-content-prose blockquote-position-last">The current incident-handling approaches are only scratching the surface of what we could be doing. In some ways, tech is behind several other industries in how we architect reliable systems.”</p>
+      </blockquote>
+      </div>
+      <p class="subsq">There are plenty of playbooks and tools for building an incident-management process that’s in line with how most tech companies handle incidents. What there is a scarcity of, is companies that successfully use incident management as a learning tool to make teams and systems more resilient.</p>
+      <p class="subsq">As a staff+ engineer, you’re able to influence how the incident management processes in your workplace evolve. As you do, remember that learning from incidents and applying lessons across the organization should be the ultimate goals of any incident management system. It’s the approach used by companies which are ahead of the pack.</p>
+      <h2 id="subhead-7" class="section-title subhead keep-with-next paragraph-follows case-upper">7. BUILDING RESILIENT SYSTEMS</h2>
+      <p class="first first-after-subhead">How do you build a system that operates reliably? Design and code systems that are resilient, are a must-have. But resilience doesn’t come from just thinking about future faults and use cases. Here are approaches for designing, building, testing, and operating resilient systems.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Planning</span> phase</b></p>
+      <p class="subsq">Resilient systems are designed to behave resiliently, obviously. During the planning phase, pay attention to these things:</p>
+      <ul>
+        <li><b>SLIs.</b> Determine the system’s uptime service level indicators (SLI). What will determine if a system is “healthy,” what does “uptime” mean, and what is the uptime target? Define these as precisely as possible, as this definition will drive architecture decisions, as well as testing and operations choices.</li>
+        <li><b>Plan for failure.</b> What could go wrong and how will you respond?</li>
+        <li><b>Plan for load.</b> What load is the system expected to handle, what does peak load look like, what capacity does the system need to handle this initial load?</li>
+        <li><b>Plan for redundancy. </b>What are redundancy requirements, how will data be replicated and redundancy ensured?</li>
+        <li><b>Plan for what to monitor and alert for.</b> What are indicators of system health, and what anomalies do you want to alert oncall engineers to?</li>
+      </ul>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">During the coding</span> phase</b></p>
+      <p class="subsq">As you build the system, a few areas are worth focusing on with resiliency in mind:</p>
+      <ul>
+        <li><b>Code defensively. </b>Handle edge cases explicitly and not implicitly, where possible.</li>
+        <li><b>Pay attention to error states and error mapping.</b> What indicates errors in the system? These could be variables, API responses, or state. Record and log these errors, and – if it’s sensible – alert on them. Pay attention to how systems map error states between one another.</li>
+        <li><b>Consider state management.</b> How is state handled within the application, and what parts of the application can modify state? The fewer places which can modify the state, the fewer things that can go wrong. This is a reason why frameworks offering immutable state – and declarative languages that don’t support state handling via variables – tend to be easier to validate as working correctly.</li>
+        <li><b>Catch unknown states. </b>A state that’s neither good nor bad, tends to be a hotbed for problems later. Be diligent in searching for unknown states and responses, log them, and consider alerting them.</li>
+      </ul>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Simulate failures</span> and test the system’s response</b></p>
+      <p class="subsq">There are several ways to simulate a failure and confirm the system can handle it as expected. A few examples:</p>
+      <ul>
+        <li><b>Graceful degradation. </b>Shut down a dependency of a system and validate that it responds by degrading some of its parts, as expected.</li>
+        <li><b>Retries.</b> When dependencies such as an external API go down, a resilient system retires requests and backs off, according to strategy.</li>
+        <li><b>Circuit breaker. </b>Simulate how a service handles getting into a degraded state. With a circuit breaker pattern, the system should switch to a “closed” state when it detects errors within one of its key dependencies. The system reopens itself when the degradation is resolved.</li>
+        <li><b>Datacenter failover. </b>Simulate a problem at a data center and the application failing over to operate from another location.</li>
+        <li><b>Disaster recovery.</b> Ensure secure data backups are in place, and that full service can be restored using them, in the event of a major outage or disaster.</li>
+      </ul>
+      <p class="subsq">Once the system is in production, keep checking how it performs, and alert when anomalies are detected. Have a clear incident management process that continuously tweaks and improves these systems because incidents inevitably occur.</p>
+    </div>
+    <div class="fewer-than-100-notes">
+      <div class="endnotes">
+        <div class="endnotes-separator">
+        </div>
+        <div>
+          <div id="part-5-chapter-4-endnote-1-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-005-chapter-024.xhtml#part-5-chapter-4-endnote-1">1</a> </span><a class="content-external-link text-is-url" href="https://www.chuvakin.org">https://www.chuvakin.org</a></p>
+          </div>
+          <div id="part-5-chapter-4-endnote-2-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-005-chapter-024.xhtml#part-5-chapter-4-endnote-2">2</a> </span><a class="content-external-link text-is-url" href="https://blog.pragmaticengineer.com/oncall-compensation">https://blog.pragmaticengineer.com/oncall-compensation</a></p>
+          </div>
+          <div id="part-5-chapter-4-endnote-3-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-005-chapter-024.xhtml#part-5-chapter-4-endnote-3">3</a> </span><a class="content-external-link text-is-url" href="https://blog.pragmaticengineer.com/oncall-compensation">https://blog.pragmaticengineer.com/oncall-compensation</a></p>
+          </div>
+          <div id="part-5-chapter-4-endnote-4-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-005-chapter-024.xhtml#part-5-chapter-4-endnote-4">4</a> </span><a class="content-external-link text-is-url" href="https://blog.pragmaticengineer.com/postmortem-best-practices">https://blog.pragmaticengineer.com/postmortem-best-practices</a></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

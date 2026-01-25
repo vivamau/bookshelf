@@ -1,0 +1,1784 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xml:lang="en"
+      lang="en"
+      xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:epub="http://www.idpf.org/2007/ops">
+<head>
+<title>TensorFlow in Action</title>
+<link rel="stylesheet" type="text/css" href="../../override_v1.css"/>
+<link rel="stylesheet" type="text/css" href="../../stylesheet.css"/><link rel="stylesheet" type="text/css" href="../../page_styles.css"/>
+</head>
+<body>
+<div id="book-content">
+<div id="sbo-rt-content" class="calibre"><h1 class="tochead"><a id="pgfId-1109481"></a>7 Teaching machines to see better: Improving CNNs and making them confess</h1>
+
+  <p class="co-summary-head"><a id="pgfId-1109483"></a>This chapter<a id="marker-1111669"></a> covers</p>
+
+  <ul class="calibre9">
+    <li class="co-summary-bullet"><a class="calibre8" id="pgfId-1109484"></a>Reducing overfitting of image classifiers</li>
+
+    <li class="co-summary-bullet"><a class="calibre8" id="pgfId-1109485"></a>Boosting model performance via better model architectures</li>
+
+    <li class="co-summary-bullet"><a class="calibre8" id="pgfId-1109486"></a>Image classification using pretrained models and transfer learning</li>
+
+    <li class="co-summary-bullet"><a class="calibre8" id="pgfId-1109487"></a>Modern ML explainability techniques to dissect image classifiers</li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109488"></a>We have developed and trained a state-of-the-art image classifier known as the Inception net v1 on an object classification data set. Inception net v1 is a well-recognized image classification model in computer vision. You learned how Inception blocks are created by aggregating convolution windows at multiple scales, which encourages sparsity in the model. You further saw how 1 × 1 convolutions are employed to keep the dimensionality of layers to a minimum. Finally, we observed how Inception net v1 uses auxiliary classification layers in the middle of the network to stabilize and maintain the gradient flow throughout the network. However, the results didn’t really live up to the reputation of the model, which was heavily overfit with ~30% validation and test accuracies and a whopping ~94% training accuracy. In this chapter, we will discuss improving the model by reducing overfitting and improving validation and test accuracies, which will ultimately leave us with a model that reaches ~80% accuracy (equivalent to being able to accurately identify 160/200 classes of objects) on validation and test sets. Furthermore, we will look at techniques that allow us to probe the model’s brain to gain insights.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109489"></a>This chapter takes you through an exciting journey where we turn a suboptimal machine learning model to a significantly superior model. This process will be reminiscent of what we did in the previous chapter. We will add an additional step to explain/interpret the decisions the model made. We will use special techniques to see which part of the image the model paid most attention to in order to make a prediction. This helps us to build trust in the model. During this process, we identify lurking issues in the model and systematically fix them to increase performance. We will discuss several important techniques, including the following:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1109490"></a>Augmenting the data by using various image transformation techniques such as brightness/contrast adjustment, rotation, and translation to create more labeled data for the model</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109491"></a>Implementing a variant of Inception net that is more suited for the size and type of data used</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1109492"></a>Using transfer learning to leverage a model already trained on a larger data set and fine-tuning it to perform well on the data set we have</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109493"></a>This chapter might deeply resonate with you if you have ever had to implement a deep learning solution to an unfamiliar problem. Typically, implementing “some” deep network will not place you on the apex of success. The novelty of the problem or the bespoke nature of the problem at hand can impede your progress if you are not careful. Such problems send you into uncharted territory where you need to tread carefully to find a solution without exhausting yourself. This chapter will provide guidance for anyone who might come face-to-face with such situations in computer vision.</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_85"><a id="pgfId-1109494"></a>7.1 Techniques for reducing overfitting</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109497"></a>We<a class="calibre8" id="marker-1109495"></a><a class="calibre8" id="marker-1109496"></a> are pursuing the ambitious goal of developing an intelligent shopping assistant app that will use an image/object classifier as a vital component. For this, we will use the data set <span class="fm-code-in-text">tiny-imagenet-200</span>, which is a smaller version of the large ImageNet image classification data set, and consists of images and a class that represents the object present in that image. The data set has a training subset and a testing subset. You split the training subset further into a training set (90% of the original) and a validation set (10% of the original).</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109498"></a>You have developed a model based on the famous Inception net model, but it is overfitting heavily. Overfitting needs to be alleviated, as it leads to models that perform exceptionally well on training data but poorly on test/real-world data. You know several techniques to reduce overfitting, namely data augmentation (creating more data out of existing data; for images this includes creating variants of the same image by introducing random brightness/contrast adjustments, translations, rotations, etc.), dropout (i.e., turning nodes randomly in the network during training), and early stopping (i.e., terminating model training before overfitting takes place). You wish to leverage these methods with the Keras API to reduce overfitting.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109499"></a>Usually, reducing overfitting requires close scrutiny of the machine learning pipeline end to end. This involves looking at the data fed in, the model structure, and the model training. In this section, we will look at all these aspects and see how we can place guards against overfitting. The code for this is available at <span class="fm-code-in-text">Ch07-Improving-CNNs-and-Explaining/7.1.Image_Classification_Advance.ipynb</span>.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_86"><a id="pgfId-1109500"></a>7.1.1 Image data augmentation with Keras</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109511"></a>First<a class="calibre8" id="marker-1109507"></a><a class="calibre8" id="marker-1109508"></a><a class="calibre8" id="marker-1109509"></a><a class="calibre8" id="marker-1109510"></a> in line is augmenting data in the training set. Data augmentation is a prevalent method for increasing the amount of data available to deep learning networks without labeling new data. For example, in an image classification problem, you can create multiple data points from a single image by creating various transformed versions of the same image (e.g., shift the image, change brightness) and having the same label as for the original image (figure 7.1). As previously stated, more data conduces the strength of deep learning models by increasing generalizability (and reducing overfitting), leading to reliable performance in the real world. For image data, there are many different augmentation techniques you can use:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1109512"></a>Randomly adjusting brightness, contrast, and so on</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1109513"></a>Randomly zooming in/out, rotations, translations, and so on</p>
+    </li>
+  </ul>
+
+  <p class="fm-figure"><img alt="07-01" class="calibre10" src="../../OEBPS/Images/07-01.png" width="953" height="422"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1132217"></a>Figure 7.1 Difference between training data and validation data after the augmentation step. The figure clearly shows various transformations applied on the training data and not on the validation data, as we expected.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109514"></a>Such augmentation can be easily applied by providing several additional parameters to the <span class="fm-code-in-text">ImageDataGenerator</span> that we used earlier. Let’s define a new Keras <span class="fm-code-in-text">ImageDataGenerator</span> with data augmentation capability. In Keras you can perform most of these augmentations, and there’s hardly a need to look elsewhere. Let’s look at various options an <span class="fm-code-in-text">ImageDataGenerator</span> provides (only the most important parameters are shown). Figure 7.2 illustrates the effects of the different parameters listed here.</p>
+  <pre class="programlisting">data_gen = tf.keras.preprocessing.image.ImageDataGenerator(
+    featurewise_center=False, samplewise_center=False,
+    featurewise_std_normalization=False, samplewise_std_normalization=False,
+    zca_whitening=False, rotation_range=0, width_shift_range=0.0,
+    height_shift_range=0.0, brightness_range=None, shear_range=0.0, 
+<span class="fm-code-continuation-arrow">➥</span> zoom_range=0.0,
+    channel_shift_range=0.0, horizontal_flip=False, 
+    vertical_flip=False, fill_mode=”nearest”, rescale=None,
+    preprocessing_function=None, validation_split=0.0
+)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109524"></a>where</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1109526"></a><span class="fm-code-in-text">featurewise_center</span><a class="calibre8" id="marker-1109525"></a> specifies whether the images are centered by subtracting the mean value of the whole data set (e.g., <span class="fm-code-in-text">True</span>/<span class="fm-code-in-text">False</span>).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109528"></a><span class="fm-code-in-text">samplewise_center</span><a class="calibre8" id="marker-1109527"></a> specifies whether the images are centered by subtracting individual mean values of each image (e.g., <span class="fm-code-in-text">True</span>/<span class="fm-code-in-text">False</span>).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109530"></a><span class="fm-code-in-text">featurewise_std_normalization</span><a class="calibre8" id="marker-1109529"></a> is the same as <span class="fm-code-in-text">featurewise_center</span>, but instead of subtracting, the mean images are divided by the standard deviation (<span class="fm-code-in-text">True</span>/<span class="fm-code-in-text">False</span>).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109532"></a><span class="fm-code-in-text">samplewise_std_normalization</span><a class="calibre8" id="marker-1121986"></a> is the same as <span class="fm-code-in-text">samplewise_center</span>, but instead of subtracting, the mean images are divided by the standard deviation (<span class="fm-code-in-text">True</span>/ <span class="fm-code-in-text">False</span>).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109534"></a><span class="fm-code-in-text">zca_whitening</span><a class="calibre8" id="marker-1121988"></a> is a special type of image normalization that is geared toward reducing correlations present in the image pixels (see <span class="fm-hyperlink"><a class="url" href="http://mng.bz/DgP0">http://mng.bz/DgP0</a></span>) (<span class="fm-code-in-text">True</span>/<span class="fm-code-in-text">False</span>).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109537"></a><span class="fm-code-in-text">rotation_range</span><a class="calibre8" id="marker-1109536"></a> specifies the bounds of the random image rotations (in degrees) done during data augmentation. There is a float with values between (0, 360); for example, 30 means a range of -30 to 30; 0 is disabled.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109539"></a><span class="fm-code-in-text">width_shift_range</span><a class="calibre8" id="marker-1109538"></a> specifies the bounds for random shifts (as proportions or pixels) done on the width axis during data augmentation.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109540"></a>A tuple with values between <span class="fm-code-in-text">(</span>-1, 1) is considered as a proportion of the width (e.g., (-0.4, 0.3)).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109541"></a>A tuple with values between <span class="fm-code-in-text">(</span>-inf, inf) is considered as pixels (e.g., (-150, 250)).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109543"></a><span class="fm-code-in-text">height_shift_range</span> is the same as <span class="fm-code-in-text">width_shift_range</span> except for the height dimension.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109545"></a><span class="fm-code-in-text">brightness_range</span> specifies the bounds of the random brightness adjustments made to data during data augmentation.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109546"></a>A tuple with values between (-inf, inf) is, for example, (-0.2, 0.5) or (-5, 10); <span class="fm-code-in-text">0</span> is disabled.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109548"></a><span class="fm-code-in-text">shear_range</span><a class="calibre8" id="marker-1109547"></a> is the same as <span class="fm-code-in-text">brightness_range</span> but for shearing (i.e., skewing) images during data augmentation</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109549"></a>A float in degrees is, for example, 30.0.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109551"></a><span class="fm-code-in-text">zoom_range</span> is the same as <span class="fm-code-in-text">brightness_range</span> except for scaling the images during data augmentation.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109553"></a><span class="fm-code-in-text">horizontal_flip</span> specifies whether to randomly flip images horizontally during data augmentation (<span class="fm-code-in-text">True</span>/<span class="fm-code-in-text">False</span>).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109555"></a><span class="fm-code-in-text">vertical_flip</span><a class="calibre8" id="marker-1109554"></a> is the same as <span class="fm-code-in-text">horizontal_flip</span> but flips vertically (<span class="fm-code-in-text">True</span>/<span class="fm-code-in-text">False</span>)</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109557"></a><span class="fm-code-in-text">fill_mode</span><a class="calibre8" id="marker-1109556"></a> defines how the empty spaces created by various image transformations (e.g., translating the image to the left creates an empty space on the right) are handled. Possible options are “reflect,” “nearest,” and “constant.” The last row of figure 7.2 depicts the differences.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109559"></a><span class="fm-code-in-text">rescale</span> rescales the inputs by a constant value.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109561"></a><span class="fm-code-in-text">preprocessing_function</span> takes a Python function that can be used to introduce additional data augmentation/preprocessing steps that are not readily available.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1109563"></a><span class="fm-code-in-text">validation_split</span><a class="calibre8" id="marker-1109562"></a> addresses how much data should be used as validation data. We don’t use this parameter, as we create a data generator for the validation set separately because we do not want an augmentations app. A float is, for example, 0.2.<span class="calibre19"> </span></p>
+    </li>
+  </ul>
+
+  <p class="fm-figure"><img alt="07-02" class="calibre10" src="../../OEBPS/Images/07-02.png" width="772" height="1503"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1132258"></a>Figure 7.2 Effects of different augmentation parameters and their values of the <span class="fm-code-in-figurecaption">ImageDataGenerator</span></p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109570"></a>With a good understanding of different parameters, we will define two image data generators: one with data augmentation (training data) and the other without (testing data). For our project, we will augment the data in the following ways:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1109571"></a>Randomly rotate images</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109572"></a>Randomly translate on width dimension</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109573"></a>Randomly translate on height dimension</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109574"></a>Randomly adjust brightness</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109575"></a>Randomly shear</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109576"></a>Randomly zoom</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109577"></a>Randomly flip images horizontally</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109578"></a>Random gamma correct (custom implementation)</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1109579"></a>Random occlude (custom implementation)</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1121932"></a>The following listing shows how the<span class="fm-code-in-text">ImageDataGenerator</span> is defined with a validation split.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1109581"></a>Listing 7.1 Defining the <span class="fm-code-in-listingcaption">ImageDataGenerator</span> with validation split</p>
+  <pre class="programlisting">image_gen_aug = ImageDataGenerator(                     <span class="fm-combinumeral">❶</span>
+        samplewise_center=False,                        <span class="fm-combinumeral">❷</span>
+        rotation_range=30,                              <span class="fm-combinumeral">❸</span>
+        width_shift_range=0.2, height_shift_range=0.2,  <span class="fm-combinumeral">❸</span>
+        brightness_range=(0.5,1.5),                     <span class="fm-combinumeral">❸</span>
+        shear_range=5,                                  <span class="fm-combinumeral">❸</span>
+        zoom_range=0.2,                                 <span class="fm-combinumeral">❸</span>
+        horizontal_flip=True,                           <span class="fm-combinumeral">❸</span>
+        fill_mode='reflect',                            <span class="fm-combinumeral">❸</span>
+        validation_split=0.1                            <span class="fm-combinumeral">❹</span>
+)
+image_gen = ImageDataGenerator(samplewise_center=False) <span class="fm-combinumeral">❺</span></pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1130918"></a><span class="fm-combinumeral">❶</span> Defines the ImageDataGenerator for training/validation data</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1130939"></a><span class="fm-combinumeral">❷</span> We will switch off samplewise_center temporarily and reintroduce it later.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1130959"></a><span class="fm-combinumeral">❸</span> Various augmentation arguments previously discussed (set empirically)</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1130976"></a><span class="fm-combinumeral">❹</span> Uses a 10% portion of training data as validation data</p>
+
+  <p class="fm-code-annotation-mob"><a class="calibre8" id="pgfId-1130993"></a><span class="fm-combinumeral">❺</span> Defines a separate ImageDataGenerator for testing data</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109599"></a>We chose the parameters for these arguments empirically. Feel free to experiment with other arguments and see the effect they have on the model’s performance. One important thing to note is that, unlike previous examples, we set <span class="fm-code-in-text">samplewise_center=False</span>. This is because we are planning to do few custom preprocessing steps before the normalization. Therefore, we will turn off the normalization in the <span class="fm-code-in-text">ImageDataGenerator</span> and reintroduce it later (through a custom function). Next, we will define the training and testing data generators (using a flow function). Following a similar pattern as the previous chapter, we will get the training and validation data generators through the same data generator (using the <span class="fm-code-in-text">validation_split</span> and <span class="fm-code-in-text">subset</span> arguments; see the following listing).</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1109601"></a>Listing 7.2 Defining the data generators for training, validation, and testing sets</p>
+  <pre class="programlisting">partial_flow_func = partial(                                <span class="fm-combinumeral">❶</span>
+        image_gen_aug.flow_from_directory, 
+        directory=os.path.join('data','tiny-imagenet-200', 'train'), 
+        target_size=target_size, classes=None,
+        class_mode='categorical', batch_size=batch_size, 
+        shuffle=True, seed=random_seed
+)
+    
+train_gen = partial_flow_func(subset='training')            <span class="fm-combinumeral">❷</span>
+ 
+valid_gen = partial_flow_func(subset='validation')          <span class="fm-combinumeral">❸</span>
+ 
+test_df = get_test_labels_df(                               <span class="fm-combinumeral">❹</span>
+        os.path.join('data','tiny-imagenet-200',  'val', 
+<span class="fm-code-continuation-arrow">➥</span> 'val_annotations.txt')
+)
+test_gen = image_gen.flow_from_dataframe(                   <span class="fm-combinumeral">❺</span>
+        test_df, directory=os.path.join('data','tiny-imagenet-200',  'val', 
+<span class="fm-code-continuation-arrow">➥</span> 'images'),
+        target_size=target_size, classes=None,
+        class_mode='categorical', batch_size=batch_size, shuffle=False
+)</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1130609"></a><span class="fm-combinumeral">❶</span> Define a partial function that has all the arguments fixed except for the subset argument.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1130630"></a><span class="fm-combinumeral">❷</span> Get the training data subset.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1130647"></a><span class="fm-combinumeral">❸</span> Get the validation data subset.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1130664"></a><span class="fm-combinumeral">❹</span> Read in the test labels stored in a txt file.</p>
+
+  <p class="fm-code-annotation-mob"><a class="calibre8" id="pgfId-1130681"></a><span class="fm-combinumeral">❺</span> Define the test data generator.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109627"></a>To refresh our memory, the <span class="fm-code-in-text">flow_from_directory(...)</span> has the following function signature:</p>
+  <pre class="programlisting">image_gen.flow_from_directory (
+    directory=&lt;directory where the images are&gt;, 
+    target_size=&lt;height and width or target image&gt;, 
+    classes=None,
+    class_mode=&lt;type of targets generated such as one hot encoded, sparse, etc.&gt;,
+    batch_size=&lt;size of a single batch&gt;, 
+    shuffle=&lt;whether to shuffle data or not&gt;, 
+    seed=&lt;random seed to be used in shuffling&gt;, 
+    subset=&lt;set to training or validation&gt;
+)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109638"></a>The <span class="fm-code-in-text">train_gen and valid_gen</span> uses <span class="fm-code-in-text">image_gen_aug</span> (with data augmentation) to retrieve data. <span class="fm-code-in-text">train_gen</span> and <span class="fm-code-in-text">valid_gen</span> are defined as partial functions of the original <span class="fm-code-in-text">image_gen.flow_from_directory()</span>, where they share all the arguments except for the <span class="fm-code-in-text">subset</span> argument. However, it is important to keep in mind that augmentation is only applied to training data and must not be applied on the validation subset. This is the desired behavior we need, as we want the validation data set to remain fixed across epochs. Next, <span class="fm-code-in-text">test_gen</span> uses <span class="fm-code-in-text">image_gen</span> (without data augmentation).</p>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1109639"></a>Why should we not augment validation/test data?</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1109640"></a>When augmenting data, you should only augment the training data set and not the validation and test sets. Augmentation on validation and test sets will lead to inconsistent results between trials/runs (due to the random modifications introduced by data augmentation). We want to keep our validation and testing data sets consistent from the start to the end of training. Therefore, data augmentation is only done to the training data.</p>
+  </div>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109642"></a>Remember that Inception Net v1 has three output layers; therefore, the output of the generator needs to be a single input and three outputs. We do this by defining a new Python generator off the Keras generator that modifies the content accordingly (see the next listing).</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1109644"></a>Listing 7.3 Defining the data generator with several modifications</p>
+  <pre class="programlisting">def data_gen_augmented_inceptionnet_v1(gen, random_gamma=False, 
+<span class="fm-code-continuation-arrow">➥</span> random_occlude=False):                                                  <span class="fm-combinumeral">❶</span>
+    for x,y in gen: 
+        if random_gamma:                                                   <span class="fm-combinumeral">❷</span>
+            # Gamma correction
+            # Doing this in the image process fn doesn't help improve 
+<span class="fm-code-continuation-arrow">➥</span> performance
+            rand_gamma = np.random.uniform(0.9, 1.08, (x.shape[0],1,1,1))  <span class="fm-combinumeral">❸</span>
+            x = x**rand_gamma                                              <span class="fm-combinumeral">❸</span>
+            
+        if random_occlude:                                                 <span class="fm-combinumeral">❹</span>
+            # Randomly occluding sections in the image
+            occ_size = 10
+            occ_h, occ_w = np.random.randint(0, x.shape[1]-occ_size), 
+<span class="fm-code-continuation-arrow">➥</span> np.random.randint(0, x.shape[2]-occ_size)                               <span class="fm-combinumeral">❺</span>
+            x[:,occ_h:occ_h+occ_size,occ_w:occ_w+occ_size,:] = 
+<span class="fm-code-continuation-arrow">➥</span> np.random.choice([0.,128.,255.])                                        <span class="fm-combinumeral">❻</span>
+        
+        # Image centering
+        x -= np.mean(x, axis=(1,2,3), keepdims=True)                       <span class="fm-combinumeral">❼</span>
+        
+        yield x,(y,y,y)                                                    <span class="fm-combinumeral">❽</span>
+ 
+train_gen_aux = data_gen_augmented_inceptionnet_v1(
+    train_gen, random_gamma=True, random_occlude=True                      <span class="fm-combinumeral">❾</span>
+)
+valid_gen_aux = data_gen_augmented_inceptionnet_v1(valid_gen)              <span class="fm-combinumeral">❿</span>
+test_gen_aux = data_gen_augmented_inceptionnet_v1(test_gen)                <span class="fm-combinumeral">❿</span></pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1129811"></a><span class="fm-combinumeral">❶</span> Define a new function that introduces two new augmentation techniques and modifies the format of the final output.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1129832"></a><span class="fm-combinumeral">❷</span> Check if the Gamma correction augmentation is needed.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1129852"></a><span class="fm-combinumeral">❸</span> Perform Gamma correction-related augmentation.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1129869"></a><span class="fm-combinumeral">❹</span> Check if random occlusion augmentation is needed.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1129886"></a><span class="fm-combinumeral">❺</span> Defines the starting x/y pixels randomly for occlusion</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1129903"></a><span class="fm-combinumeral">❻</span> Apply a white/gray/black color randomly to the occlusion.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1129920"></a><span class="fm-combinumeral">❼</span> Perform the sample-wise centering that was switched off earlier.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1129937"></a><span class="fm-combinumeral">❽</span> Makes sure we replicate the target (y) three times</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1129954"></a><span class="fm-combinumeral">❾</span> Training data is augmented with random gamma correction and occlusions.</p>
+
+  <p class="fm-code-annotation-mob"><a class="calibre8" id="pgfId-1129971"></a><span class="fm-combinumeral">❿</span> Validation/testing sets are not augmented.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109679"></a>You can see how the <span class="fm-code-in-text">data_gen_augmented_inceptionnet_v1</span> returns a single input (<span class="fm-code-in-text">x</span>) and three replicas of the same output (<span class="fm-code-in-text">y</span>). In addition to modifying the format of the output, this <span class="fm-code-in-text">data_gen_augmented_inceptionnet_v1</span> will include two extra data augmentation steps using a custom implementation (which are not available as built-ins):</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1109681"></a><i class="fm-italics">Gamma correction</i><a class="calibre8" id="marker-1109680"></a>—A standard computer vision transformation performed by raising the pixel values to the power of some value (<span class="fm-hyperlink"><a class="url" href="http://mng.bz/lxdz">http://mng.bz/lxdz</a></span>). In our case, we chose this value randomly between 0.9 and 1.08.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1109684"></a><i class="fm-italics">Random occlusions</i><a class="calibre8" id="marker-1109683"></a>—We will occlude a random patch on the image (10 × 10) with white, gray, or black pixels (chosen randomly).</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109685"></a>You also need to center the images, as we set the <span class="fm-code-in-text">samplewise_center</span> argument to <span class="fm-code-in-text">False</span> when we defined the <span class="fm-code-in-text">ImageDataGenerator</span>. This is done by subtracting the mean pixel value of each image from its pixels. With the <span class="fm-code-in-text">data_gen_augmented_inceptionnet_v1</span> function defined, we can create the modified data generators <span class="fm-code-in-text">train_gen_aux</span>, <span class="fm-code-in-text">valid_ gen_aux</span>, and <span class="fm-code-in-text">test_gen_aux</span> for training/validation/testing data, respectively.</p>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1109687"></a>Check, check, check to avoid model performance defects</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1109688"></a>If you don’t check to see if just the training data is augmented, you can be in trouble. If it doesn’t work as intended, it can easily fly under the radar. Technically, your code is working and free of functional bugs. But this will leave you scratching your head for days trying to figure out why the model is not performing as intended in the real world.</p>
+  </div>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109690"></a>Finally, the most important step in this process is verifying that the data augmentation is working as we expect and not corrupting the images in unexpected ways, which would impede the learning of the model. For that, we can plot some of the samples generated by the train data generator as well as the validation data generator. Not only do we need to make sure that the data augmentation is working properly, but we also need to make sure that data augmentation is not present in the validation set. Figure 7.3 ensures that this is the case.</p>
+
+  <p class="fm-figure"><img alt="07-03" class="calibre10" src="../../OEBPS/Images/07-03.png" width="953" height="422"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1132304"></a>Figure 7.3 Difference between training data and validation data after the augmentation step. The figure clearly shows various transformations applied on the training data and not on the validation data, as we expected.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109697"></a>Next, we discuss another regularization technique called dropout.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_87"><a id="pgfId-1109698"></a>7.1.2 Dropout: Randomly switching off parts of your network to improve generalizability</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109706"></a>We<a class="calibre8" id="marker-1109699"></a><a class="calibre8" id="marker-1109700"></a><a class="calibre8" id="marker-1109701"></a> will now learn a technique called<a class="calibre8" id="marker-1109702"></a><a class="calibre8" id="marker-1109703"></a><a class="calibre8" id="marker-1109704"></a><a class="calibre8" id="marker-1109705"></a> <i class="fm-italics">dropout</i> to reduce further overfitting. Dropout was part of Inception net v1, but we avoided dropout in the previous chapter to improve clarity.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109707"></a>Dropout is a regularization technique for deep networks. A regularization technique’s job is to control the deep network in such a way that the network is rid of numerical errors during training or troublesome phenomena like overfitting. Essentially, regularization keeps the deep network well behaved.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109708"></a>Dropout switches off output neurons randomly during each training iteration. This helps the model learn redundant features during training as it will not always have the previously learned features at its disposal. In other words, the network only has a subset of parameters of the full network to learn at a given time, and it forces the network to learn multiple (i.e., redundant) features to classify objects. For example, if the network is trying to identify cats, in the first iteration it might learn about whiskers. Then, if the nodes that correspond to the knowledge on whiskers are switched off, it might learn about cats’ pointy ears (figure 7.4). This leads to a network that learns redundant/different features like whiskers, two pointed ears, and so on, leading to better performance at test time.</p>
+
+  <p class="fm-figure"><img alt="07-04" class="calibre10" src="../../OEBPS/Images/07-04.png" width="1083" height="356"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1132338"></a>Figure 7.4 How dropout might change the network when learning to classify cat images. In the first iteration, it might learn about whiskers. In the second iteration, as the part containing information about whiskers is turned off, the network might learn about pointy ears. This leads the network to having knowledge about both whiskers and ears when it’s time for testing. That’s good in this case, because in the test image, you cannot see the cat’s whiskers!</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109715"></a>The nodes are switched off by applying a random mask of 1s and 0s on each layer you want to apply dropout on (figure 7.5). There is also a vital normalization step you perform on the active nodes during training. Let’s assume we are training a network with 50% dropout (i.e., dropping half of the nodes on every iteration). When 50% of your network is switched off, conceptually your network’s total output is reduced by half, compared to having the full network on. Therefore, you need to multiply the output by a factor of 2 to make sure the total output remains constant. Such computational details of dropout are highlighted in figure 7.5. The good news is that you don’t have to implement any of the computational details, as dropout is provided as a layer in TensorFlow.</p>
+
+  <p class="fm-figure"><img alt="07-05" class="calibre10" src="../../OEBPS/Images/07-05.png" width="986" height="378"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1132372"></a>Figure 7.5 A computational perspective on how dropout works. If dropout is set to 50%, then half the nodes in every layer (except for the last layer) will be turned off. But at testing time, all the nodes are switched on.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109722"></a>Inception net v1 (figure 7.6) only has dropout for fully connected layers and the last average pooling layer. Remember not to use dropout on the last layer (i.e., the layer that provides final predictions). There are two changes to perform:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1109723"></a>Apply 70% dropout to the intermediate fully connected layer in the auxiliary outputs.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1109724"></a>Apply 40% dropout to the output of the last average pooling layer.</p>
+    </li>
+  </ul>
+
+  <p class="fm-figure"><img alt="07-06" class="calibre10" src="../../OEBPS/Images/07-06.png" width="792" height="1211"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1132410"></a>Figure 7.6 Abstract architecture of Inception net v1. Inception net starts with a stem, which is an ordinary sequence of convolution/pooling layers that you will find in a typical CNN. Then Inception net introduces a new component known as Inception block. Finally, Inception net also makes use of auxiliary output layers.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109731"></a>In TensorFlow, applying dropout is as easy as writing a single line. Once you get the output of the fully connected layer, <span class="fm-code-in-text">dense1</span>, you can apply dropout with</p>
+  <pre class="programlisting">dense1 = Dropout(0.7)(dense1)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109734"></a>Here, we’re using a 70% dropout rate (as suggested in the original Inception net v1 paper) for the auxiliary output.</p>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1109735"></a>Dropout on convolution layers</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1109736"></a>Dropout is mostly applied to dense layers, so one cannot help but wonder, “Why are we not applying dropout on convolution layers?” It is still an open debate. For example, the original dropout paper by Nitish Srivastava et al. (<span class="fm-hyperlink"><a class="url" href="http://mng.bz/o2Nv">http://mng.bz/o2Nv</a></span>) argues that using dropout on lower convolution layers provides a performance boost. In contrast, the paper “Bayesian CNNs with Bernoulli Approximate Variational Inference” by Yarin Gal et al. (<span class="fm-hyperlink"><a class="url" href="https://arxiv.org/pdf/1506.02158v6.pdf">https://arxiv.org/pdf/1506.02158v6.pdf</a></span>) argues that dropout on convolution layers doesn’t help much as, due to their low number of parameters (compared to a dense layer), they are already regularized well. Consequentially, dropout can hinder the learning in convolution layers. One thing you need to take into account is the time of publication. The dropout paper was written two years before the Bayesian CNN paper. Regularization and other improvements introduced in that duration could have had a major impact on improving deep networks, so the benefit of having dropout in convolution layers could become negligible. You can find a more casual discussion on <span class="fm-hyperlink"><a class="url" href="http://mng.bz/nNQ4">http://mng.bz/nNQ4</a></span>.</p>
+  </div>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109741"></a>The final code for the auxiliary output is shown in the following listing.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1109743"></a>Listing 7.4 Modifying the auxiliary output of Inception net</p>
+  <pre class="programlisting">def aux_out(inp,name=None):    
+    avgpool1 = AvgPool2D((5,5), strides=(3,3), padding='valid')(inp)
+    conv1 = Conv2D(128, (1,1), activation='relu', padding='same')(avgpool1)
+    flat = Flatten()(conv1)
+    dense1 = Dense(1024, activation='relu')(flat) 
+    dense1 = Dropout(0.7)(dense1)                     <span class="fm-combinumeral">❶</span>
+    aux_out = Dense(200, activation='softmax', name=name)(dense1)
+    return aux_out</pre>
+
+  <p class="fm-code-annotation-mob"><a class="calibre8" id="pgfId-1129757"></a><span class="fm-combinumeral">❶</span> Applying a dropout layer with 70% dropout</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109753"></a>Next, we will apply dropout to the output of the last average pooling layer before the final prediction layer. We must flatten the output of the average pooling layer (<span class="fm-code-in-text">flat_out)</span> before feeding into a fully connected (i.e., dense) layer. Then dropout is applied on <span class="fm-code-in-text">flat_out</span> using</p>
+  <pre class="programlisting">flat_out = Dropout(0.4)(flat_out)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109756"></a>We are using a dropout rate of 40% for this layer, as prescribed by the paper. The final code (starting from the average pooling layer) looks like this:</p>
+  <pre class="programlisting">avgpool1 = AvgPool2D((7,7), strides=(1,1), padding='valid')(inc_5b)
+ 
+flat_out = Flatten()(avgpool1)
+flat_out = Dropout(0.4)(flat_out)
+out_main = Dense(200, activation='softmax', name='final')(flat_out)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109762"></a>This concludes the discussion on dropout. One final note to keep in mind is that you should not naively set the dropout rate. It should be chosen via a hyperparameter optimization technique. A very high dropout rate can leave your network severely crippled, whereas a very low dropout rate will not contribute to reducing<a class="calibre8" id="marker-1109763"></a><a class="calibre8" id="marker-1109764"></a><a class="calibre8" id="marker-1109765"></a> overfitting.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_88"><a id="pgfId-1109766"></a>7.1.3 Early stopping: Halting the training process if the network starts to underperform</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109770"></a>The<a class="calibre8" id="marker-1109767"></a><a class="calibre8" id="marker-1109768"></a><a class="calibre8" id="marker-1109769"></a> final technique we will be looking at is called early stopping. As the name suggests, early stopping stops training the model when the validation accuracy stops increasing. You may be thinking, “What? I thought the more training we do the better.” Until you reach a certain point, more training is better, but then training starts to reduce the model’s generalizability. Figure 7.7 depicts the typical training accuracy and validation accuracy curves you will obtain over the course of training a model. As you can see, after a point, the validation accuracy stops increasing and starts dropping. This is the start of overfitting. You can see that the training accuracy keeps going up, regardless of the validation accuracy. This is because modern deep learning models have more than enough parameters to “remember” data instead of learning features and patterns present in the data.</p>
+
+  <p class="fm-figure"><img alt="07-07" class="calibre10" src="../../OEBPS/Images/07-07.png" width="525" height="311"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1132452"></a>Figure 7.7 An illustration of overfitting. At the start, as the number of training iterations increases, both training and validation accuracies increase. But after a certain point, the validation accuracy plateaus and starts to go down, while the training accuracy keeps going up. This behavior is known as overfitting and should be avoided.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109777"></a>The early stopping procedure is quite simple to understand. First, you define a maximum number of epochs to train for. Then the model is trained for one epoch. After the training, the model is evaluated on the validation set using an evaluation metric (e.g., accuracy). If the validation accuracy has gone up and hasn’t reached the maximum epoch, the training is continued. Otherwise, training is stopped, and the model is finalized. Figure 7.8 depicts the early stopping workflow.</p>
+
+  <p class="fm-figure"><img alt="07-08" class="calibre10" src="../../OEBPS/Images/07-08.png" width="853" height="528"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1132486"></a>Figure 7.8 The workflow followed during early stopping. First the model is trained for one epoch. Then, the validation accuracy is measured. If the validation accuracy has increased and the training hasn’t reached maximum epoch, training is continued. Otherwise, training is halted.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109784"></a>Implementing early stopping requires minimal changes to your code. First, as before, we will set up a function that computes the number of steps:</p>
+  <pre class="programlisting">def get_steps_per_epoch(n_data, batch_size):
+    """ Given the data size and batch size, gives the number of steps to 
+<span class="fm-code-continuation-arrow">➥</span> travers the full dataset """
+    if n_data%batch_size==0:
+        return int(n_data/batch_size)
+    else:
+        return int(n_data*1.0/batch_size)+1</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109793"></a>Next, we will use the <span class="fm-code-in-text">EarlyStopping</span> callback<a class="calibre8" id="marker-1109791"></a> provided by Keras (<span class="fm-hyperlink"><a class="url" href="http://mng.bz/v6lr">http://mng.bz/v6lr</a></span>) to enable early stopping during the training. A Keras callback is an easy way to make something happen at the end of each epoch during training. For example, for early stopping, all we need to do is analyze the validation accuracy at the end of each epoch and, if it hasn’t shown any improvement, terminate the training. Callbacks are ideal for achieving this. We have already used the <span class="fm-code-in-text">CSVLogger</span> callback<a class="calibre8" id="marker-1109794"></a> to log the metric quantities over the epochs. The <span class="fm-code-in-text">EarlyStopping</span> callback<a class="calibre8" id="marker-1109795"></a> has several arguments:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1109796"></a><span class="fm-code-in-text">monitor</span>—Which metric needs to be monitored in order to terminate the training. You can get the list of defined metric names using the <span class="fm-code-in-text">model.metric_names</span> attribute<a class="calibre8" id="marker-1109797"></a> of a Keras model. In our example, this will be set to <span class="fm-code-in-text">val_loss</span> (i.e., the loss value computed on the validation data).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109798"></a><span class="fm-code-in-text">min_delta</span>—The minimum change required in the monitored metric to be considered an improvement (i.e., any improvement <span class="fm-code-in-text">&lt; min_delta</span> will be considered a “no improvement” [defaults to zero]).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109799"></a><span class="fm-code-in-text">patience</span>—If there’s no improvement after this many epochs, training will stop (defaults to zero).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109800"></a><span class="fm-code-in-text">mode</span>—Can be <span class="fm-code-in-text">auto/min/max</span>. In <span class="fm-code-in-text">min</span>, training will stop if the metric has stopped decreasing (e.g., loss). In <span class="fm-code-in-text">max</span>, training will stop if the metric has stopped increasing (e.g., accuracy). The mode will be automatically inferred from the metric name (defaults to auto).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109801"></a><span class="fm-code-in-text">baseline</span>—Baseline value for the metric. If the metric doesn’t improve beyond the baseline, training will stop (defaults to none).</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1109802"></a><span class="fm-code-in-text">restore_best_weights</span>—Restores the best weight result in between the start of the training and the termination that showed the best value for the chosen metric (defaults to false).</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109803"></a>First, we will create a directory called <span class="fm-code-in-text">eval</span> if it doesn’t exist. This will be used to store the CSV, returned by the <span class="fm-code-in-text">CSVLogger</span>:</p>
+  <pre class="programlisting"># Create a directory called eval which stores model performance
+if not os.path.exists('eval'):
+    os.mkdir('eval')
+# Logging the performance metrics to a CSV file
+csv_logger = CSVLogger(os.path.join('eval','2_eval_data_aug_early_stopping.log'))</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109810"></a>Then we define the <span class="fm-code-in-text">EarlyStopping</span> callback<a class="calibre8" id="marker-1109809"></a>. We chose <span class="fm-code-in-text">val_loss</span> as the metric to monitor and a <span class="fm-code-in-text">patience</span> of five epochs. This means the training will tolerate a “no improvement” for five epochs. We will leave the other parameters in their defaults:</p>
+  <pre class="programlisting"># Early stopping callback
+es_callback = EarlyStopping(monitor='val_loss', patience=5)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109813"></a>Finally call <span class="fm-code-in-text">model.fit()</span> with the data and the appropriate callbacks. Here, we use the previously defined <span class="fm-code-in-text">train_gen_aux</span> and <span class="fm-code-in-text">valid_gen_aux</span> as the training and validation data (respectively). We also set epochs to 50 and the training steps and the validations steps using the <span class="fm-code-in-text">get_steps_per_epoch</span> function. Finally, we provide the <span class="fm-code-in-text">EarlyStopping</span><a class="calibre8" id="marker-1109815"></a> and <span class="fm-code-in-text">CSVLogger</span> callbacks<a class="calibre8" id="marker-1109816"></a>, so the training stops when there’s no improvement under the specified conditions:</p>
+  <pre class="programlisting">history = model.fit(
+    train_gen_aux, validation_data=valid_gen_aux, 
+    steps_per_epoch=get_steps_per_epoch(int(0.9*(500*200)),batch_size),
+    validation_steps=get_steps_per_epoch(int(0.1*(500*200)),batch_size),
+    epochs=50, callbacks=[es_callback, csv_logger]
+)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109823"></a>The next listing shows a summary of the training logs.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1109825"></a>Listing 7.5 Training logs provided during training the model</p>
+  <pre class="programlisting">Train for 703 steps, validate for 78 steps
+Epoch 1/50
+WARNING:tensorflow:Large dropout rate: 0.7 (&gt;0.5). In TensorFlow 2.x, 
+<span class="fm-code-continuation-arrow">➥</span> dropout() uses dropout rate instead of keep_prob. Please ensure that 
+<span class="fm-code-continuation-arrow">➥</span> this is intended.                                                      <span class="fm-combinumeral">❶</span>
+WARNING:tensorflow:Large dropout rate: 0.7 (&gt;0.5). In TensorFlow 2.x, 
+<span class="fm-code-continuation-arrow">➥</span> dropout() uses dropout rate instead of keep_prob. Please ensure that 
+<span class="fm-code-continuation-arrow">➥</span> this is intended.                                                      <span class="fm-combinumeral">❶</span>
+WARNING:tensorflow:Large dropout rate: 0.7 (&gt;0.5). In TensorFlow 2.x, 
+<span class="fm-code-continuation-arrow">➥</span> dropout() uses dropout rate instead of keep_prob. Please ensure that 
+<span class="fm-code-continuation-arrow">➥</span> this is intended.                                                      <span class="fm-combinumeral">❶</span>
+703/703 [==============================] - 196s 279ms/step - loss: 15.4462 
+<span class="fm-code-continuation-arrow">➥</span> - final_loss: 5.1507 - aux1_loss: 5.1369 - aux2_loss: 5.1586 - 
+<span class="fm-code-continuation-arrow">➥</span> final_accuracy: 0.0124 - aux1_accuracy: 0.0140 - aux2_accuracy: 0.0119 
+<span class="fm-code-continuation-arrow">➥</span> - val_loss: 14.8221 - val_final_loss: 4.9696 - val_aux1_loss: 4.8943 - 
+<span class="fm-code-continuation-arrow">➥</span> val_aux2_loss: 4.9582 - val_final_accuracy: 0.0259 - val_aux1_accuracy: 
+<span class="fm-code-continuation-arrow">➥</span> 0.0340 - val_aux2_accuracy: 0.0274
+...
+Epoch 38/50
+703/703 [==============================] - 194s 276ms/step - loss: 
+<span class="fm-code-continuation-arrow">➥</span> 9.4647 - final_loss: 2.8825 - aux1_loss: 3.3037 - aux2_loss: 3.2785 - 
+<span class="fm-code-continuation-arrow">➥</span> final_accuracy: 0.3278 - aux1_accuracy: 0.2530 - aux2_accuracy: 0.2572 
+<span class="fm-code-continuation-arrow">➥</span> - val_loss: 9.7963 - val_final_loss: 3.1555 - val_aux1_loss: 3.3244 - 
+<span class="fm-code-continuation-arrow">➥</span> val_aux2_loss: 3.3164 - val_final_accuracy: 0.2940 - val_aux1_accuracy: 
+<span class="fm-code-continuation-arrow">➥</span> 0.2599 - val_aux2_accuracy: 0.2590</pre>
+
+  <p class="fm-code-annotation-mob"><a class="calibre8" id="pgfId-1129662"></a><span class="fm-combinumeral">❶</span> Because we used a high dropout rate of 70% for some layers, TensorFlow warns us about it, as unintended high dropout rates can hinder model performance.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109836"></a>It seems the model doesn’t see a benefit in training the model for 50 epochs. After epoch 38, it has decided to terminate the training. This is evident by the fact that training stopped before reaching epoch 50 (as shown in the line <span class="fm-code-in-text">Epoch 38/50</span>). The other important observation is that you can see that the training accuracy doesn’t explode to large values, as we saw in the last chapter. The training accuracy has remained quite close to the validation accuracy (~30%). Though we don’t see much of a performance increase, we have managed to reduce overfitting significantly. With that, we can focus on getting the accuracy higher.</p>
+
+  <p class="fm-callout"><a id="pgfId-1109837"></a><span class="fm-callout-head">NOTE</span> On an Intel Core i5 machine with an NVIDIA GeForce RTX 2070 8GB, the training took approximately 1 hour and 30 minutes to run 38 epochs.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109838"></a>Next, we will revisit our model. We will dig into some research and implement a model that has proven to work well for this specific classification problem.</p>
+
+  <p class="fm-head2"><a id="pgfId-1109839"></a>Exercise 1</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109840"></a>You have the following model presented to you, and you see that it is heavily underfitting. Underfitting occurs when your model is not approximating the distribution of the data closely enough. Suggest how you can change the dropout layer to reduce underfitting. You can choose between 20%, 50%, and 80% as dropout rates:</p>
+  <pre class="programlisting">model = tf.keras.models.Sequential([
+tf.keras.layers.Dense(100, activation=’relu’, input_shape=(250,)),
+tf.keras.layers.Dropout(0.5), 
+tf.keras.layers.Dense(10, activation=’softmax’)
+])
+model.compile
+    (loss=’categorical_crossentropy’, optimizer=’adam’, metrics=[‘accuracy’])
+model.fit(X, y, epochs=25)</pre>
+
+  <p class="fm-head2"><a id="pgfId-1109849"></a>Exercise 2</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109850"></a>Define an early stopping callback to terminate the training if the validation loss value (i.e., <span class="fm-code-in-text">val_loss</span><a class="calibre8" id="marker-1109851"></a>) has not increased by 0.01 after five epochs. Use <span class="fm-code-in-text">tf.keras.callbacks.EarlyStopping</span> callback<a class="calibre8" id="marker-1109852"></a> for<a class="calibre8" id="marker-1109853"></a><a class="calibre8" id="marker-1109854"></a><a class="calibre8" id="marker-1109855"></a> this<a class="calibre8" id="marker-1109856"></a><a class="calibre8" id="marker-1109857"></a> purpose.</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_89"><a id="pgfId-1109858"></a>7.2 Toward minimalism: Minception instead of Inception</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109862"></a><a class="calibre8" id="aHlk53404981"></a>We<a class="calibre8" id="marker-1117420"></a><a class="calibre8" id="marker-1117421"></a> now have a model where overfitting is almost nonexistent. However, test performance of the model is still not where we want it to be. You feel like you need a fresh perspective on this problem and consult a senior data scientist on your team. You explain how you have trained an Inception net v1 model on the <span class="fm-code-in-text">tiny-imagenet-200</span> image classification data set, as well as the poor performance of the model. He mentions that he recently read a paper (<span class="fm-hyperlink"><a class="url" href="http://cs231n.stanford.edu/reports/2017/pdfs/930.pdf">cs231n.stanford.edu/reports/2017/pdfs/930.pdf</a></span>) that uses a modified version of the Inception net that’s motivated by Inception-ResNet v2 and has achieved better performance on the data set.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109863"></a>He further explains two new techniques, batch normalization and residual connections (that are used in the modified inception net as well as Inception-ResNet v2), and the significant impact they have in helping the model training, especially in deep models. Now you will implement this new modified model and see if it will improve performance.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109864"></a>We have seen a slight increase in the validation and test accuracies. But we still have barely scratched the surface when it comes to performance. For example, there are reports of ~85% test accuracy for this data set (<span class="fm-hyperlink"><a class="url" href="http://mng.bz/44ev">http://mng.bz/44ev</a></span>). Therefore, we need to look for other ways to improve the model.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109866"></a>That session you had with the senior data scientist on your team couldn’t have been more fruitful. We are going to try the new network he read about.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109867"></a>This network is predominantly inspired by the Inception-Resnet-v2 network that was briefly touched on in the previous chapter. This new network (which we will call Minception) leverages all the state-of-the-art components used in the Inception-ResNet v2 model and modifies them to suit the problem at hand. In this section, you will learn this new model in depth. Particularly, Minception net has the following elements:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1109868"></a>A stem</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109869"></a>Inception-ResNet block A</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109870"></a>Inception-ResNet block B</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109871"></a>Reduction blocks (a new type of block to reduce output size)</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1109872"></a>Average pooling layer</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1109873"></a>Final prediction layer</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109874"></a>Just like other Inception models, this has a stem and Inception blocks. However, Minception differs from Inception Net v1 because it does not have auxiliary outputs, as they have other techniques to stabilize the training. Another notable difference is that Minception has two types of Inception blocks, whereas Inception Net v1 reuses the same format throughout the network. While discussing the different aspects of Minception, we will compare it to Inception Net v1 (which we implemented) in more detail. In a later section, we will discuss the architecture of the Inception-ResNet v2 model in more detail and compare that to Minception. The code for this is available at <span class="fm-code-in-text">Ch07-Improving-CNNs-and-Explaining/7.1.Image_Classification_Advance.ipynb</span>.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_90"><a id="pgfId-1109875"></a>7.2.1 Implementing the stem</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109878"></a>First and foremost, we should focus on the stem of the model. To refresh our knowledge, a stem is a sequence of convolution and pooling layers and resembles a typical CNN. Minception, however, has a more complex layout, as shown in figure 7.9.</p>
+
+  <p class="fm-figure"><img alt="07-09" class="calibre10" src="../../OEBPS/Images/07-09.png" width="989" height="1294"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1132520"></a>Figure 7.9 Comparing the stems of Minception and Inception-v1. Note how Minception separates the nonlinear activation of convolution layers. This is because batch normalization must be inserted in between the convolution output and the nonlinear activation.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109885"></a>You can see that it has parallel streams of convolution layers spread across the stem. The stem of the Minception is quite different from Inception Net v1. Another key difference is that Minception does not use local response normalization (LRN<a class="calibre8" id="marker-1109886"></a>) but something far more powerful known as <i class="fm-italics">batch normalization</i><a class="calibre8" id="marker-1109887"></a>.</p>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1109888"></a>Batch normalization: A versatile normalization technique to stabilize and accelerate the training of deep networks</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1109890"></a>Batch normalization (BN<a id="marker-1114708"></a>) was introduced in the paper “Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift” by Sergey Ioffe et al. (<span class="fm-hyperlink"><a class="url" href="http://proceedings.mlr.press/v37/ioffe15.pdf">http://proceedings.mlr.press/v37/ioffe15.pdf</a></span>). As the name suggests, it is a normalization technique that normalizes the intermediate outputs of deep networks.</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1109892"></a>“Why is this important?” you might ask. It turns out deep networks can cause massive headaches if not properly cared for. For example, a batch of improperly scaled/ anomalous inputs during training or incorrect weight initialization can lead to a poor model. Furthermore, such problems can amplify along the depth of the network or over time, leading to changes to the distribution of the inputs received by each layer over time. The phenomenon where the distribution of the inputs is changed over time is known as a <i class="fm-italics">covariate shift</i><a id="marker-1114712"></a>. This is very common, especially in streaming data problems. Batch normalization was invented to solve this problem. Let’s understand how BN solves this problem. The batch normalization layer does the following things:</p>
+
+    <ul class="calibre9">
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1109894"></a>Normalize <i class="fm-timesitalic">x</i><sup class="fm-superscript1">(k)</sup>, the outputs of the <i class="fm-timesitalic">k</i><sup class="fm-superscript1">th</sup> layer of the network using</p>
+      </li>
+
+      <li class="calibre20">
+        <p class="fm-equation"><img alt="07_09a" class="calibre10" src="../../OEBPS/Images/07_09a.png" width="218" height="86"/><br class="calibre2"/>
+        <a id="pgfId-1112368"></a></p>
+      </li>
+
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1109899"></a>Here, <i class="fm-timesitalic">E</i>[<i class="fm-timesitalic">x</i><sup class="fm-superscript1">(k)</sup>] represents the mean of the output, and <i class="fm-timesitalic">Var</i>[<i class="fm-timesitalic">x</i><sup class="fm-superscript1">(k)</sup>] is the variance of the output. Both <i class="fm-timesitalic">E</i>[<i class="fm-timesitalic">x</i><sup class="fm-superscript1">(k)</sup>] and <i class="fm-timesitalic">Var</i>[<i class="fm-timesitalic">x</i><sup class="fm-superscript1">(k)</sup>] are vectors. For a fully connected layer with n nodes, both <i class="fm-timesitalic">E</i>[<i class="fm-timesitalic">x</i><sup class="fm-superscript1">(k)</sup>] and <i class="fm-timesitalic">Var</i>[<i class="fm-timesitalic">x</i><sup class="fm-superscript1">(k)</sup>] are n-long vectors (computed by taking mean-over-batch dimension). For a convolutional layer with f filters/kernels, <i class="fm-timesitalic">E</i>[<i class="fm-timesitalic">x</i><sup class="fm-superscript1">(k)</sup>] and <i class="fm-timesitalic">Var</i>[<i class="fm-timesitalic">x</i><sup class="fm-superscript1">(k)</sup>] will be f-long vectors (computed by taking mean over batch, height, and width dimensions).</p>
+      </li>
+
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1109900"></a>Scale and offset the normalized output using two trainable hyperparameters, <span class="fm-symbol1">γ</span> and <span class="fm-symbol1">β</span> (defined separately for each layer), as</p>
+      </li>
+
+      <li class="calibre20">
+        <p class="fm-equation"><a id="pgfId-1090178"></a><i class="fm-italics">y</i><sup class="fm-superscript">(k)</sup> = <i class="fm-italics">γ</i><sup class="fm-superscript">(k)</sup><i class="fm-italics">x̂</i><sup class="fm-superscript">(k)</sup> + <i class="fm-italics">β<sup class="fm-superscript">(k)</sup></i></p>
+      </li>
+
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1109905"></a>In this process, computing <i class="fm-timesitalic">E</i>(<i class="fm-timesitalic">x</i>) and <i class="fm-timesitalic">Var</i>(<i class="fm-timesitalic">x</i>) gets a bit tricky, as these need to be treated differently in the training and testing phases.</p>
+      </li>
+
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1109906"></a>During training, following the stochastic (i.e., looking at a random batch of data instead of the full data set at a given time) nature of the training for each batch, <i class="fm-timesitalic">E</i>(<i class="fm-timesitalic">x</i>) and <i class="fm-timesitalic">Var</i>(<i class="fm-timesitalic">x</i>) are computed using only that batch of data. Therefore, for each batch, you can compute <i class="fm-timesitalic">E</i>(<i class="fm-timesitalic">x</i>) (mean) and <i class="fm-timesitalic">Var</i>(<i class="fm-timesitalic">x</i>) (variance) without worrying about anything except the current batch.</p>
+      </li>
+
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1131877"></a>Then, using each <i class="fm-timesitalic">E</i>(<i class="fm-timesitalic">x</i>) and <i class="fm-timesitalic">Var</i>(<i class="fm-timesitalic">x</i>) computed for each batch of data, we estimate <i class="fm-timesitalic">E</i>(<i class="fm-timesitalic">x</i>) and <i class="fm-timesitalic">Var</i>(<i class="fm-timesitalic">x</i>) for the population. This is achieved by computing the running mean of <i class="fm-timesitalic">E</i>(<i class="fm-timesitalic">x</i>) and <i class="fm-timesitalic">Var</i>(<i class="fm-timesitalic">x</i>). We will not discuss how the running mean works. But you can imagine the running mean as an efficiently computed approximate representation of the true mean for a large data set.</p>
+      </li>
+
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1109908"></a>During the testing phase, we use the population-based <i class="fm-timesitalic">E</i>(<i class="fm-timesitalic">x</i>) and <i class="fm-timesitalic">Var</i>(<i class="fm-timesitalic">x</i>) that we computed earlier and perform the earlier defined computations to get <i class="fm-timesitalic">y</i><sup class="fm-superscript1">(k)</sup>.</p>
+      </li>
+    </ul>
+  </div>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109910"></a>Due to the complex steps involved in the batch normalization, it will take quite some effort to implement this from the scratch. Luckily, you don’t have to. There is a batch normalization layer provided in TensorFlow (<span class="fm-hyperlink"><a class="url" href="http://mng.bz/Qv0Q">http://mng.bz/Qv0Q</a></span>). If you have the output of some dense layer (let’s call it <span class="fm-code-in-text">dense1</span>) to inject batch normalization, all you need to do is</p>
+  <pre class="programlisting">dense1_bn = BatchNormalization()(dense1)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1109913"></a>Then TensorFlow will automatically take care of all the complex computations that need to happen under the hood for batch normalization to work properly. Now it’s time to use this powerful technique in our Minception model. In the next listing, you can see the implementation of the stem of Minception net. We will write a function called <span class="fm-code-in-text">stem</span><a id="marker-1109914"></a><a class="calibre8" id="marker-1129636"></a>, which allows us to turn on/off batch normalization at will.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1109916"></a>Listing 7.6 Defining the stem of Minception</p>
+  <pre class="programlisting">def stem(inp, activation='relu', bn=True):                              <span class="fm-combinumeral">❶</span>
+    
+    conv1_1 = Conv2D(
+        32, (3,3), strides=(2,2), activation=None,                      <span class="fm-combinumeral">❷</span>
+        kernel_initializer=init, padding='same'
+    )(inp) #62x62
+    if bn:
+        conv1_1 = BatchNormalization()(conv1_1)                         <span class="fm-combinumeral">❸</span>
+    conv1_1 = Activation(activation)(conv1_1)                           <span class="fm-combinumeral">❹</span>
+        
+    conv1_2 = Conv2D(
+        32, (3,3), strides=(1,1), activation=None,                      <span class="fm-combinumeral">❷</span>
+        kernel_initializer=init, padding='same'
+    )(conv1_1) # 31x31
+    if bn:
+        conv1_2 = BatchNormalization()(conv1_2)
+    conv1_2 = Activation(activation)(conv1_2)
+        
+    conv1_3 = Conv2D(
+        64, (3,3), strides=(1,1), activation=None,                      <span class="fm-combinumeral">❷</span>
+           kernel_initializer=init, padding='same'
+       )(conv1_2) # 31x31
+    if bn:
+        conv1_3 = BatchNormalization()(conv1_3)
+    conv1_3 = Activation(activation)(conv1_3)
+        
+    maxpool2_1 = MaxPool2D((3,3), strides=(2,2), 
+<span class="fm-code-continuation-arrow">➥</span> padding='same')(conv1_3)                                             <span class="fm-combinumeral">❺</span>
+    
+    conv2_2 = Conv2D(
+        96, (3,3), strides=(2,2), activation=None,
+        kernel_initializer=init, padding='same'
+    )(conv1_3)                  
+    if bn:
+        conv2_2 = BatchNormalization()(conv2_2)
+    conv2_2 = Activation(activation)(conv2_2)                           <span class="fm-combinumeral">❺</span>
+        
+    out2 = Concatenate(axis=-1)([maxpool2_1, conv2_2])                  <span class="fm-combinumeral">❻</span>
+    
+    conv3_1 = Conv2D(
+        64, (1,1), strides=(1,1), activation=None, 
+        kernel_initializer=init, padding='same'
+    )(out2)                                                             <span class="fm-combinumeral">❼</span>
+    if bn:
+        conv3_1 = BatchNormalization()(conv3_1)
+    conv3_1 = Activation(activation)(conv3_1)
+        
+    conv3_2 = Conv2D(
+        96, (3,3), strides=(1,1), activation=None, 
+        kernel_initializer=init, padding='same'
+    )(conv3_1)                                                          <span class="fm-combinumeral">❼</span>
+    if bn:
+        conv3_2 = BatchNormalization()(conv3_2)
+    conv3_2 = Activation(activation)(conv3_2)
+        
+    conv4_1 = Conv2D(
+        64, (1,1), strides=(1,1), activation=None, 
+        kernel_initializer=init, padding='same'
+    )(out2)                                                             <span class="fm-combinumeral">❽</span>
+    if bn:
+        conv4_1 = BatchNormalization()(conv4_1)
+    conv4_1 = Activation(activation)(conv4_1)
+      
+    conv4_2 = Conv2D(
+        64, (7,1), strides=(1,1), activation=None, 
+        kernel_initializer=init, padding='same'
+    )(conv4_1)                                                          <span class="fm-combinumeral">❽</span>
+    if bn:
+        conv4_2 = BatchNormalization()(conv4_2)
+        
+    conv4_3 = Conv2D(
+        64, (1,7), strides=(1,1), activation=None, 
+        kernel_initializer=init, padding='same'
+    )(conv4_2)                                                          <span class="fm-combinumeral">❽</span>
+    if bn:
+        conv4_3 = BatchNormalization()(conv4_3)
+    conv4_3 = Activation(activation)(conv4_3)
+ 
+    conv4_4 = Conv2D(
+        96, (3,3), strides=(1,1), activation=None, 
+        kernel_initializer=init, padding='same'
+    )(conv4_3)                                                          <span class="fm-combinumeral">❽</span>
+    if bn:
+        conv4_4 = BatchNormalization()(conv4_4)
+    conv4_4 = Activation(activation)(conv4_4)
+        
+    out34 = Concatenate(axis=-1)([conv3_2, conv4_4])                    <span class="fm-combinumeral">❾</span>
+ 
+    maxpool5_1 = MaxPool2D((3,3), strides=(2,2), padding='same')(out34) <span class="fm-combinumeral">❿</span>
+    conv6_1 = Conv2D(
+        192, (3,3), strides=(2,2), activation=None,       
+        kernel_initializer=init, padding='same'
+    )(out34)                                                            <span class="fm-combinumeral">❿</span>
+    if bn:
+        conv6_1 = BatchNormalization()(conv6_1)
+    conv6_1 = Activation(activation)(conv6_1)
+        
+    out56 = Concatenate(axis=-1)([maxpool5_1, conv6_1])                 <span class="fm-combinumeral">❿</span>
+        
+    return out56</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1128436"></a><span class="fm-combinumeral">❶</span> Defines the function. Note that we can switch batch normalization on and off.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1128457"></a><span class="fm-combinumeral">❷</span> The first part of the stem until the first split</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1128481"></a><span class="fm-combinumeral">❸</span> Note that first batch normalization is applied before applying the nonlinear activation.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1128498"></a><span class="fm-combinumeral">❹</span> Nonlinear activation is applied to the layer after the batch normalization step.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1128518"></a><span class="fm-combinumeral">❺</span> The two parallel streams of the first split</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1128535"></a><span class="fm-combinumeral">❻</span> Concatenates the outputs of the two parallel streams in the first split</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1128552"></a><span class="fm-combinumeral">❼</span> First stream of the second split</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1128569"></a><span class="fm-combinumeral">❽</span> Second stream of the second split</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1128627"></a><span class="fm-combinumeral">❾</span> Concatenates the outputs of the two streams in the second split</p>
+
+  <p class="fm-code-annotation-mob"><a class="calibre8" id="pgfId-1128644"></a><span class="fm-combinumeral">❿</span> The third (final split) and the concatenation of the outputs</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110026"></a>A key change you should note is that the nonlinear activation of each layer is separated from the layers. This is so that batch normalization can be inserted in between the output of the layer and the nonlinear activation. This is the original way to apply batch normalization, as discussed in the original paper. But whether BN should come before or after the nonlinearity is an ongoing discussion. You can find a casual discussion on this topic at <span class="fm-hyperlink"><a class="url" href="http://mng.bz/XZpp">http://mng.bz/XZpp</a></span>.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_91"><a id="pgfId-1110030"></a>7.2.2 Implementing Inception-ResNet type A block</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110035"></a>With<a class="calibre8" id="marker-1114872"></a> the stem of the network behind us, let’s move forward to see what the Inception blocks look like in Minception net. Let’s quickly revisit what the Inception block is and why it was developed. The Inception block was developed to maximize the representational power of convolution layers while encouraging sparsity in model parameters and without shooting the memory requirements through the roof. It does this by having several parallel convolution layers with varying receptive field sizes (i.e., kernel sizes). The Inception block in Minception net uses mostly the same framework. However, it introduces one novel concept, known as <i class="fm-italics">residual connections</i><a class="calibre8" id="marker-1114875"></a>.</p>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1110037"></a>Residual/skip connections: Shortcuts to stable gradients</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1110038"></a>We have already touched lightly on residual connections, which introduce one of the simplest operations you can think of in mathematics: element-wise adding of an input to an output. In other words, you take a previous output of the network (call it x) and add it to the current output (call it y), so you get the final output z as z = x + y.</p>
+
+    <p class="fm-figure"><img alt="07-09-unnumb-1" class="calibre10" src="../../OEBPS/Images/07-09-unnumb-1.png" width="575" height="575"/><br class="calibre2"/></p>
+
+    <p class="fm-figure-caption"><a id="pgfId-1132595"></a>How skip/residual connections are added between convolution layers</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1131371"></a>One thing to be aware of when implementing residual connections is to make sure their sizes match, as this is an element-wise addition.</p>
+  </div>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1110047"></a>What is residual about residual connections? Mathematical view</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1110048"></a>It might not be obvious at first, but it’s not clear what is residual about skip connections. Assume the following scenario. You have an input x; next you have some layer, F(x) = y, that takes an input x and maps it to y. You implement the following network.</p>
+
+    <p class="fm-figure"><img alt="07-09-unnumb-2" class="calibre10" src="../../OEBPS/Images/07-09-unnumb-2.png" width="642" height="511"/><br class="calibre2"/></p>
+
+    <p class="fm-figure-caption"><a id="pgfId-1132561"></a>Mathematical view of residual connections</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1110055"></a>y<sub class="fm-subscript1">k</sub> = F(x)</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1110056"></a>y<sub class="fm-subscript1">k</sub> <sub class="fm-subscript1">+ 1</sub> = F(y<sub class="fm-subscript1">k</sub>)</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1110057"></a>y<sub class="fm-subscript1">k</sub> <sub class="fm-subscript1">+ 2</sub> = y<sub class="fm-subscript1">k</sub> <sub class="fm-subscript1">+ 1</sub> + x</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1110058"></a>y<sub class="fm-subscript1">k</sub> <sub class="fm-subscript1">+ 2</sub> = y<sub class="fm-subscript1">k</sub> <sub class="fm-subscript1">+ 1</sub> + G(x); let us consider the residual connections as a layer that does identity mapping and call it G.</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1110059"></a>y<sub class="fm-subscript1">k</sub> <sub class="fm-subscript1">+ 2</sub> - y<sub class="fm-subscript1">k</sub> <sub class="fm-subscript1">+ 1</sub> = G(x) or</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1110060"></a>G(x) = y<sub class="fm-subscript1">k</sub> <sub class="fm-subscript1">+ 2</sub> - y<sub class="fm-subscript1">k</sub> <sub class="fm-subscript1">+ 1</sub>; G, in fact, represents the residual between the final output and the previous output.</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1110061"></a>By considering final output as a layer H that takes x and y<sub class="fm-subscript1">k</sub> <sub class="fm-subscript1">+ 1</sub> as inputs, we obtain the following equation:</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1110062"></a>G(x) = H(x, y<sub class="fm-subscript1">k</sub> <sub class="fm-subscript1">+ 1</sub>) - F(y<sub class="fm-subscript1">k</sub>)</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1110063"></a>You can see how the residual enters the picture. Essentially, G(x) is a residual between the final layer output and the previous layer’s output</p>
+  </div>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110065"></a>It could not be easier to implement residual connections. Assume you have the following network:</p>
+  <pre class="programlisting">from tensorflow.keras.layers import Dense, Input, Add
+ 
+inp = Input(shape=(10,))
+d1 = Dense(20, activation='relu')(inp)
+d2 = Dense(20, activation='relu')(d1)
+d3 = Dense(20, activation='relu')(d2)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110072"></a>You’d like to create a residual connection from <span class="fm-code-in-text">d1</span> to <span class="fm-code-in-text">d3</span>. Then all you need to do is</p>
+  <pre class="programlisting">d4 = d3 + d1</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110074"></a>or, if you want to use a Keras layer (equivalent to the previous operation), you can do</p>
+  <pre class="programlisting">d4 = Add()([d3, d1])</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110076"></a>There you have it: <span class="fm-code-in-text">d4</span> is the output of a residual connection. You might remember that I said the output sizes must match in order for the residual connections to be added. Let’s try adding two incompatible shapes. For example, let’s change the <span class="fm-code-in-text">Dense</span> layer<a class="calibre8" id="marker-1110077"></a> to have 30 nodes instead of 20:</p>
+  <pre class="programlisting">inp = Input(shape=(10,))
+d1 = Dense(20, activation='relu')(inp)
+d2 = Dense(20, activation='relu')(d1)
+d3 = Dense(30, activation='relu')(d2)
+d4 = Add()([d3, d1])</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110083"></a>If you try to run this code, you’ll get the following error:</p>
+  <pre class="programlisting">---------------------------------------------------------------------------
+ValueError                                Traceback (most recent call last)
+...
+----&gt; d4 = Add()([d3, d1])
+...
+ValueError: Operands could not be broadcast together with shapes (30,) (20,)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110090"></a>As you can see, TensorFlow is complaining that it was not able to broadcast (in this context, this means performing element-wise addition) two tensors with shapes 30 and 20. This is because TensorFlow doesn’t know how to add a (<span class="fm-code-in-text">batch_size</span>, 20) tensor to (<span class="fm-code-in-text">batch_size</span>, 30). If you see a similar error when trying to implement residual connections, you should go through the network outputs and make sure they match. To get rid of this error, all you need to do is change the code as follows:</p>
+  <pre class="programlisting">inp = Input(shape=(10,))
+d1 = Dense(20, activation='relu')(inp)
+d2 = Dense(20, activation='relu')(d1)
+d3 = Dense(<b class="fm-code-bold">20</b>, activation='relu')(d2)
+d4 = Add()([d3, d1])</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110096"></a>Minception has two types of Inception blocks (type A and type B). Now let’s write Inception-ResNet block (type A) as a function <span class="fm-code-in-text">inception_resnet_a</span>. Compared to the Inception block you implemented earlier, this new inception block has the following additions:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1110098"></a>Uses batch normalization</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1110099"></a>Uses a residual connection from the input to the final output of the block</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110100"></a>Figure 7.10 compares Inception-ResNet block type A of Minception to Inception Net v1. An obvious difference is that Inception Net v1 does not harness the power of residual connections.</p>
+
+  <p class="fm-figure"><img alt="07-10" class="calibre10" src="../../OEBPS/Images/07-10.png" width="897" height="1461"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1132629"></a>Figure 7.10 Comparison between Inception-ResNet block A (Minception) and Inception net v1’s Inception block</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110107"></a>Let’s now implement the Minception-ResNet block A. Figure 7.11 shows the type of computations and their connectivity that need to be implemented (listing 7.7).<span class="calibre21"> </span></p>
+
+  <p class="fm-figure"><img alt="07-11" class="calibre10" src="../../OEBPS/Images/07-11.png" width="731" height="933"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1132686"></a>Figure 7.11 Illustration of the Minception-ResNet block A with annotations from code listing 7.7</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1110109"></a>Listing 7.7 Implementation of Minception-ResNet block A</p>
+  <pre class="programlisting">def inception_resnet_a(inp, n_filters, initializer, activation='relu', 
+<span class="fm-code-continuation-arrow">➥</span> bn=True, res_w=0.1):
+    out1_1 = Conv2D(
+        n_filters[0][0], (1,1), strides=(1,1), 
+<span class="fm-code-continuation-arrow">➥</span> activation=None, 
+        kernel_initializer=initializer, 
+<span class="fm-code-continuation-arrow">➥</span> padding='same'
+    )(inp)                                                        <span class="fm-combinumeral">❶</span>
+    if bn:
+        out1_1 = BatchNormalization()(out1_1)
+    out1_1 = Activation(activation)(out1_1)                       <span class="fm-combinumeral">❶</span>
+            
+    out2_1 = Conv2D(
+        n_filters[1][0], (1,1), strides=(1,1), 
+<span class="fm-code-continuation-arrow">➥</span> activation=None, 
+        kernel_initializer=initializer, padding='same'
+    )(inp)                                                        <span class="fm-combinumeral">❷</span>
+    if bn:
+        out2_1 = BatchNormalization()(out2_1)
+    out2_1 = Activation(activation)(out2_1)                       <span class="fm-combinumeral">❷</span>
+        
+    out2_2 = Conv2D(
+        n_filters[1][1], (1,1), strides=(1,1), activation=None, 
+        kernel_initializer=initializer, padding='same'
+    )(out2_1)                                                     <span class="fm-combinumeral">❷</span>
+    if bn:
+        out2_2 = BatchNormalization()(out2_2)
+    out2_2 = Activation(activation)(out2_2)                       <span class="fm-combinumeral">❷</span>
+        
+    out2_3 = Conv2D(
+        n_filters[1][2], (1,1), strides=(1,1), activation=None, 
+        kernel_initializer=initializer, padding='same'
+    )(out2_2)                                                     <span class="fm-combinumeral">❷</span>
+        
+    out3_1 = Conv2D(
+        n_filters[2][0], (1,1), strides=(1,1), activation=None, 
+        kernel_initializer=initializer, padding='same'
+    )(inp)                                                        <span class="fm-combinumeral">❸</span>
+    if bn:
+        out3_1 = BatchNormalization()(out3_1)
+    out3_1 = Activation(activation)(out3_1)                       <span class="fm-combinumeral">❸</span>
+        
+    out3_2 = Conv2D(
+        n_filters[2][1], (3,3), strides=(1,1), activation=None, 
+        kernel_initializer=initializer, padding='same'
+    )(out3_1)                                                     <span class="fm-combinumeral">❸</span>
+    if bn:
+        out3_2 = BatchNormalization()(out3_2)
+    out3_2 = Activation(activation)(out3_2)                       <span class="fm-combinumeral">❸</span>
+        
+    out3_3 = Conv2D(
+        n_filters[2][2], (3,3), strides=(1,1), activation=None, 
+        kernel_initializer=initializer, padding='same'
+    )(out3_2)                                                     <span class="fm-combinumeral">❸</span>
+    if bn:
+        out3_3 = BatchNormalization()(out3_3)
+    out3_3 = Activation(activation)(out3_3)                       <span class="fm-combinumeral">❸</span>
+        
+    out3_4 = Conv2D(
+        n_filters[2][3], (1,1), strides=(1,1), activation=None, 
+        kernel_initializer=initializer, padding='same'
+    )(out3_3)                                                     <span class="fm-combinumeral">❸</span>
+    if bn:
+        out3_4 = BatchNormalization()(out3_4)
+    out3_4 = Activation(activation)(out3_4)                       <span class="fm-combinumeral">❸</span>
+        
+    out4_1 = Concatenate(axis=-1)([out1_1, out2_2, out3_4])       <span class="fm-combinumeral">❹</span>
+    out4_2 = Conv2D(
+        n_filters[3][0], (1,1), strides=(1,1), activation=None, 
+        kernel_initializer=initializer, padding='same'
+    )(out4_1)
+    if bn:
+        out4_2 = BatchNormalization()(out4_2)                               
+        
+    out4_2 += res_w * inp                                         <span class="fm-combinumeral">❺</span>
+    out4_2 = Activation(activation)(out4_2)                       <span class="fm-combinumeral">❺</span>
+        
+        return out4_2</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1127747"></a><span class="fm-combinumeral">❶</span> The first parallel stream in the block</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1127768"></a><span class="fm-combinumeral">❷</span> The second parallel stream in the block</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1127785"></a><span class="fm-combinumeral">❸</span> The third parallel stream in the block</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1127802"></a><span class="fm-combinumeral">❹</span> Concatenate the outputs of the three separate streams.</p>
+
+  <p class="fm-code-annotation-mob"><a class="calibre8" id="pgfId-1127819"></a><span class="fm-combinumeral">❺</span> Incorporate the residual connection (which is multiplied by a factor to improve the gradient flow).</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110189"></a>Though the function appears long, it is mostly playing Legos with convolution layers. Figure 7.11 provides you the mental map between the visual inception layer and the code. A key observation is how the batch normalization and the nonlinear activation (ReLU<a class="calibre8" id="marker-1110190"></a>) are applied in the top part of the block. The last 1 × 1 convolution uses batch normalization, not nonlinear activation. Nonlinear activation is only applied after the residual connections.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110197"></a>We are now going to see how to implement the Inception-ResNet B block.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_92"><a id="pgfId-1110198"></a>7.2.3 Implementing the Inception-ResNet type B block</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110207"></a>Next<a class="calibre8" id="marker-1110201"></a> up is the Inception-ResNet type B<a class="calibre8" id="marker-1110205"></a> block in the Minception network. We will not talk about this at length as it is very similar to the Inception-ResNet A block. Figure 7.12 depicts the Inception-ResNet B block and compares it to Inception-ResNet A block. Block B looks relatively simpler than block A, with only two parallel streams. The code-related annotations help you map the mental model of the Inception block to the code, as shown in the following listing.</p>
+
+  <p class="fm-figure"><img alt="07-12" class="calibre10" src="../../OEBPS/Images/07-12.png" width="747" height="1514"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1132714"></a>Figure 7.12 Minception’s Inception-ResNet block B (left) and Minception’s Inception-ResNet block A (right) side by side</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1110215"></a>Listing 7.8 The implementation of Minception-ResNet block B</p>
+  <pre class="programlisting">def inception_resnet_b(inp, n_filters, initializer, activation='relu', 
+<span class="fm-code-continuation-arrow">➥</span> bn=True, res_w=0.1):
+    out1_1 = Conv2D(
+        n_filters[0][0], (1,1), strides=(1,1), activation=None, 
+        kernel_initializer=initializer, padding='same'
+    )(inp)
+    if bn:
+        out1_1 = BatchNormalization()(out1_1) 
+    out1_1 = Activation(activation)(out1_1)                      <span class="fm-combinumeral">❶</span>
+         
+    out2_1 = Conv2D(
+        n_filters[1][0], (1,1), strides=(1,1), activation=activation, 
+        kernel_initializer=initializer, padding='same'
+    )(inp)
+    if bn:
+        out2_1 = BatchNormalization()(out2_1)
+    out2_1 = Activation(activation)(out2_1)                      <span class="fm-combinumeral">❷</span>
+        
+    out2_2 = Conv2D(
+        n_filters[1][1], (1,7), strides=(1,1), activation=None, 
+        kernel_initializer=initializer, padding='same'
+    )(out2_1)
+    if bn:
+        out2_2 = BatchNormalization()(out2_2)
+    out2_2 = Activation(activation)(out2_2)                      <span class="fm-combinumeral">❷</span>
+        
+    out2_3 = Conv2D(
+        n_filters[1][2], (7,1), strides=(1,1), activation=None, 
+        kernel_initializer=initializer, padding='same'
+    )(out2_2)
+    if bn:
+        out2_3 = BatchNormalization()(out2_3)
+    out2_3 = Activation(activation)(out2_3)                      <span class="fm-combinumeral">❷</span>
+        
+    out3_1 = Concatenate(axis=-1)([out1_1, out2_3])              <span class="fm-combinumeral">❸</span>
+    out3_2 = Conv2D(
+        n_filters[2][0], (1,1), strides=(1,1), activation=None, 
+        kernel_initializer=initializer, padding='same'
+    )(out3_1)
+    if bn:
+        out3_2 = BatchNormalization()(out3_2)                    <span class="fm-combinumeral">❹</span>
+        
+    out3_2 += res_w * inp                                        <span class="fm-combinumeral">❺</span>
+    out3_2 = Activation(activation)(out3_2)
+        
+    return out3_2</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1127341"></a><span class="fm-combinumeral">❶</span> The first parallel stream in the block</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1127360"></a><span class="fm-combinumeral">❷</span> The second parallel stream in the block</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1127377"></a><span class="fm-combinumeral">❸</span> Concatenate the results from the two parallel streams.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1127394"></a><span class="fm-combinumeral">❹</span> The final convolution layer on top of the concatenated result</p>
+
+  <p class="fm-code-annotation-mob"><a class="calibre8" id="pgfId-1127411"></a><span class="fm-combinumeral">❺</span> Applies the weighted residual connection</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110267"></a>This is quite similar to the function <span class="fm-code-in-text">inception_resnet_a(...)</span>, with two parallel streams and residual connections. The differences to note are that the type A block has a larger number of convolution layers than the type B block. In addition, the type A block uses a 5 × 5 convolution (factorized to two 3 × 3 convolution layers) and type B uses a 7 × 7 convolution (factorized to 1 × 7 and 7 × 1 convolution layers). I will leave it up to the reader to explore the function in<a class="calibre8" id="marker-1110270"></a> detail.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_93"><a id="pgfId-1110272"></a>7.2.4 Implementing the reduction block</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110276"></a>Inspired<a class="calibre8" id="marker-1110275"></a> by Inception-ResNet models, Minception also uses reduction blocks. Reduction blocks are quite similar to Resnet blocks, with the exception of not having residual connections in the blocks (see the next listing).</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1110279"></a>Listing 7.9 Implementation of the reduction block of Minception</p>
+  <pre class="programlisting">def reduction(inp, n_filters, initializer, activation='relu', bn=True):
+    # Split to three branches
+    # Branch 1
+    out1_1 = Conv2D(
+        n_filters[0][0], (3,3), strides=(2,2), 
+        kernel_initializer=initializer, padding='same'
+    )(inp)  
+    if bn:
+        out1_1 = BatchNormalization()(out1_1)
+    out1_1 = Activation(activation)(out1_1)                         <span class="fm-combinumeral">❶</span>
+ 
+    out1_2 = Conv2D(
+        n_filters[0][1], (3,3), strides=(1,1), 
+        kernel_initializer=initializer, padding='same'
+    )(out1_1)
+    if bn:
+        out1_2 = BatchNormalization()(out1_2)
+    out1_2 = Activation(activation)(out1_2)                         <span class="fm-combinumeral">❶</span>
+ 
+    out1_3 = Conv2D(
+        n_filters[0][2], (3,3), strides=(1,1), 
+        kernel_initializer=initializer, padding='same'
+    )(out1_2)
+    if bn:
+        out1_3 = BatchNormalization()(out1_3)
+    out1_3 = Activation(activation)(out1_3)                         <span class="fm-combinumeral">❶</span>
+        
+    # Branch 2
+    out2_1 = Conv2D(
+        n_filters[1][0], (3,3), strides=(2,2), 
+        kernel_initializer=initializer, padding='same'
+    )(inp)
+    if bn:
+        out2_1 = BatchNormalization()(out2_1)
+    out2_1 = Activation(activation)(out2_1)                         <span class="fm-combinumeral">❷</span>
+        
+    # Branch 3
+    out3_1 = MaxPool2D((3,3), strides=(2,2), padding='same')(inp)   <span class="fm-combinumeral">❸</span>
+        
+    # Concat the results from 3 branches
+    out = Concatenate(axis=-1)([out1_3, out2_1, out3_1])            <span class="fm-combinumeral">❹</span>
+ 
+    return out</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1127010"></a><span class="fm-combinumeral">❶</span> First parallel stream of convolutions</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1127036"></a><span class="fm-combinumeral">❷</span> Second parallel stream of convolutions</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1127053"></a><span class="fm-combinumeral">❸</span> Third parallel stream of pooling</p>
+
+  <p class="fm-code-annotation-mob"><a class="calibre8" id="pgfId-1127070"></a><span class="fm-combinumeral">❹</span> Concatenates all the outputs</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110327"></a>I will let figure 7.13 speak for itself in terms of explaining listing 7.9. But as you can see, at an abstract level it uses the same types of connections and layers as the Inception blocks we discussed.</p>
+
+  <p class="fm-figure"><img alt="07-13" class="calibre10" src="../../OEBPS/Images/07-13.png" width="661" height="522"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1132762"></a>Figure 7.13 Illustration of the reduction block</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110334"></a>Now we’re going to see how we can complete the puzzle of Minception by collating all the different elements we have implemented thus<a class="calibre8" id="marker-1110337"></a> far.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_94"><a id="pgfId-1110338"></a>7.2.5 Putting everything together</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110339"></a>Great work so far. With all the basic blocks ready, our Minception model is taking shape. Next, it’s a matter of putting things where they belong. The final model uses the following components:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1110340"></a>A single stem</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1110341"></a>1x Inception-ResNet block A</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1110342"></a>2x Inception-ResNet block B</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1110343"></a>Average pooling</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1110344"></a>Dropout</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1110345"></a>Final prediction layer with 200 nodes and softmax activation</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110346"></a>In addition, we will make a few more changes to the inputs of the model. According to the original paper, the model takes in a 56 × 56 × 3-sized input instead of a 64 × 64 × 3-sized input. This is done by the following:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1110348"></a><i class="fm-italics">Training phase</i><a class="calibre8" id="marker-1110347"></a>—Randomly cropping a 56 × 56 × 3-sized image from the original 64 × 64 × 3-sized image</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1110350"></a><i class="fm-italics">Validation/testing phase</i><a class="calibre8" id="marker-1110349"></a>—Center cropping a 56 × 56 × 3-sized image from the original image</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110351"></a>Furthermore, we will introduce another augmentation step to randomly contrast images during the training (as used in the paper). Unfortunately, you cannot achieve either of these steps with the <span class="fm-code-in-text">ImageDataGenerator</span>. The good news is that since TensorFlow 2.2, there have been several new image preprocessing layers introduced (<span class="fm-hyperlink"><a class="url" href="http://mng.bz/yvzy">http://mng.bz/yvzy</a></span>). We can incorporate these layers just like any other layer in the model. For example, we start with the input just like before:</p>
+  <pre class="programlisting">inp = Input(shape=(64,64,3))</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110356"></a>Then you import the <span class="fm-code-in-text">RandomCrop</span><a class="calibre8" id="marker-1110354"></a> and <span class="fm-code-in-text">RandomContrast</span> layers<a class="calibre8" id="marker-1110355"></a> and use them as follows:</p>
+  <pre class="programlisting">from tensorflow.keras.layers.experimental.preprocessing import RandomCrop, 
+<span class="fm-code-continuation-arrow">➥</span> RandomContrast
+# Cropping the image to a 56x56 sized image
+crop_inp = RandomCrop(56, 56, seed=random_seed)(inp)
+# Provide a random contrast between 0.7 and 1.3 where 1.0 is the original 
+<span class="fm-code-continuation-arrow">➥</span> contrast
+crop_inp = RandomContrast(0.3, seed=random_seed)(crop_inp)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110362"></a>The final model looks like the following listing.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1110364"></a>Listing 7.10 The final Minception model</p>
+  <pre class="programlisting">import tensorflow as tf
+from tensorflow.keras.layers import Input, Conv2D, MaxPool2D, Dropout, 
+<span class="fm-code-continuation-arrow">➥</span> AvgPool2D, Dense, Concatenate, Flatten, BatchNormalization, Activation
+<span class="fm-code-continuation-arrow">➥</span> from tensorflow.keras.layers.experimental.preprocessing import RandomCrop, 
+<span class="fm-code-continuation-arrow">➥</span> RandomContrast
+from tensorflow.keras.models import Model
+from tensorflow.keras.losses import CategoricalCrossentropy
+import tensorflow.keras.backend as K
+from tensorflow.keras.callbacks import EarlyStopping, CSVLogger
+ 
+inp = Input(shape=(64,64,3))                                       <span class="fm-combinumeral">❶</span>
+    
+crop_inp = RandomCrop(56, 56, seed=random_seed)(inp)               <span class="fm-combinumeral">❷</span>
+crop_inp = RandomContrast(0.3, seed=random_seed)(crop_inp)         <span class="fm-combinumeral">❸</span>
+ 
+stem_out = stem(crop_inp)                                          <span class="fm-combinumeral">❹</span>
+    
+inc_a = inception_resnet_a(stem_out, [(32,),(32,32), (32, 48, 64, 
+<span class="fm-code-continuation-arrow">➥</span> 384),(384,)], initializer=init)                                 <span class="fm-combinumeral">❺</span>
+ 
+red = reduction(inc_a, [(256,256,384),(384,)], initializer=init)   <span class="fm-combinumeral">❻</span>
+ 
+inc_b1 = inception_resnet_b(red, [(192,),(128,160,192),(1152,)], 
+<span class="fm-code-continuation-arrow">➥</span> initializer=init)                                               <span class="fm-combinumeral">❼</span>
+inc_b2 = inception_resnet_b(inc_b1,  [(192,),(128,160,192),(1152,)], 
+<span class="fm-code-continuation-arrow">➥</span> initializer=init)                                               <span class="fm-combinumeral">❼</span>
+    
+avgpool1 = AvgPool2D((4,4), strides=(1,1), padding='valid')(inc_b2)
+flat_out = Flatten()(avgpool1)
+dropout1 = Dropout(0.5)(flat_out)
+out_main = Dense(200, activation='softmax',  kernel_initializer=init, 
+<span class="fm-code-continuation-arrow">➥</span> name='final')(flat_out)                                         <span class="fm-combinumeral">❽</span>
+ 
+minception_resnet_v2 = Model(inputs=inp, outputs=out_main)         <span class="fm-combinumeral">❾</span>
+minception_resnet_v2.compile(loss=’categorical_crossentropy’, 
+<span class="fm-code-continuation-arrow">➥</span> optimizer='adam', metrics=['accuracy'])                         <span class="fm-combinumeral">❿</span></pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1126244"></a><span class="fm-combinumeral">❶</span> Define the 64 × 64 Input layer.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1126265"></a><span class="fm-combinumeral">❷</span> Perform random cropping on the input (randomness is only activated during training).</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1126285"></a><span class="fm-combinumeral">❸</span> Perform random contrast on the input (randomness is only activated during training).</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1126302"></a><span class="fm-combinumeral">❹</span> Define the output of the stem.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1126319"></a><span class="fm-combinumeral">❺</span> Define the Inception-ResNet block (type A).</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1126336"></a><span class="fm-combinumeral">❻</span> Define a reduction layer.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1126353"></a><span class="fm-combinumeral">❼</span> Define 2 Inception-ResNet block (type B).</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1126370"></a><span class="fm-combinumeral">❽</span> Define the final prediction layer.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1126392"></a><span class="fm-combinumeral">❾</span> Define the model.</p>
+
+  <p class="fm-code-annotation-mob"><a class="calibre8" id="pgfId-1126414"></a><span class="fm-combinumeral">❿</span> Compile the model with categorical crossentropy loss and the adam optimizer.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110404"></a>Finally, our Minception model is ready for battle. It takes in a 64 × 64 × 3-sized input (like the other models we implemented). It then randomly (during training) or center (during validation/testing) crops the image and applies random contrast adjustments (during training). This is taken care of automatically. Next, the processed input goes into the stem of the network, which produces the output <span class="fm-code-in-text">stem_out</span>, which goes into an Inception-ResNet block of type A and flows into a reduction block. Next, we have two Inception-ResNet type B blocks, one after the other. This is followed by an average pooling layer, a <span class="fm-code-in-text">Flatten</span> layer<a class="calibre8" id="marker-1110406"></a> that squashes all dimensions except the batch dimension to 1. Then a dropout layer with 50% dropout is applied on the output. Finally, a dense layer with 200 nodes (one for each class) with softmax activation produces the final output. Lastly, the model is compiled using the categorical cross-entropy loss and the <span class="fm-code-in-text">adam</span> optimizer<a class="calibre8" id="marker-1110407"></a>.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110408"></a>This ends our conversation about the Minception model. Do you want to know how much this will boost our model’s performance? In the next section, we will train the Minception model we defined.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_95"><a id="pgfId-1110409"></a>7.2.6 Training Minception</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110412"></a>Now<a class="calibre8" id="marker-1110411"></a> we’re on to training the model. The training process is very similar to what you already did for the Inception Net v1 model, with one difference. We are going to use a learning rate reduction schedule to further reduce overfitting and improve generalizability. In this example, the learning rate scheduler will reduce the learning rate if the model’s performance doesn’t improve within a predefined duration (see the next listing).</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1110415"></a>Listing 7.11 Training the Minception model</p>
+  <pre class="programlisting">import time
+from tensorflow.keras.callbacks import EarlyStopping, CSVLogger
+from functools import partial
+ 
+n_epochs=50
+ 
+es_callback = EarlyStopping(monitor='val_loss', patience=10)              <span class="fm-combinumeral">❶</span>
+csv_logger = CSVLogger(os.path.join('eval','3_eval_minception.log'))      <span class="fm-combinumeral">❷</span>
+lr_callback = tf.keras.callbacks.ReduceLROnPlateau(
+    monitor='val_loss', factor=0.1, patience=5, verbose=1, mode='auto'    <span class="fm-combinumeral">❸</span>
+)
+ 
+history = model.fit(                                                      <span class="fm-combinumeral">❹</span>
+    train_gen_aux, validation_data=valid_gen_aux, 
+    steps_per_epoch=get_steps_per_epoch(int(0.9*(500*200)), batch_size),
+    validation_steps=get_steps_per_epoch(int(0.1*(500*200)), batch_size),
+    epochs=n_epochs, 
+    callbacks=[es_callback, csv_logger, lr_callback]
+)</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1125981"></a><span class="fm-combinumeral">❶</span> Sets up an early stopping callback</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1126009"></a><span class="fm-combinumeral">❷</span> Sets up a CSV logger to record metrics</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1126026"></a><span class="fm-combinumeral">❸</span> Sets up a learning rate control callback</p>
+
+  <p class="fm-code-annotation-mob"><a class="calibre8" id="pgfId-1126043"></a><span class="fm-combinumeral">❹</span> Trains the model</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110440"></a>When training deep networks, using a learning rate schedule instead of a fixed learning rate is quite common. Typically, we get better performance by using a higher learning rate at the beginning of the model training and then using a smaller learning rate as the model progresses. This is because, as the model converges during the optimization process, you should make the step size smaller (i.e., the learning rate). Otherwise, large step sizes can make the model behave erratically. We can be smart about this process and reduce the learning rate whenever we do not see an increase in an observed metric instead of reducing the learning rate in fixed intervals. In Keras you can easily incorporate this into model training via the callback <span class="fm-code-in-text">ReduceLROnPlateau</span><a class="calibre8" id="marker-1110441"></a> (<span class="fm-hyperlink"><a class="url" href="http://mng.bz/M5Oo">http://mng.bz/M5Oo</a></span>):</p>
+  <pre class="programlisting">lr_callback = tf.keras.callbacks.ReduceLROnPlateau(
+    monitor='val_loss', factor=0.1, patience=5, verbose=1, mode='auto'
+)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110446"></a>When using the callback, you need to set the following keyword arguments:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1110447"></a><span class="fm-code-in-text">monitor</span>—Defines the observed metric. In our example, we will decide when to reduce the learning rate based on validation loss.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1110448"></a><span class="fm-code-in-text">factor</span>—The multiplicative factor to reduce the learning rate by. If the learning rate is 0.01, a factor of 0.1, this means, on reduction, that the learning rate will be 0.001.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1110449"></a><span class="fm-code-in-text">patience</span>—Similar to early stopping, how many epochs to wait before reducing the learning rate with no improvement in the metric.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1110450"></a><span class="fm-code-in-text">mode</span>—Similar to early stopping, whether the metric minimization/maximization should be considered as an improvement.</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110451"></a>When you train your model, you should get an output like the following:</p>
+  <pre class="programlisting">Train for 703 steps, validate for 78 steps
+Epoch 1/50
+703/703 [==============================] - 158s 224ms/step - loss: 4.9362 - 
+<span class="fm-code-continuation-arrow">➥</span> accuracy: 0.0544 - val_loss: 13.1802 - val_accuracy: 0.0246
+...
+Epoch 41/50
+702/703 [============================&gt;.] - ETA: 0s - loss: 2.5830 - 
+<span class="fm-code-continuation-arrow">➥</span> accuracy: 0.6828
+Epoch 00041: ReduceLROnPlateau reducing learning rate to 0.00010000000474974513.
+703/703 [==============================] - 136s 194ms/step - loss: 2.5831 - 
+<span class="fm-code-continuation-arrow">➥</span> accuracy: 0.6827 - val_loss: 3.4446 - val_accuracy: 0.4316
+...
+Epoch 47/50
+702/703 [============================&gt;.] - ETA: 0s - loss: 2.3371 - 
+<span class="fm-code-continuation-arrow">➥</span> accuracy: 0.7859
+Epoch 00047: ReduceLROnPlateau reducing learning rate to 1.0000000474974514e-05.
+703/703 [==============================] - 139s 197ms/step - loss: 2.3372 - 
+<span class="fm-code-continuation-arrow">➥</span> accuracy: 0.7859 - val_loss: 3.2988 - val_accuracy: 0.4720
+...
+Epoch 50/50
+703/703 [==============================] - 137s 194ms/step - loss: 2.3124 - 
+<span class="fm-code-continuation-arrow">➥</span> accuracy: 0.7959 - val_loss: 3.3133 - val_accuracy: 0.4792</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110468"></a>Amazing! We get a tremendous accuracy boost just by tweaking the model architecture. We now have a model that has around 50% accuracy on the validation set (which is equivalent to identifying 100/200 classes of objects accurately, or 50% of images classified that are accurate for each class). You can see the interventions made by the <span class="fm-code-in-text">ReduceLROnPlateau</span> callback<a class="calibre8" id="marker-1114185"></a> in the output.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110470"></a>Finally, we save the model using</p>
+  <pre class="programlisting">if not os.path.exists('models'):
+    os.mkdir("models")
+model.save(os.path.join('models', 'minception_resnet_v2.h5'))</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110474"></a>Next, we can measure the model’s performance on the test set:</p>
+  <pre class="programlisting"># Load the model from disk
+model = load_model(os.path.join('models','minception_resnet_v2.h5'))
+ 
+# Evaluate the model
+test_res = model.evaluate(test_gen_aux, steps=get_steps_per_epoch(500*50, 
+<span class="fm-code-continuation-arrow">➥</span> batch_size))</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110480"></a>This should give around 51% accuracy on the test set. That’s very exciting news. We have almost doubled the performance of the previous model by paying more attention to the structure of the model.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110481"></a>This is a good lesson that teaches us the vital role played by the model architecture in deep learning. There’s a misconception that deep learning is the silver bullet that solves anything. It is not. For example, you shouldn’t expect any random architecture that’s put together to work as well as some of the state-of-the-art results published. Getting a well-performing deep network can be a result of days or even weeks of hyperparameter optimization and empirically driven choices.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110482"></a>In the next section, we will leverage transfer learning to reach a higher degree of accuracy faster. We will download a pretrained model and finetune it on the specific data set.</p>
+
+  <p class="fm-callout"><a id="pgfId-1110483"></a><span class="fm-callout-head">NOTE</span> On an Intel Core i5 machine with an NVIDIA GeForce RTX 2070 8GB, the training took approximately 1 hour and 54 minutes to run 50 epochs.</p>
+
+  <p class="fm-head2"><a id="pgfId-1110484"></a>Exercise 3</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110485"></a>You have the following convolution block that you are using to implement an image classifier:</p>
+  <pre class="programlisting">def my_conv_block(input, activation): 
+    out_1 = tf.keras.layers.Conv2D(n_filters[0][2], (3,3), strides=(1,1), 
+                    kernel_initializer=initializer, padding='same')(input)
+    out_final = tf.keras.layers.BatchNormalization()(out_1)
+    out_final = tf.keras.layers.Activation(activation)(out_final)
+    return out_final  </pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110496"></a>You would like to make the following<a class="calibre8" id="marker-1110493"></a> two<a class="calibre8" id="marker-1110494"></a><a class="calibre8" id="marker-1110495"></a> changes:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1110497"></a>Introduce batch normalization after applying the activation</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1110498"></a>Create a residual connection from the output of the convolution layer to the output of the batch normalization layers output.</p>
+    </li>
+  </ul>
+
+  <h2 class="fm-head" id="sigil_toc_id_96"><a id="pgfId-1110499"></a>7.3 If you can't beat them, join ‘em: Using pretrained networks for enhancing performance</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110502"></a>So<a class="calibre8" id="marker-1110500"></a> far, you have developed a good image classification model, which uses various methods to prevent overfitting. The company was happy until your boss let out the news that there’s a new competitor in town that is performing better than the model you developed. Rumor is that they have a model that’s around 70% accurate. So, it’s back to the drawing board for you and your colleagues. You believe that a special technique known as transfer learning can help. Specifically, you intend to use a pretrained version of Inception-ResNet v2 that is already trained on the original ImageNet image classification data set; fine-tuning this model on the <span class="fm-code-in-text">tiny-imagenet-200</span> data set<a class="calibre8" id="marker-1110503"></a> will provide better accuracy than all the models implemented thus far.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110504"></a>If you want to come close to state of the art, you must use every bit of help you can get. A great way to begin this quest is to start with a pretrained model and then fine-tune it for your task. A pretrained model is a model that has already being trained on a similar task. This process falls under the concept of <i class="fm-italics">transfer learning</i>. For example, you can easily find models that have been pretrained on the ILSVRC task.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_97"><a id="pgfId-1110505"></a>7.3.1 Transfer learning: Reusing existing knowledge in deep neural networks</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110506"></a>Transfer learning is a massive topic and is something for a separate chapter (or even a book). There are many variants of transfer learning. To understand different facets of transfer learning, refer to <span class="fm-hyperlink"><a class="url" href="https://ruder.io/transfer-learning/">https://ruder.io/transfer-learning/</a></span>. One method is to use a pretrained model and fine-tune it for the task to be solved. The process looks like figure 7.14.</p>
+
+  <p class="fm-figure"><img alt="07-14" class="calibre10" src="../../OEBPS/Images/07-14.png" width="1097" height="917"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1132797"></a>Figure 7.14 How transfer<a id="marker-1132796"></a><a id="marker-1120466"></a> learning works. First, we start with a model that is pretrained on a larger data set that is solving a similar/relevant task to the one we’re interested in. Then we transfer the model weights (except the last layer) and fit a new prediction layer on top of the existing weights. Finally, we fine-tune the model on a new task.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110515"></a>First, you train the model on a task for which you already have a large labeled data set (known as the pretrained task). For example, in image classification, you have several large labeled data sets, including the ImageNet data set. Once you train a model on the large data set, you get the weights of the network (except for the final prediction layer) and fit a new prediction layer that matches the new task. This gives a very good starting point for the network to solve the new task. You are then able to solve the new task with a smaller data set, as you have already trained your model on similar, larger data sets.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110516"></a>How can we use transfer learning to solve our problem? It is not that difficult. Keras provides a huge model repository for image classification tasks (<span class="fm-hyperlink"><a class="url" href="http://mng.bz/aJdo">http://mng.bz/aJdo</a></span>). These models have been trained predominantly on the ImageNet image classification task. Let’s tame the beast produced in the lineage of Inception networks: Inception-ResNet v2. Note that the code for this section can be found at <span class="fm-code-in-text">Ch07-Improving-CNNs-and-Explaining/7.2.Transfer_Learning.ipynb</span>.</p>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1110518"></a>Inception-ResNet v2</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1110519"></a>We briefly touched on the Inception-ResNet v2 model. It was the last Inception model produced. Inception-ResNet v2 has the following characteristics that set it apart from other inception models:</p>
+
+    <ul class="calibre9">
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1110520"></a>Redesigned stem that removes any representational bottlenecks</p>
+      </li>
+
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1110521"></a>Inception blocks that use residual connections</p>
+      </li>
+
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1110522"></a>Reduction modules that reduce the height/width dimensions of the inputs</p>
+      </li>
+
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1110523"></a>Does not use auxiliary outputs as in the early Inception nets</p>
+      </li>
+    </ul>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1131706"></a>As you can see, the redesigned stem, Inception-ResNet blocks, and reduction modules are being used in the Minception model. And if you compare the diagrams of Minception that are provided to the diagrams in the original paper, you will see how many similarities they share. Therefore, we will not repeat our discussion of these components. If you still want to see the specific details and illustrations of the different components, refer to the original paper (<span class="fm-hyperlink"><a class="url" href="https://arxiv.org/pdf/1602.07261.pdf">https://arxiv.org/pdf/1602.07261.pdf</a></span>). However, the high-level architecture of Inception-ResNet v2 looks like the following figure.</p>
+
+    <p class="fm-figure"><img alt="07-14-unnumb-3" class="calibre10" src="../../OEBPS/Images/07-14-unnumb-3.png" width="917" height="1106"/><br class="calibre2"/></p>
+
+    <p class="fm-figure-caption"><a id="pgfId-1132838"></a>The overall architecture of Inception-ResNet v2 architecture</p>
+  </div>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110533"></a>You can download the Inception-ResNet v2 model with a single line:</p>
+  <pre class="programlisting">    InceptionResNetV2(include_top=False, pooling='avg')</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110535"></a>Here, <span class="fm-code-in-text">include_top=False</span> means that the final prediction layer will be discarded. It is necessary because the original inception net is designed for 1,000 classes. However, we only have 200 classes. <span class="fm-code-in-text">pooling='avg'</span> ensures that the last pooling layer in the model is an average pooling layer. Next, we will create a new model that encapsulates the pretrained Inception-ResNet v2 model as the essence but is modified to solve the tiny-ImageNet classification task, as shown in the next listing.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1110537"></a>Listing 7.12 Implementing a model based on the pretrained Inception-ResNet v2 model</p>
+  <pre class="programlisting">from tensorflow.keras.applications import InceptionResNetV2   <span class="fm-combinumeral">❶</span>
+from tensorflow.keras.models import Sequential                <span class="fm-combinumeral">❶</span>
+from tensorflow.keras.layers import Input, Dense, Dropout     <span class="fm-combinumeral">❶</span>
+ 
+model = Sequential([
+    Input(shape=(224,224,3)),                                 <span class="fm-combinumeral">❷</span>
+    InceptionResNetV2(include_top=False, pooling='avg'),      <span class="fm-combinumeral">❸</span>
+    Dropout(0.4),                                             <span class="fm-combinumeral">❹</span>
+    Dense(200, activation='softmax')                          <span class="fm-combinumeral">❺</span>
+])
+ 
+adam = tf.keras.optimizers.Adam(learning_rate=0.0001)         <span class="fm-combinumeral">❻</span>
+model.compile(loss=’categorical_crossentropy’, optimizer=adam, 
+<span class="fm-code-continuation-arrow">➥</span> metrics=['accuracy'])
+model.summary()</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1125590"></a><span class="fm-combinumeral">❶</span> Some important imports</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1125611"></a><span class="fm-combinumeral">❷</span> Defining an input layer for a 224 × 224 image</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1125631"></a><span class="fm-combinumeral">❸</span> The pretrained weights of the Inception-ResNet v2 model</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1125648"></a><span class="fm-combinumeral">❹</span> Apply 40% dropout</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1125665"></a><span class="fm-combinumeral">❺</span> Final prediction layer with 200 classes</p>
+
+  <p class="fm-code-annotation-mob"><a class="calibre8" id="pgfId-1125682"></a><span class="fm-combinumeral">❻</span> Using a smaller learning rate since the network is already trained on ImageNet data (chosen empirically)</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110558"></a>Here, you can see that we are defining a sequential model that</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1110559"></a>First defines an input layer of size 224 × 224 × 3 (i.e., height = 224, width = 224, channels = 3)</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1110560"></a>Defines the Inception-ResNet v2 model as a layer</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1110561"></a>Uses a dropout of 40% on the last average pooling layer</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1110562"></a>Defines a dense layer that uses softmax activation and has 200 nodes</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110563"></a>One crucial challenge we need to deal with is that the original input Inception-ResNet v2 is designed to consume is size 224 × 224 × 3. Therefore, we will need to find a way to present our inputs (i.e., 64 × 64 × 3) in a way that complies with Inception-ResNet v2’s requirements. In order to do that, we will make some changes to the <span class="fm-code-in-text">ImageDataGenerator</span>, as the following listing shows.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1110565"></a>Listing 7.13 The modified ImageDataGenerator that produces 224 × 224 images</p>
+  <pre class="programlisting">def get_train_valid_test_data_generators(batch_size, target_size):
+    
+    image_gen_aug = ImageDataGenerator(
+        samplewise_center=False, rotation_range=30, width_shift_range=0.2,
+        height_shift_range=0.2, brightness_range=(0.5,1.5), shear_range=5, 
+        zoom_range=0.2, horizontal_flip=True, validation_split=0.1
+    )                                                         <span class="fm-combinumeral">❶</span>
+    image_gen = ImageDataGenerator(samplewise_center=False)   <span class="fm-combinumeral">❶</span>
+    
+    
+    partial_flow_func = partial(                              <span class="fm-combinumeral">❷</span>
+        image_gen_aug.flow_from_directory, 
+        directory=os.path.join('data','tiny-imagenet-200', 'train'), 
+        target_size=target_size,                              <span class="fm-combinumeral">❸</span>
+        classes=None,
+        class_mode='categorical', 
+        interpolation='bilinear',                             <span class="fm-combinumeral">❹</span>
+        batch_size=batch_size, 
+        shuffle=True, 
+        seed=random_seed)                                        
+    
+    # Get the training data subset
+    train_gen = partial_flow_func(subset='training')          <span class="fm-combinumeral">❺</span>
+    # Get the validation data subset
+    valid_gen = partial_flow_func(subset='validation')        <span class="fm-combinumeral">❺</span>
+ 
+    # Defining the test data generator
+    test_df = get_test_labels_df(os.path.join('data','tiny-imagenet-200',  
+<span class="fm-code-continuation-arrow">➥</span> 'val', 'val_annotations.txt'))                             <span class="fm-combinumeral">❻</span>
+    test_gen = image_gen.flow_from_dataframe(
+        test_df, 
+        directory=os.path.join('data','tiny-imagenet-200',  'val', 'images'), 
+        target_size=target_size,                              <span class="fm-combinumeral">❼</span>
+        classes=None,
+        class_mode='categorical', 
+        interpolation='bilinear',                             <span class="fm-combinumeral">❼</span>
+        batch_size=batch_size,  
+        shuffle=False
+    )
+    return train_gen, valid_gen, test_gen
+ 
+batch_size = 32                                               <span class="fm-combinumeral">❽</span>
+target_size = (224,224)                                       <span class="fm-combinumeral">❽</span>
+ 
+# Getting the train,valid, test data generators
+train_gen, valid_gen, test_gen = 
+<span class="fm-code-continuation-arrow">➥</span> get_train_valid_test_data_generators(batch_size, target_size)
+ 
+train_gen_aux = data_gen_augmented(train_gen, random_gamma=True, 
+<span class="fm-code-continuation-arrow">➥</span> random_occlude=True)                                       <span class="fm-combinumeral">❾</span>
+ 
+valid_gen_aux = data_gen_augmented(valid_gen)                 <span class="fm-combinumeral">❾</span>
+test_gen_aux = data_gen_augmented(test_gen)                   <span class="fm-combinumeral">❾</span></pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1124814"></a><span class="fm-combinumeral">❶</span> Defines a data-augmenting image data generator and a standard image data generator</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1124850"></a><span class="fm-combinumeral">❷</span> Defines a partial function to avoid repeating arguments</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1124867"></a><span class="fm-combinumeral">❸</span> Uses a target size of 224 × 224</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1124884"></a><span class="fm-combinumeral">❹</span> Uses bilinear interpolation to make images bigger</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1124901"></a><span class="fm-combinumeral">❺</span> Defines the data generators for training and validation sets</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1124918"></a><span class="fm-combinumeral">❻</span> Defines the test data generator</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1124935"></a><span class="fm-combinumeral">❼</span> Uses a target size of 224 × 224 and bilinear interpolation</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1124952"></a><span class="fm-combinumeral">❽</span> Defines the batch size and target size</p>
+
+  <p class="fm-code-annotation-mob"><a class="calibre8" id="pgfId-1124815"></a><span class="fm-combinumeral">❾</span> Gets the train/valid/test modified data generators using the data_gen_augmented function</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110626"></a>Finally, it’s time for the grand unveil! We will train the best model we’ve come up with:</p>
+  <pre class="programlisting">from tensorflow.keras.callbacks import EarlyStopping, CSVLogger
+es_callback = EarlyStopping(monitor='val_loss', patience=10)
+csv_logger = CSVLogger(os.path.join('eval','4_eval_resnet_pretrained.log'))
+n_epochs=30
+lr_callback = tf.keras.callbacks.ReduceLROnPlateau(
+    monitor='val_loss', factor=0.1, patience=5, verbose=1, mode='auto'
+)
+ 
+history = model.fit(
+    train_gen_aux, validation_data=valid_gen_aux, 
+    steps_per_epoch=int(0.9*(500*200)/batch_size), validation_steps=int(0.1*(500*200)/batch_size),
+    epochs=n_epochs, callbacks=[es_callback, csv_logger, lr_callback]
+)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110640"></a>The training will be identical to the earlier training configuration we used when training the Minception model. We will not repeat the details. We are using the following:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1110641"></a>Metric logging</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1110642"></a>Early stopping</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1110643"></a>Learning rate scheduling</p>
+    </li>
+  </ul>
+
+  <p class="fm-callout"><a id="pgfId-1110644"></a><span class="fm-callout-head">NOTE</span> On an Intel Core i5 machine with an NVIDIA GeForce RTX 2070 8GB, the training took approximately 9 hours and 20 minutes to run 23 epochs.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110645"></a>You should get a result similar to the following:</p>
+  <pre class="programlisting">Epoch 1/50
+2813/2813 [==============================] - 1465s 521ms/step - loss: 
+<span class="fm-code-continuation-arrow">➥</span> 2.0031 - accuracy: 0.5557 - val_loss: 1.5206 - val_accuracy: 0.6418
+...
+Epoch 23/50
+2813/2813 [==============================] - ETA: 0s - loss: 0.1268 - 
+<span class="fm-code-continuation-arrow">➥</span> accuracy: 0.9644
+Epoch 00023: ReduceLROnPlateau reducing learning rate to 
+<span class="fm-code-continuation-arrow">➥</span> 9.999999974752428e-08.
+2813/2813 [==============================] - 1456s 518ms/step - loss: 
+<span class="fm-code-continuation-arrow">➥</span> 0.1268 - accuracy: 0.9644 - val_loss: 1.2681 - val_accuracy: 0.7420</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110653"></a>Isn’t this great news? We have reached around 74% validation accuracy by combining all we have learned. Let’s quickly look at the test accuracy of the model:</p>
+  <pre class="programlisting"># Evaluate the model
+test_res = model.evaluate(test_gen_aux, steps=get_steps_per_epoch(500*50, 
+<span class="fm-code-continuation-arrow">➥</span> batch_size))</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110656"></a>This should show you around ~79% accuracy. It hasn’t been an easy journey, but you obviously have surpassed your competitor’s model of ~70% accuracy.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110657"></a>In the next section, we will look at the importance of model explainability. We will learn about a technique that we can use to explain the knowledge embedded in our model.</p>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1110658"></a>Inception-ResNet v2 versus Minception</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1110659"></a>The stem of the Minception and Inception-Resnet-v2 are identical in terms of the innovations they introduce (e.g., Inception-ResNet blocks, reduction blocks, etc.). However, there are the following low-level differences:</p>
+
+    <ul class="calibre9">
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1110660"></a>Inception-ResNet v2 has three different Inception block types; Minception has only two.</p>
+      </li>
+
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1110661"></a>Inception-ResNet v2 has two different types of reduction blocks; Minception has only one.</p>
+      </li>
+
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1110662"></a>Inception-ResNet v2 has 25 Inception layers, but Minception (the version we implemented) has only three.</p>
+      </li>
+    </ul>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1110663"></a>There are also other minor differences, such as the fact that Inception-ResNet v2 uses valid padding in a few layers of the model. Feel free to consult the Inception-ResNet v2 paper if you want to know the details. Another notable observation is that neither the Minception nor the Inception-ResNet v2 uses local response normalization (LRN<a id="marker-1114997"></a>), as they use something far more powerful: batch normalization.</p>
+  </div>
+
+  <p class="fm-head2"><a id="pgfId-1110666"></a>Exercise 4</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110667"></a>You want to implement a network using a different pretrained network known as VGGNet (16 layers). You can obtain the pretrained network from <span class="fm-code-in-text">tf.keras.applications.VGG16</span>. Next, you discard the top layer and introduce a max pooling layer on top. Then you want to add two dense layers on top of the pretrained network with 100 (<span class="fm-code-in-text">ReLU</span> activation) and 50 (<span class="fm-code-in-text">Softmax</span> activation) nodes. Implement<a class="calibre8" id="marker-1110668"></a> this<a class="calibre8" id="marker-1110669"></a> network.</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_98"><a id="pgfId-1110672"></a>7.4 Grad-CAM: Making CNNs confess</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110675"></a>The<a class="calibre8" id="marker-1110673"></a><a class="calibre8" id="marker-1110674"></a> company can’t be happier about what you have done for them. You have managed to build a model that not only beat the performance of the competitor, but also is one of the best in production. However, your boss wants to be certain that the model is trustworthy before releasing any news on this. Accuracy alone is not enough! You decide to demonstrate how the model makes predictions using a recent model interpretation technique known as <i class="fm-italics">Grad-CAM</i>. Grad-CAM uses the magnitude of the gradients generated for a given input with respect to the model’s predictions to provide visualizations of where the model focused. A large magnitude of gradients in a certain area of an image means that the image focuses more in that area. And by superimposing the gradient magnitudes depicted as a heatmap, you are able to produce an attractive visualization of what the model is paying attention to in a given input.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110676"></a>Grad-CAM (which stands for gradient class activation map) is a model interpretation technique introduced for deep neural networks by Ramprasaath R. Selvaraju et al. in “Grad-CAM: Visual Explanations from Deep Networks via Gradient-based Localization” (<span class="fm-hyperlink"><a class="url" href="https://arxiv.org/pdf/1610.02391.pdf">https://arxiv.org/pdf/1610.02391.pdf</a></span>). Deep networks are notorious for their inexplicable nature and are thus termed <i class="fm-italics">black boxes</i><a class="calibre8" id="marker-1123952"></a>. Therefore, we must do some analysis and ensure that the model is working as intended.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110679"></a>The following code delineates how Grad-CAM works its magic, and the implementation is available in the notebook <span class="fm-code-in-text">Ch07-Improving-CNNs-and-Explaining/7.3 .Interpreting_CNNs_GradCAM.ipynb</span>. In the interest of conserving the length of this chapter, we will discuss only the pseudocode of this approach and will leave the technical details to appendix B (see the next listing).</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1110681"></a>Listing 7.14 Pseudocode of Grad-CAM computations</p>
+  <pre class="programlisting"><b class="fm-bold">Define: model (Trained Inception Resnet V2 model)</b>
+<b class="fm-bold">Define: probe_ds (A list of image, class(integer) tuples e.g. </b>[(image, 
+<span class="fm-code-continuation-arrow">➥</span> class-int), (image, class-int), ...]) that we will use to interpret the model
+<b class="fm-bold">Define: last_conv (Last convolution layer of the model - closest to the </b>
+<span class="fm-code-continuation-arrow">➥</span> <b class="fm-bold">prediction layer)</b>
+<b class="fm-bold">Load the model (inceptionnet_resnet_v2.h5)</b>
+ 
+For img, cls in probe_ds:
+ 
+    # Computing the gradient map and its associated weights
+    Compute the model’s final output (out) and last_conv layer’s output 
+<span class="fm-code-continuation-arrow">➥</span> (conv_out)
+    Compute the gradient d (out[cls]) / d (conv_out) and assign to grad
+    Compute channel weights by taking the mean of grad over width and 
+<span class="fm-code-continuation-arrow">➥</span> height dimensions (Results in a [batch size(=1), 1, 1, # channels in 
+<span class="fm-code-continuation-arrow">➥</span> last_conv] tensor)
+ 
+    # Creating the final gradient heatmap
+    grad = grad * weights # Multiply grad with weights
+    grad = tf.reduce_sum(grad, axis=-1) # Take sum over channels
+    grad = tf.nn.relu(grad) # Apply ReLU activation to obtain the gradient 
+<span class="fm-code-continuation-arrow">➥</span> heatmap
+ 
+    # Visualizing the gradient heatmap
+    Resize the gradient heatmap to a size of 224x224
+    Superimpose the gradient heatmap on the original image (img)
+    Plot the image and the image with the gradient heatmap superimposed 
+<span class="fm-code-continuation-arrow">➥</span> side by side</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110703"></a>The key computation that is performed by Grad-CAM is, given an input image, taking the gradient of the node that corresponds to the true class of the image with respect to the last convolution output of the model.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110704"></a>The magnitude of the gradient at each pixel of the images represents the contribution that pixel made to the final outcome. Therefore, by representing Grad-CAM output as a heatmap, resizing to match the original image, and superimposing that on the original image, you can get a very attractive and informative plot of where the model focused to find different objects. The plots are self-explanatory and show whether the model is focusing on the correct object to produce a desired prediction. In figure 7.15, we show which areas the model focuses on strongly (red/dark = highest focus, blue/light = less focus).</p>
+
+  <p class="fm-figure"><img alt="07-15" class="calibre10" src="../../OEBPS/Images/07-15.png" width="1031" height="1086"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1132898"></a>Figure 7.15 Visualization of the Grad-CAM output for several probe images. The redder/darker an area in the image, the more the model focuses on that part of the image. You can see that our model has learned to understand some complex scenes and separate the model that it needs to focus on.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110711"></a>Figure 7.15 (i.e., visualization of Grad-CAM) shows that our model is truly an intelligent model. It knows where to focus to find a given object, even in cluttered environments (e.g., classifying the dining table). As mentioned earlier, the redder/ darker the area, the more the model focuses on that area to make a prediction. Now it’s time for you to demonstrate the results to your boss and build the needed confidence to go public with the new model!</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110712"></a>We will end our discussion about image classification here. We have learned about many different models and techniques that can be used to solve the problem effectively. In the next chapter, we will discuss a different facet of computer vision known as image<a class="calibre8" id="marker-1115137"></a><a class="calibre8" id="marker-1115138"></a> segmentation.</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_99"><a id="pgfId-1110715"></a>Summary</h2>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1110716"></a>Image augmentation, dropout, and early stopping are some of the common techniques used to prevent overfitting in vision deep networks.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1110717"></a>Most of the common image augmentation steps can be achieved through the Keras <span class="fm-code-in-text">ImageDataGenerator</span>.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1110718"></a>It is important to pay attention to the architecture of the model chosen for a given problem. One should not randomly choose an architecture but research and identify an architecture that has worked for a similar problem. Otherwise, choose the architecture through hyperparameter optimization. The Minception model’s architecture has been proven to work well on the same data we used in this chapter.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1110719"></a>Transfer learning enables us to use already trained models to solve new tasks with better accuracy.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1110720"></a>In Keras you can get a given model with a single line of code and adapt it to the new task.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1110722"></a>Various pretrained networks are available at <span class="fm-hyperlink"><a class="url" href="http://mng.bz/M5Oo">http://mng.bz/M5Oo</a></span>.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1110723"></a>Grad-CAM (gradient class activation map) is an effective way to interpret your CNN<a id="marker-1110749"></a>.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1110724"></a>Grad-CAM computes where the model focused the most based on the magnitude of gradients produced with respect to the prediction made by the model.</p>
+    </li>
+  </ul>
+
+  <h2 class="fm-head" id="sigil_toc_id_100"><a id="pgfId-1110725"></a>Answers to exercises</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110726"></a><b class="fm-bold">Exercise 1</b></p>
+
+  <ol class="calibre11">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1110727"></a>You should reduce the dropout rate to keep more nodes switched during training if underfitting is occurring:</p>
+      <pre class="programlisting">model = tf.keras.models.Sequential([
+tf.keras.layers.Dense(100, activation=’relu’, input_shape=(250,)), 
+tf.keras.layers.Dropout(0.2), 
+tf.keras.layers.Dense(10, activation=’softmax’)
+])
+model.compile(loss=’categorical_crossentropy’, optimizer=’adam’, 
+<span class="fm-code-continuation-arrow">➥</span> metrics=[‘accuracy’])
+model.fit(X, y, epochs=25)</pre>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1110735"></a>Early stopping is introduced using the <span class="fm-code-in-text">EarlyStopping</span> callback:</p>
+      <pre class="programlisting">es_callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', 
+<span class="fm-code-continuation-arrow">➥</span> patience=5, min_delta=0.1)
+model.fit(X, y, epochs=25, callbacks=[es_callback])</pre>
+    </li>
+  </ol>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110738"></a><b class="fm-bold">Exercise 2</b></p>
+  <pre class="programlisting">tf.keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0.01, patience=5)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110740"></a><b class="fm-bold">Exercise 3</b></p>
+  <pre class="programlisting">def my_conv_block(input, activation): 
+    out_1 = tf.keras.layers.Conv2D(n_filters[0][2], (3,3), strides=(1,1), 
+                   kernel_initializer=initializer, activation=activation,
+                   padding='same')(input)
+    
+    out_final = tf.keras.layers.BatchNormalization()(out_1)
+ 
+    out = out_final + out_1 
+    return out
+</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1110751"></a><b class="fm-bold">Exercise 4</b></p>
+  <pre class="programlisting">model = tf.keras.models.Sequential([
+    tf.keras.layers.Input(shape=(224,224,3)),                                      
+    tf.keras.applications.VGG16(include_top=False, pooling='max'),
+    tf.keras.layers.Dense(100, activation=’relu’),                    
+    tf.keras.layers.Dense(50, activation='softmax') 
+])</pre>
+</div>
+</div>
+</body>
+</html>

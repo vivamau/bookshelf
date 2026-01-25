@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE ncx PUBLIC "-//NISO//DTD ncx 2005-1//EN" "http://www.daisy.org/z3986/2005/ncx-2005-1.dtd">
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1" xml:lang="en">
+  <head>
+    <meta name="dtb:uid"
+          content="9789083381831" />
+    <meta name="dtb:depth"
+          content="2" />
+    <meta name="dtb:totalPageCount"
+          content="0" />
+    <meta name="dtb:maxPageNumber"
+          content="0" />
+    <meta name="dtb:generator"
+          content="Vellum" />
+  </head>
+  <docTitle>
+    <text>The Software Engineer's Guidebook</text>
+  </docTitle>
+  <navMap>
+    <navPoint id="np1" playOrder="1">
+      <navLabel>
+        <text>Cover</text>
+      </navLabel>
+      <content src="cover.xhtml" />
+    </navPoint>
+    <navPoint id="np2" playOrder="2">
+      <navLabel>
+        <text>Title Page</text>
+      </navLabel>
+      <content src="title-page.xhtml" />
+    </navPoint>
+    <navPoint id="np3" playOrder="3">
+      <navLabel>
+        <text>Contents</text>
+      </navLabel>
+      <content src="contents.xhtml" />
+    </navPoint>
+    <navPoint id="np4" playOrder="4">
+      <navLabel>
+        <text>Copyright</text>
+      </navLabel>
+      <content src="copyright.xhtml" />
+    </navPoint>
+    <navPoint id="np5" playOrder="5">
+      <navLabel>
+        <text>Keep up-to-date with the tech industry</text>
+      </navLabel>
+      <content src="keep-up-to-date-with-the-tech-industry.xhtml" />
+    </navPoint>
+    <navPoint id="np6" playOrder="6">
+      <navLabel>
+        <text>Preface</text>
+      </navLabel>
+      <content src="preface.xhtml" />
+    </navPoint>
+    <navPoint id="np7" playOrder="7">
+      <navLabel>
+        <text>Introduction</text>
+      </navLabel>
+      <content src="introduction.xhtml" />
+    </navPoint>
+    <navPoint id="np8" playOrder="8">
+      <navLabel>
+        <text>I. Developer Career Fundamentals</text>
+      </navLabel>
+      <content src="part-001.xhtml" />
+    <navPoint id="np9" playOrder="9">
+      <navLabel>
+        <text>1. Career Paths</text>
+      </navLabel>
+      <content src="part-001-chapter-001.xhtml" />
+    </navPoint>
+    <navPoint id="np10" playOrder="10">
+      <navLabel>
+        <text>2. Owning Your Career</text>
+      </navLabel>
+      <content src="part-001-chapter-002.xhtml" />
+    </navPoint>
+    <navPoint id="np11" playOrder="11">
+      <navLabel>
+        <text>3. Performance Reviews</text>
+      </navLabel>
+      <content src="part-001-chapter-003.xhtml" />
+    </navPoint>
+    <navPoint id="np12" playOrder="12">
+      <navLabel>
+        <text>4. Promotions</text>
+      </navLabel>
+      <content src="part-001-chapter-004.xhtml" />
+    </navPoint>
+    <navPoint id="np13" playOrder="13">
+      <navLabel>
+        <text>5. Thriving In Different Environments</text>
+      </navLabel>
+      <content src="part-001-chapter-005.xhtml" />
+    </navPoint>
+    <navPoint id="np14" playOrder="14">
+      <navLabel>
+        <text>6. Switching Jobs</text>
+      </navLabel>
+      <content src="part-001-chapter-006.xhtml" />
+    </navPoint>
+    <navPoint id="np15" playOrder="15">
+      <navLabel>
+        <text>Takeaways</text>
+      </navLabel>
+      <content src="part-001-takeaways.xhtml" />
+    </navPoint>
+    </navPoint>
+    <navPoint id="np16" playOrder="16">
+      <navLabel>
+        <text>II. The Competent Software Developer</text>
+      </navLabel>
+      <content src="part-002.xhtml" />
+    <navPoint id="np17" playOrder="17">
+      <navLabel>
+        <text>7. Getting Things Done</text>
+      </navLabel>
+      <content src="part-002-chapter-007.xhtml" />
+    </navPoint>
+    <navPoint id="np18" playOrder="18">
+      <navLabel>
+        <text>8. Coding</text>
+      </navLabel>
+      <content src="part-002-chapter-008.xhtml" />
+    </navPoint>
+    <navPoint id="np19" playOrder="19">
+      <navLabel>
+        <text>9. Software Development</text>
+      </navLabel>
+      <content src="part-002-chapter-009.xhtml" />
+    </navPoint>
+    <navPoint id="np20" playOrder="20">
+      <navLabel>
+        <text>10. Tools Of The Productive Developer</text>
+      </navLabel>
+      <content src="part-002-chapter-010.xhtml" />
+    </navPoint>
+    <navPoint id="np21" playOrder="21">
+      <navLabel>
+        <text>Takeaways</text>
+      </navLabel>
+      <content src="part-002-takeaways.xhtml" />
+    </navPoint>
+    </navPoint>
+    <navPoint id="np22" playOrder="22">
+      <navLabel>
+        <text>III. The Well-Rounded Senior Engineer</text>
+      </navLabel>
+      <content src="part-003.xhtml" />
+    <navPoint id="np23" playOrder="23">
+      <navLabel>
+        <text>11. Getting Things Done</text>
+      </navLabel>
+      <content src="part-003-chapter-011.xhtml" />
+    </navPoint>
+    <navPoint id="np24" playOrder="24">
+      <navLabel>
+        <text>12. Collaboration And Teamwork</text>
+      </navLabel>
+      <content src="part-003-chapter-012.xhtml" />
+    </navPoint>
+    <navPoint id="np25" playOrder="25">
+      <navLabel>
+        <text>13. Software Engineering</text>
+      </navLabel>
+      <content src="part-003-chapter-013.xhtml" />
+    </navPoint>
+    <navPoint id="np26" playOrder="26">
+      <navLabel>
+        <text>14. Testing</text>
+      </navLabel>
+      <content src="part-003-chapter-014.xhtml" />
+    </navPoint>
+    <navPoint id="np27" playOrder="27">
+      <navLabel>
+        <text>15. Software Architecture</text>
+      </navLabel>
+      <content src="part-003-chapter-015.xhtml" />
+    </navPoint>
+    <navPoint id="np28" playOrder="28">
+      <navLabel>
+        <text>Takeaways</text>
+      </navLabel>
+      <content src="part-003-takeaways.xhtml" />
+    </navPoint>
+    </navPoint>
+    <navPoint id="np29" playOrder="29">
+      <navLabel>
+        <text>IV. The Pragmatic Tech Lead</text>
+      </navLabel>
+      <content src="part-004.xhtml" />
+    <navPoint id="np30" playOrder="30">
+      <navLabel>
+        <text>16. Project Management</text>
+      </navLabel>
+      <content src="part-004-chapter-016.xhtml" />
+    </navPoint>
+    <navPoint id="np31" playOrder="31">
+      <navLabel>
+        <text>17. Shipping To Production</text>
+      </navLabel>
+      <content src="part-004-chapter-017.xhtml" />
+    </navPoint>
+    <navPoint id="np32" playOrder="32">
+      <navLabel>
+        <text>18. Stakeholder Management</text>
+      </navLabel>
+      <content src="part-004-chapter-018.xhtml" />
+    </navPoint>
+    <navPoint id="np33" playOrder="33">
+      <navLabel>
+        <text>19. Team Structure</text>
+      </navLabel>
+      <content src="part-004-chapter-019.xhtml" />
+    </navPoint>
+    <navPoint id="np34" playOrder="34">
+      <navLabel>
+        <text>20. Team Dynamics</text>
+      </navLabel>
+      <content src="part-004-chapter-020.xhtml" />
+    </navPoint>
+    <navPoint id="np35" playOrder="35">
+      <navLabel>
+        <text>Takeaways</text>
+      </navLabel>
+      <content src="part-004-takeaways.xhtml" />
+    </navPoint>
+    </navPoint>
+    <navPoint id="np36" playOrder="36">
+      <navLabel>
+        <text>V. Role-Model Staff and Principal Engineers</text>
+      </navLabel>
+      <content src="part-005.xhtml" />
+    <navPoint id="np37" playOrder="37">
+      <navLabel>
+        <text>21. Understanding The Business</text>
+      </navLabel>
+      <content src="part-005-chapter-021.xhtml" />
+    </navPoint>
+    <navPoint id="np38" playOrder="38">
+      <navLabel>
+        <text>22. Collaboration</text>
+      </navLabel>
+      <content src="part-005-chapter-022.xhtml" />
+    </navPoint>
+    <navPoint id="np39" playOrder="39">
+      <navLabel>
+        <text>23. Software Engineering</text>
+      </navLabel>
+      <content src="part-005-chapter-023.xhtml" />
+    </navPoint>
+    <navPoint id="np40" playOrder="40">
+      <navLabel>
+        <text>24. Reliable Software Systems</text>
+      </navLabel>
+      <content src="part-005-chapter-024.xhtml" />
+    </navPoint>
+    <navPoint id="np41" playOrder="41">
+      <navLabel>
+        <text>25. Software Architecture</text>
+      </navLabel>
+      <content src="part-005-chapter-025.xhtml" />
+    </navPoint>
+    <navPoint id="np42" playOrder="42">
+      <navLabel>
+        <text>Takeaways</text>
+      </navLabel>
+      <content src="part-005-takeaways.xhtml" />
+    </navPoint>
+    </navPoint>
+    <navPoint id="np43" playOrder="43">
+      <navLabel>
+        <text>VI. Conclusion</text>
+      </navLabel>
+      <content src="part-006.xhtml" />
+    <navPoint id="np44" playOrder="44">
+      <navLabel>
+        <text>26. Lifelong Learning</text>
+      </navLabel>
+      <content src="part-006-chapter-026.xhtml" />
+    </navPoint>
+    <navPoint id="np45" playOrder="45">
+      <navLabel>
+        <text>27. Further Reading</text>
+      </navLabel>
+      <content src="part-006-chapter-027.xhtml" />
+    </navPoint>
+    </navPoint>
+    <navPoint id="np46" playOrder="46">
+      <navLabel>
+        <text>Acknowledgments</text>
+      </navLabel>
+      <content src="acknowledgments.xhtml" />
+    </navPoint>
+  </navMap>
+</ncx>

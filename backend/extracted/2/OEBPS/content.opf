@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package version="3.0" unique-identifier="epub9788858439654" xmlns="http://www.idpf.org/2007/opf" prefix="ibooks: http://vocabulary.itunes.apple.com/rdf/ibooks/vocabulary-extensions-1.0/ calibre: https://calibre-ebook.com" xmlns:dc="http://purl.org/dc/elements/1.1/" xml:lang="it-IT">
+  <metadata>
+    <dc:creator id="id-2">Andrea Vitali</dc:creator>
+    <dc:title id="id">Sono mancato all'affetto dei miei cari</dc:title>
+    <dc:description>Provincia lombarda, tra gli anni Sessanta e gli anni Ottanta del secolo scorso. Un padre tutto casa e lavoro ripercorre la storia del proprio rapporto con i figli, che non sono venuti esattamente come si aspettava. L’Alice, maestrina frustrata, malinconica e sognante, che rimpiange di non essere andata all’università – manco studiare servisse – ed è incapace di fare l’unica cosa che una donna deve saper fare: la moglie. L’Alberto, che i libri, bisogna rendergliene merito, li ha tenuti a debita distanza, ma in compenso si rivela un ingrato. Infine l’Ercolino, che apre bocca solo per mangiare voracemente, anche se è magro quanto un chiodo; e, pensa tu, a scuola pare sia un genio. Insomma, un disastro, cui si aggiunge una moglie pronta in ogni occasione a difendere quei tre disgraziati. Troppo, davvero troppo, anche per un uomo di ferro come lui.
+Orgoglioso proprietario di una ferramenta, un tipo solido, senza grilli per la testa, mai un giorno di vacanza: è l’eroe di questo romanzo. Sembra impossibile che gli sia toccata in sorte una simile progenie. Eppure…
+Lo spaccato ironico e preciso di una certa società italiana. Una commedia amara che, con garbo, prende in giro un modello maschile ormai sempre piú raro. O almeno si spera.</dc:description>
+    <dc:publisher>EINAUDI</dc:publisher>
+    <dc:rights>© 2022 Giulio Einaudi editore s.p.a., Torino</dc:rights>
+    <dc:identifier>urn:isbn:9788858439654</dc:identifier>
+    <dc:language>it-IT</dc:language>
+    <dc:identifier id="epub9788858439654" />
+    <meta name="Sigil version" content="0.9.14" />
+    <meta property="dcterms:modified">2022-05-03T20:35:44Z</meta>
+    <meta name="cover" content="cover_800-jpg" />
+  </metadata>
+  <manifest>
+    <item id="toc" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+    <item id="nav" href="Text/toc.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+    <item id="s0" href="Styles/s0_style.css" media-type="text/css"/>
+    <item id="s1" href="Styles/s1_template.css" media-type="text/css"/>
+    <item id="s2" href="Styles/s2_extra.css" media-type="text/css"/>
+    <item id="s3" href="Styles/s3_kindle.css" media-type="text/css"/>
+    <item id="p001" href="Text/p001_frontispiece.xhtml" media-type="application/xhtml+xml"/>
+    <item id="p002" href="Text/p002_half-title.xhtml" media-type="application/xhtml+xml"/>
+    <item id="p003" href="Text/p003_dedication.xhtml" media-type="application/xhtml+xml"/>
+    <item id="p004" href="Text/p004_capitolo-01.xhtml" media-type="application/xhtml+xml"/>
+    <item id="p005" href="Text/p005_capitolo-02.xhtml" media-type="application/xhtml+xml"/>
+    <item id="p996" href="Text/p996_il-libro.xhtml" media-type="application/xhtml+xml"/>
+    <item id="p997" href="Text/p997_l-autore.xhtml" media-type="application/xhtml+xml"/>
+    <item id="p998" href="Text/p998_backlist.xhtml" media-type="application/xhtml+xml"/>
+    <item id="p999" href="Text/p999_copyright.xhtml" media-type="application/xhtml+xml"/>
+    <item id="cover_800-jpg" href="Images/cover_800.jpg" media-type="image/jpeg" properties="cover-image"/>
+    <item id="einaudi_marchio-png" href="Images/einaudi_marchio.png" media-type="image/png"/>
+    <item id="p000_cover.xhtml" href="Text/p000_cover.xhtml" media-type="application/xhtml+xml" properties="svg"/>
+  </manifest>
+  <spine toc="toc">
+    <itemref idref="p000_cover.xhtml"/>
+    <itemref idref="p996"/>
+    <itemref idref="p997"/>
+    <itemref idref="nav" linear="no"/>
+    <itemref idref="p001"/>
+    <itemref idref="p002"/>
+    <itemref idref="p003"/>
+    <itemref idref="p004"/>
+    <itemref idref="p005"/>
+    <itemref idref="p998"/>
+    <itemref idref="p999"/>
+  </spine>
+  <guide>
+    <reference type="text" title="Inizio del libro" href="Text/p001_frontispiece.xhtml"/>
+    <reference type="cover" title="Copertina" href="Text/p000_cover.xhtml"/>
+  </guide>
+</package>

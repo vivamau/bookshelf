@@ -1,0 +1,2425 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xml:lang="en"
+      lang="en"
+      xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:epub="http://www.idpf.org/2007/ops">
+<head>
+<title>TensorFlow in Action</title>
+<link rel="stylesheet" type="text/css" href="../../override_v1.css"/>
+<link rel="stylesheet" type="text/css" href="../../stylesheet.css"/><link rel="stylesheet" type="text/css" href="../../page_styles.css"/>
+</head>
+<body>
+<div id="book-content">
+<div id="sbo-rt-content" class="calibre"><h1 class="tochead"><a id="pgfId-1097168"></a>6 Teaching machines to see: Image classification with CNNs</h1>
+
+  <p class="co-summary-head"><a id="pgfId-1097171"></a>This chapter<a id="marker-1099234"></a><a id="marker-1099235"></a> covers</p>
+
+  <ul class="calibre9">
+    <li class="co-summary-bullet"><a class="calibre8" id="pgfId-1097172"></a>Exploratory data analysis on image data in Python</li>
+
+    <li class="co-summary-bullet"><a class="calibre8" id="pgfId-1097173"></a>Preprocessing and feeding data via image pipelines</li>
+
+    <li class="co-summary-bullet"><a class="calibre8" id="pgfId-1097174"></a>Using the Keras functional API to implement a complex CNN model</li>
+
+    <li class="co-summary-bullet"><a class="calibre8" id="pgfId-1097175"></a>Training and evaluating the CNN model</li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097179"></a>We <a class="calibre8" id="marker-1097176"></a> have <a class="calibre8" id="marker-1097177"></a>already done <a class="calibre8" id="marker-1097178"></a>a fair bit of work on CNNs. CNNs are a type of network that can operate on two-dimensional data, such as images. CNNs use the convolution operation to create feature maps of images (i.e., a grid of pixels) by moving a kernel (i.e., a smaller grid of values) over the image to produce new values. The CNN has several of these layers that generate more and more high-level feature maps as they get deeper. You can also use max or average pooling layers between convolutional layers to reduce the dimensionality of the feature maps. The pooling layers also move a kernel over feature maps to create the smaller representation of the input. The final feature maps are connected to a series of fully connected layers, where the final layer produces the prediction (e.g., the probability of an image belonging to a certain category).</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097180"></a>We have implemented CNN using the Keras Sequential API. We used various Keras layers such as <span class="fm-code-in-text">Conv2D</span><a class="calibre8" id="marker-1097181"></a>, <span class="fm-code-in-text">MaxPool2D</span><a class="calibre8" id="marker-1097182"></a>, and <span class="fm-code-in-text">Dense</span><a class="calibre8" id="marker-1097183"></a> to easily implement CNNs. We’ve already studied various parameters related to the <span class="fm-code-in-text">Conv2D</span><a class="calibre8" id="marker-1097184"></a> and <span class="fm-code-in-text">MaxPool2D</span> layers<a class="calibre8" id="marker-1097185"></a>, such as window size, stride, and padding.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097186"></a>In this chapter, we will come a step closer to seeing CNNs performing on real-world data to solve an exciting problem. There’s more to machine learning than implementing a simple CNN to learn from a highly curated data set, as real-world data is often messy. You will be introduced to exploratory data analysis, which is at the heart of the machine learning life cycle. You will explore an image data set, where the objective is to identify the object present in the image (known as <i class="fm-italics">image classification</i>). We will then extensively study one of the state-of-the-art models in computer vision, known as the inception model. In deep learning, there are widely recognized neural network architectures (or templates) that perform well on a given task. The inception model is one such model that has been shown to perform well on image data. We will study the architecture of the model and the motivations behind several novel design concepts used in it. Finally, we will train the model on the data set we explored and analyze model performance by relying on metrics such as accuracy on test data.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097187"></a>We have come a long way. We understand the technical aspects of the main deep learning algorithms out there and can be confident in our ability to perform exploratory data analysis correctly and thus enter the model stage with confidence. However, deep networks can get very large very quickly. Complex networks drag in all sorts of computational and performance problems. So, anyone who wants to use these algorithms in real-world problems needs to learn existing models that have proven to perform well in complex learning tasks.</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_72"><a id="pgfId-1097189"></a>6.1 Putting the data under the microscope: Exploratory data analysis</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097190"></a>You are working with a team of data scientists to build a versatile image classification model. The end goal is to use this model as a part of an intelligent shopping assistant. The user can upload a photo of the inside of their home, and the assistant will find suitable products based on their style. The team decided to start out with an image classification model. You<a class="calibre8" id="marker-1097191"></a><a class="calibre8" id="marker-1097192"></a><a class="calibre8" id="marker-1097193"></a> need to come back to the group with a great data set to start with and to explain what the data looks like and why it is great. The data set contains day-to-day objects photographed in the real world, and you will do exploratory data analysis and look at various attributes of the data set (e.g., available classes, data set sizes, image attributes) to understand the data and identify and fix potential issues.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097196"></a>Exploratory data analysis (EDA<a class="calibre8" id="marker-1097194"></a><a class="calibre8" id="marker-1097195"></a>) is the cornerstone of the technical development that you will do in a data science project. The main objective of this process is to get a high-quality clean data set by the end of the process by removing pesky problems like outliers and noise. In order to have such a data set, you need to scrutinize your data and find out if there are</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1097197"></a>Imbalanced classes (in a classification problem)</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1097198"></a>Corrupted data</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1097199"></a>Missing features</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1097200"></a>Outliers</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1097201"></a>Features that require various transformations (e.g., normalization, one-hot encoding)</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097202"></a>This is by no means an exhaustive list of things to look out for. The more exploration you do, the better the quality of the data.</p>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1097203"></a>What comes before EDA?</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1097204"></a>A machine learning problem always start with a business problem. Once the problem is properly identified and understood, you can start thinking about the data: What data do we have? What do we train the model to predict? How do these predictions translate to actionable insights that deliver benefits to the company? After you tick these boxes off, you can retrieve and start playing with the data by means of EDA. After all, every single step in a machine learning project needs to be done with a purpose.</p>
+  </div>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097206"></a>You have already spent days researching and have found a data set that is appropriate for your problem. To develop an intelligent shopping assistant that can understand customers’ style preferences, it should be able to identify as many household items as possible from the photos that customers will upload. For this, you are planning to use the <span class="fm-code-in-text">tiny-imagenet-200</span> (<span class="fm-hyperlink"><a class="url" href="https://www.kaggle.com/c/tiny-imagenet">https://www.kaggle.com/c/tiny-imagenet</a></span>) data set.</p>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1097207"></a>The ImageNet data set</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1097209"></a>Tiny ImageNet is a smaller-scale remake of the original ImageNet data set (<span class="fm-hyperlink"><a class="url" href="https://www.kaggle.com/competitions/imagenet-object-localization-challenge">https://www.kaggle.com/competitions/imagenet-object-localization-challenge</a></span>), which is part of the annual ImageNet Large Scale Visual Recognition Challenge (ILSVRC<a id="marker-1099576"></a>) challenge. Each year, research teams all around the world compete to come up with state-of-the-art image classification and detection models. This data set has around 1.2 million labeled images spread across 1,000 classes and has become one of the largest labeled image data sets available in computer vision.</p>
+  </div>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097213"></a>This data set has images belonging to 200 different classes. Figure 6.1 depicts images for some of the available classes.</p>
+
+  <p class="fm-figure"><img alt="06-01" class="calibre10" src="../../OEBPS/Images/06-01.png" width="481" height="464"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1118391"></a>Figure 6.1 Some sample images from the <span class="fm-code-in-figurecaption">tiny-imagenet-200</span>. You can see that these images belong to a wide variety of categories.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097220"></a>First things first. We need to download the data set. The following code will create a directory called data in your working directory, download the zip file containing the data, and extract it for you. Finally, you should have a folder called tiny-imagenet-200 in the data folder:</p>
+  <pre class="programlisting">import os
+import requests
+import zipfile
+if not os.path.exists(os.path.join('data','tiny-imagenet-200.zip')):
+    url = "http:/ /cs231n.stanford.edu/tiny-imagenet-200.zip"
+    r = requests.get(url)
+ 
+    if not os.path.exists('data'):
+        os.mkdir('data')
+ 
+    with open(os.path.join('data','tiny-imagenet-200.zip'), 'wb') as f:
+        f.write(r.content)
+    
+    with zipfile.ZipFile(
+        os.path.join('data','tiny-imagenet-200.zip'), 'r'
+    ) as zip_ref:
+        zip_ref.extractall('data')
+else:
+    print("The file already exists.")</pre>
+
+  <h3 class="fm-head1" id="sigil_toc_id_73"><a id="pgfId-1097241"></a>6.1.1 The folder/file structure</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097242"></a>The data should now be available in the Ch06/data folder. Now it’s time to explore the data set. The first thing we will do is manually explore the data in the folders provided to us. You’ll note that there are three folders and two files (figure 6.2). Look around and explore them.</p>
+
+  <p class="fm-figure"><img alt="06-02" class="calibre10" src="../../OEBPS/Images/06-02.png" width="783" height="213"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1118433"></a>Figure 6.2 The folders and files found in the <span class="fm-code-in-figurecaption">tiny-imagenet-200</span> data set<a id="marker-1106065"></a><a id="marker-1118432"></a></p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097256"></a>The file wnids.txt contains a set of 200 IDs (called <i class="fm-italics">wnids</i><a class="calibre8" id="marker-1097254"></a><a class="calibre8" id="marker-1097255"></a> or WordNet IDs, based on the lexical database WordNet [<span class="fm-hyperlink"><a class="url" href="https://wordnet.princeton.edu/">https://wordnet.princeton.edu/</a></span>]; figure 6.3). Each of these IDs represents a single class of images (e.g., class of gold fish).</p>
+
+  <p class="fm-figure"><img alt="06-03" class="calibre10" src="../../OEBPS/Images/06-03.png" width="123" height="317"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1118467"></a>Figure 6.3 Sample content from wnids.txt. It contains wnids (WordNet IDs), one per line.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097264"></a>The file words.txt provides a human touch to these IDs by giving the description of each wnid in a tab-separated-value (TSV) format (table 6.1). Note that this file contains more than 82,000 lines (well over the 200 classes we have) and comes from a much larger data set.</p>
+
+  <p class="fm-table-caption"><a id="pgfId-1109620"></a>Table 6.1 Sample content from words.txt. It contains the wnids and their descriptions for the data found in the data set.</p>
+
+  <table border="1" class="contenttable" width="100%">
+    <colgroup class="calibre12">
+      <col class="calibre13" span="1" width="50%"/>
+      <col class="calibre13" span="1" width="50%"/>
+    </colgroup>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1109628"></a>n00001740</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1109630"></a>entity</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1109632"></a>n00001930</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1109634"></a>physical entity</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1109636"></a>n00002137</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1109638"></a>abstraction, abstract entity</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1109640"></a>n00002452</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1109642"></a>thing</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1109644"></a>n00002684</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1109646"></a>object, physical object</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1109648"></a>n00003553</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1109650"></a>whole, unit</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1109652"></a>n00003993</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1109654"></a>congener</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1109656"></a>n00004258</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1109658"></a>living thing, animate thing</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1109660"></a>n00004475</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1109662"></a>organism, being</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1109664"></a>n00005787</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1109666"></a>benthos</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1109668"></a>n00005930</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1109670"></a>dwarf</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1109672"></a>n00006024</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1109674"></a>heterotroph</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1109676"></a>n00006150</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1109678"></a>parent</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1113274"></a>n00006269</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1113276"></a>life</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1113278"></a>n00006400</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1113280"></a>biont</p>
+      </td>
+    </tr>
+  </table>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097271"></a>The train folder contains the training data. It contains a subfolder called images, and within that, you can find 200 folders, each with a label (i.e., a wnid). Inside each of these subfolders, you’ll find a collection of images representing that class. Each subfolder having a wnid as its name contains 500 images per class, 100,000 in total (in all subfolders). Figure 6.4 depicts this structure, as well as some of the data found in the train folder.</p>
+
+  <p class="fm-figure"><img alt="06-04" class="calibre10" src="../../OEBPS/Images/06-04.png" width="1075" height="739"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1118502"></a>Figure 6.4 The overall structure of the <span class="fm-code-in-figurecaption">tiny-imagenet-200</span> data set<a id="marker-1106158"></a><a id="marker-1118501"></a>. It has three text files (wnids.txt, words.txt, and val/val_annotations.txt) and three folders (train, val, and test). We will only use the train and val folders.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097272"></a>The val folder contains a subfolder called images and a collection of images (these are not divided into further subfolders like in the train folder). The labels (or wnids) for these images can be found in the val_annotations.txt file in the val folder.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097273"></a>The final folder is called the test folder, which we will ignore in this chapter. This data set is part of a competition, and the data is used to score the submitted models. We don’t have labels for this test set.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_74"><a id="pgfId-1097285"></a>6.1.2 Understanding the classes in the data set</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097290"></a><a class="calibre8" id="marker-1111440"></a>We have seen what kind of data we have and where it is available. For the next step, let’s identify some of the classes in the data. For that, we will define a function called <span class="fm-code-in-text">get_tiny_imagenet_classes()</span> that reads the wnids.txt and words.txt files and creates a <span class="fm-code-in-text">pd.DataFrame</span> (a pandas DataFrame<a class="calibre8" id="marker-1111443"></a>) with two columns: the wnid and its corresponding class description (see the next listing).</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1097294"></a>Listing 6.1 Getting class descriptions of the classes in the data set</p>
+  <pre class="programlisting">import pandas as pd                                                      <span class="fm-combinumeral">❶</span>
+import os                                                                <span class="fm-combinumeral">❶</span>
+ 
+data_dir = os.path.join('data', 'tiny-imagenet-200')                     <span class="fm-combinumeral">❷</span>
+wnids_path = os.path.join(data_dir, 'wnids.txt')                         <span class="fm-combinumeral">❷</span>
+words_path = os.path.join(data_dir, 'words.txt')                         <span class="fm-combinumeral">❷</span>
+ 
+def get_tiny_imagenet_classes(wnids_path, words_path):                   <span class="fm-combinumeral">❸</span>
+    wnids = pd.read_csv(wnids_path, header=None, squeeze=True)           <span class="fm-combinumeral">❹</span>
+    words = pd.read_csv(words_path, sep='\t', index_col=0, header=None)  <span class="fm-combinumeral">❹</span>
+    words_200 = words.loc[wnids].rename({1:'class'}, axis=1)             <span class="fm-combinumeral">❺</span>
+    words_200.index.name = 'wnid'                                        <span class="fm-combinumeral">❻</span>
+    return words_200.reset_index()                                       <span class="fm-combinumeral">❼</span>
+ 
+labels = get_tiny_imagenet_classes(wnids_path, words_path)               <span class="fm-combinumeral">❽</span>
+labels.head(n=25)                                                        <span class="fm-combinumeral">❾</span></pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1116962"></a><span class="fm-combinumeral">❶</span> Imports pandas and os packages</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1116986"></a><span class="fm-combinumeral">❷</span> Defines paths of the data directory, wnids.txt, and words.txt files</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1117003"></a><span class="fm-combinumeral">❸</span> Defines a function to read the class descriptions of tiny_imagenet classes</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1117020"></a><span class="fm-combinumeral">❹</span> Reads wnids.txt and words.txt as CSV files using pandas</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1117037"></a><span class="fm-combinumeral">❺</span> Gets only the classes present in the tiny-imagenet-200 data set</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1117054"></a><span class="fm-combinumeral">❻</span> Sets the name of the index of the data frame to “wnid”</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1117071"></a><span class="fm-combinumeral">❼</span> Resets the index so that it becomes a column in the data frame (which has the column name “wnid”)</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1117088"></a><span class="fm-combinumeral">❽</span> Executes the function to obtain the class descriptions</p>
+
+  <p class="fm-code-annotation-mob"><a class="calibre8" id="pgfId-1117105"></a><span class="fm-combinumeral">❾</span> Inspects the head of the data frame (the first 25 entries)</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097320"></a>This function first reads the wnids.txt that contains a list of wnids that correspond to the classes available in the data set as a <span class="fm-code-in-text">pd.Series</span> (i.e., pandas series) object<a class="calibre8" id="marker-1097321"></a>. Next, it reads the words.txt file as a <span class="fm-code-in-text">pd.DataFrame</span> (a pandas DataFrame<a class="calibre8" id="marker-1097322"></a>), which contains a wnid to class description mapping, and assigns it to <span class="fm-code-in-text">words</span>. Then, it picks the items from <span class="fm-code-in-text">words</span> where the wnid is present in the wnids pandas series. This will return a <span class="fm-code-in-text">pd.DataFrame</span> with 200 rows (table 6.2). Remember that the number of items in words.txt is much larger than the actual data set, so we only need to pick the items that are relevant to us.</p>
+
+  <p class="fm-table-caption"><a id="pgfId-1100024"></a>Table 6.2 Sample of the labels’ IDs and their descriptions that we generate using the <span class="fm-code-in-figurecaption">get_tiny_imagenet_classes()</span> function</p>
+
+  <table border="1" class="contenttable" width="100%">
+    <colgroup class="calibre12">
+      <col class="calibre13" span="1" width="33.33%"/>
+      <col class="calibre13" span="1" width="33.33%"/>
+      <col class="calibre13" span="1" width="33.33%"/>
+    </colgroup>
+
+    <tr class="calibre14">
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1100028"></a> </p>
+      </th>
+
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1100054"></a><b class="fm-bold">wind</b></p>
+      </th>
+
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1100030"></a><b class="fm-bold">class</b></p>
+      </th>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100032"></a>0</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100056"></a>n02124075</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100034"></a>Egyptian cat</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100036"></a>1</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100058"></a>n04067472</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100038"></a>reel</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100040"></a>2</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100060"></a>n04540053</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100042"></a>volleyball</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100128"></a>3</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100130"></a>n04099969</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100132"></a>rocking chair, rocker</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100122"></a>4</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100124"></a>n07749582</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100126"></a>lemon</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100116"></a>5</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100118"></a>n01641577</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100120"></a>bullfrog, Rana catesbeiana</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100110"></a>6</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100112"></a>n02802426</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100114"></a>basketball</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100104"></a>7</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100106"></a>n09246464</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100108"></a>cliff, drop, drop-off</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100098"></a>8</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100100"></a>n07920052</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100102"></a>espresso</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100092"></a>9</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100094"></a>n03970156</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100096"></a>plunger, plumber’s helper</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100086"></a>10</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100088"></a>n03891332</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100090"></a>parking meter</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100080"></a>11</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100082"></a>n02106662</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100084"></a>German shepherd, German shepherd dog, German p...</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100074"></a>12</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100076"></a>n03201208</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100078"></a>dining table, board</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100068"></a>13</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100070"></a>n02279972</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100072"></a>monarch, monarch butterfly, milkweed butterfly</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100062"></a>14</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100064"></a>n02132136</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100066"></a>brown bear, bruin, Ursus arctos</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100162"></a>15</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100164"></a>n041146614</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100166"></a>school bus</p>
+      </td>
+    </tr>
+  </table>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097331"></a>We will then compute how many data points (i.e., images) there are for each class:</p>
+  <pre class="programlisting">def get_image_count(data_dir):    
+    # Get the count of JPEG files in a given folder (data_dir)
+    return len(
+        [f for f in os.listdir(data_dir) if f.lower().endswith('jpeg')]
+    )
+    
+   # Apply the function above to all the subdirectories in the train folder 
+labels["n_train"] = labels["wnid"].apply(
+    lambda x: get_image_count(os.path.join(data_dir, 'train', x, 'images'))
+)
+# Get the top 10 entries in the labels dataframe
+labels.head(n=10)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097344"></a>This code creates a new column called <span class="fm-code-in-text">n_train</span> that shows how many data points (i.e., images) were found for each wnid. This can be achieved using the pandas <span class="fm-code-in-text">pd.Series .apply()</span> function<a class="calibre8" id="marker-1101403"></a>, which applies <span class="fm-code-in-text">get_image_count()</span> to each item in the series <span class="fm-code-in-text">labels[“wnid”]</span>. Specifically, <span class="fm-code-in-text">get_image_count()</span>takes in a path and returns the number of JPEG files found in that folder. When you use this <span class="fm-code-in-text">get_image_count()</span> function in conjunction with <span class="fm-code-in-text">pd.Series.apply()</span>, it goes to every single folder within the train folder that has a wnid as its name and counts the number of images. Once you run the line <span class="fm-code-in-text">labels.head(n=10)</span>, you should get the result shown in table 6.3.</p>
+
+  <p class="fm-table-caption"><a id="pgfId-1100873"></a>Table 6.3 Sample of the data where <span class="fm-code-in-figurecaption">n_train</span> (number of training samples) has been calculated</p>
+
+  <table border="1" class="contenttable" width="100%">
+    <colgroup class="calibre12">
+      <col class="calibre13" span="1" width="25%"/>
+      <col class="calibre13" span="1" width="25%"/>
+      <col class="calibre13" span="1" width="25%"/>
+      <col class="calibre13" span="1" width="25%"/>
+    </colgroup>
+
+    <tr class="calibre14">
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1100880"></a> </p>
+      </th>
+
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1100882"></a><b class="fm-bold">wind</b></p>
+      </th>
+
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1100884"></a><b class="fm-bold">class</b></p>
+      </th>
+
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1101259"></a><b class="fm-bold">n_train</b></p>
+      </th>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100886"></a>0</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100888"></a>n02124075</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100890"></a>Egyptian cat</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101261"></a>500</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100892"></a>1</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100894"></a>n04067472</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100896"></a>reel</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101263"></a>500</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100898"></a>2</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100900"></a>n04540053</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100902"></a>volleyball</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101265"></a>500</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100904"></a>3</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100906"></a>n04099969</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100908"></a>rocking chair, rocker</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101267"></a>500</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100910"></a>4</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100912"></a>n07749582</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100914"></a>lemon</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101269"></a>500</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100916"></a>5</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100918"></a>n01641577</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100920"></a>bullfrog, Rana catesbeiana</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101271"></a>500</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100922"></a>6</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100924"></a>n02802426</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100926"></a>basketball</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101273"></a>500</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100928"></a>7</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100930"></a>n09246464</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100932"></a>cliff, drop, drop-off</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101275"></a>500</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100934"></a>8</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100936"></a>n07920052</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100938"></a>espresso</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101277"></a>500</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100940"></a>9</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100942"></a>n03970156</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1100944"></a>plunger, plumber’s helper</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101279"></a>500</p>
+      </td>
+    </tr>
+  </table>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097355"></a>Let’s quickly verify that the results are correct. Go into the n02802426 subdirectory in the train folder, which should contain images of basketballs. Figure 6.5 shows a few sample images.</p>
+
+  <p class="fm-figure"><img alt="06-05" class="calibre10" src="../../OEBPS/Images/06-05.png" width="733" height="472"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1118536"></a>Figure 6.5 Sample images for the wnid category n02802426 (i.e., basketball)</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097363"></a>You might find these images quite the opposite of what you expected. You might have expected to see clear and zoomed-in images of basketballs. But in the real world, that’s never the case. Real-life data sets are noisy. You can see the following images:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1097364"></a>The basketball is hardly visible (top left).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1097365"></a>The basketball is green (bottom left).</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1097366"></a>The basketball is next to a baby (i.e., out of context) (top middle).</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097367"></a>This will make you admire deep networks a bit more, as this is a hard problem for a bunch of stacked matrix multiplications (i.e., deep networks). Precise scene understanding is required to successfully solve this task. Despite the difficulty, the reward is significant. The model we develop is ultimately going to be used to identify objects in various backgrounds and contexts, such as living rooms, kitchens, and outdoors. And that is exactly what this data set trains your model for: to understand/detect objects in various contexts. You can probably imagine why the modern-day CAPTCHAs are becoming increasingly smarter and can keep up with algorithms that are able to classify objects more accurately. It is not difficult for a properly trained CNN to recognize a CAPTCHA that has cluttered backgrounds or small occlusions.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097368"></a>You can also quickly check the summary statistics (e.g., mean value, standard deviation, etc.) of the <span class="fm-code-in-text">n_train</span> column we generated. This provides a more digestible summary of the column than having to look through all 200 rows. This is done using the pandas <span class="fm-code-in-text">describe()</span> function<a class="calibre8" id="marker-1097369"></a>:</p>
+  <pre class="programlisting">labels["n_train"].describe()</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097371"></a>Executing this will return the following series:</p>
+  <pre class="programlisting">count    200.0
+mean     500.0
+std        0.0
+min      500.0
+25%      500.0
+50%      500.0
+75%      500.0
+max      500.0
+Name: n_train, dtype: float64</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097381"></a>You can see that it returns important statistics of the column, such as the mean value, standard deviation, minimum, and maximum. Every class has 500 images, meaning the data set is perfectly class balanced. This is a handy way to verify that we have a class-balanced data set.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_75"><a id="pgfId-1097386"></a>6.1.3 Computing simple statistics on the data<a id="marker-1097385"></a> set</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097391"></a>Analyzing<a class="calibre8" id="marker-1097389"></a><a class="calibre8" id="marker-1097390"></a> various attributes of the data is also an important step. The type of analysis will change depending on the type of data you work with. Here, we will find out the average size of images (or even the 25/50/75 percentiles).</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097392"></a>Having this information ready by the time you get to the actual model saves you a lot of time in making certain decisions. For example, you must know basic statistics of the image size (height and width) to crop or pad images to a fixed size, as image classification CNNs can only process fixed-sized images (see the next listing).</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1097394"></a>Listing 6.2 Computing image width and height statistics</p>
+  <pre class="programlisting">import os                                                                 <span class="fm-combinumeral">❶</span>
+from PIL import Image                                                     <span class="fm-combinumeral">❶</span>
+import pandas as pd                                                       <span class="fm-combinumeral">❶</span>
+ 
+image_sizes = []                                                          <span class="fm-combinumeral">❷</span>
+for wnid in labels["wnid"].iloc[:25]:                                     <span class="fm-combinumeral">❸</span>
+    img_dir = os.path.join(
+        'data', 'tiny-imagenet-200', 'train', wnid, 'images'
+    )                                                                     <span class="fm-combinumeral">❹</span>
+    for f in os.listdir(img_dir):                                         <span class="fm-combinumeral">❺</span>
+        if f.endswith('JPEG'):                                            <span class="fm-combinumeral">❺</span>
+            image_sizes.append(Image.open(os.path.join(img_dir, f)).size) <span class="fm-combinumeral">❻</span>
+            
+img_df = pd.DataFrame.from_records(image_sizes)                           <span class="fm-combinumeral">❼</span>
+img_df.columns = ["width", "height"]                                      <span class="fm-combinumeral">❽</span>
+img_df.describe()                                                         <span class="fm-combinumeral">❾</span></pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1116035"></a><span class="fm-combinumeral">❶</span> Importing os, PIL, and pandas packages</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1116059"></a><span class="fm-combinumeral">❷</span> Defining a list to hold image sizes</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1116076"></a><span class="fm-combinumeral">❸</span> Looping through the first 25 classes in the data set</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1116093"></a><span class="fm-combinumeral">❹</span> Defining the image directory for a particular class within the loop</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1116110"></a><span class="fm-combinumeral">❺</span> Looping through all the images (ending with the extension JPEG) in that directory</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1116127"></a><span class="fm-combinumeral">❻</span> Appending the size of each image (i.e., a tuple of (width, height)) to image_sizes</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1116144"></a><span class="fm-combinumeral">❼</span> Creating a data frame from the tuples in the image_sizes</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1116161"></a><span class="fm-combinumeral">❽</span> Setting column names appropriately</p>
+
+  <p class="fm-code-annotation-mob"><a class="calibre8" id="pgfId-1116178"></a><span class="fm-combinumeral">❾</span> Obtaining the summary statistics of width and height for the images we fetched</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097420"></a>Here, we take the first 25 wnids from the <span class="fm-code-in-text">labels</span> DataFrame we created earlier (processing all the wnids would take too much time). Then, for each wnid, we go into the subfolder that contains the data belonging to it and obtain the width and height information for each image using</p>
+  <pre class="programlisting">Image.open(os.path.join(img_dir, f)).size </pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097422"></a><span class="fm-code-in-text">Image.open(&lt;path&gt;).size</span> returns a tuple (width, height) for a given image. We record the width and height of all images we come across in the <span class="fm-code-in-text">image_sizes</span> list. Finally, the <span class="fm-code-in-text">image_sizes</span> list looks like the following:</p>
+  <pre class="programlisting">image_sizes = [(image_1.width, image_1.height), (image_2.width, image_2.height), ..., (image_n.width, image_n.height)]</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097427"></a>For data in this format, we can use the <span class="fm-code-in-text">pd.DataFrame.from_records()</span> function<a class="calibre8" id="marker-1110539"></a> to create a <span class="fm-code-in-text">pd.DataFrame</span> out of this list. A single element in <span class="fm-code-in-text">image_sizes</span> is a record. For example, <span class="fm-code-in-text">(image_1.width, image_1.height)</span> is a record. Therefore, <span class="fm-code-in-text">image_sizes</span> is a list of records. When you create a <span class="fm-code-in-text">pd.DataFrame</span> from a list of records, each record becomes a row in the pandas DataFrame, where each element in each record becomes a column. For example, since we have image width and image height as elements in each record, width and height become columns in the pandas DataFrame. Finally, we execute <span class="fm-code-in-text">img_df.describe()</span> to get the basic statistics on the width and height of the images we read (table 6.4).</p>
+
+  <p class="fm-table-caption"><a id="pgfId-1101526"></a>Table 6.4 Width and height statistics of the images</p>
+
+  <table border="1" class="contenttable" width="100%">
+    <colgroup class="calibre12">
+      <col class="calibre13" span="1" width="33.33%"/>
+      <col class="calibre13" span="1" width="33.33%"/>
+      <col class="calibre13" span="1" width="33.33%"/>
+    </colgroup>
+
+    <tr class="calibre14">
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1101532"></a> </p>
+      </th>
+
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1101534"></a><b class="fm-bold">width</b></p>
+      </th>
+
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1101536"></a><b class="fm-bold">height</b></p>
+      </th>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101538"></a>count</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101540"></a>12500.0</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101542"></a>12500.0</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101544"></a>mean</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101546"></a>64.0</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101548"></a>64.0</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101550"></a>std</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101552"></a>0.0</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101554"></a>0.0</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101556"></a>min</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101558"></a>64.0</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101560"></a>64.0</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101562"></a>25%</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101564"></a>64.0</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101566"></a>64.0</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101568"></a>50%</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101570"></a>64.0</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101572"></a>64.0</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101574"></a>75%</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101576"></a>64.0</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101578"></a>64.0</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101580"></a>max</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101582"></a>64.0</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1101584"></a>64.0</p>
+      </td>
+    </tr>
+  </table>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097436"></a>Next, we will discuss how we can create a data pipeline to ingest the image data we just discussed.</p>
+
+  <p class="fm-head2"><a id="pgfId-1097437"></a>Exercise 1</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097438"></a>Assume that while browsing through the data set, you came across some corrupted images (i.e., they have negative-valued pixels). Assuming you already have a <span class="fm-code-in-text">pd.DataFrame()</span> called <span class="fm-code-in-text">df</span> that has a single column with the image file paths (called <span class="fm-code-in-text">filepath</span>), use the pandas <span class="fm-code-in-text">apply()</span> function<a class="calibre8" id="marker-1097439"></a> to read each image’s minimum value and assign it to a column called <span class="fm-code-in-text">minimum</span>. To read the image, you can assume <span class="fm-code-in-text">from PIL import Image</span> and <span class="fm-code-in-text">import numpy as np</span> have been completed. You can also use <span class="fm-code-in-text">np.array(&lt;Image&gt;)</span> to turn a <span class="fm-code-in-text">PIL.Image</span> into<a class="calibre8" id="marker-1097442"></a><a class="calibre8" id="marker-1097443"></a> an<a class="calibre8" id="marker-1097444"></a><a class="calibre8" id="marker-1097445"></a><a class="calibre8" id="marker-1097446"></a> array.</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_76"><a id="pgfId-1097447"></a>6.2 Creating data pipelines using the Keras ImageDataGenerator</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097452"></a>You<a class="calibre8" id="marker-1097448"></a><a class="calibre8" id="marker-1097449"></a><a class="calibre8" id="marker-1097450"></a> have explored the data set well and understand things like how many classes there are, what kind of objects are present, and the sizes of the images. Now you will create three data generators for three different data sets: training, validation, and test. These data generators retrieve data from the disk in batches and perform any preprocessing required. This way, the data is readily consumable by a model. For this, we will use the convenient <span class="fm-code-in-text">tensorflow.keras.preprocessing.image.ImageDataGenerator</span>.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097453"></a>We will start by defining a Keras <span class="fm-code-in-text">ImageDataGenerator()</span> to feed in data when we build the model:</p>
+  <pre class="programlisting">from tensorflow.keras.preprocessing.image import ImageDataGenerator
+import os
+ 
+random_seed = 4321
+batch_size = 128
+image_gen = ImageDataGenerator(samplewise_center=True, validation_split=0.1)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097460"></a>Setting <span class="fm-code-in-text">samplewise_center=True</span>, the images generated will have their values normalized. Each image will be centered by subtracting the mean pixel value of that image. <span class="fm-code-in-text">validation_split</span> argument plays a vital role in training the data. This lets us split the training data into two subsets, training and validation, by separating a chunk (10% in this example) from the training data. Typically, in a machine learning problem, you should have three data sets:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1097461"></a><i class="fm-italics">Training data</i>—Typically the largest data set. We use this to train the model.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1097462"></a><i class="fm-italics">Validation data</i>—Held-out data set. It is not used to train the model but to monitor the performance of the model during training. Note that this validation set must remain fixed (and should not change) during training.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1097465"></a><i class="fm-italics">Test data</i><a class="calibre8" id="marker-1097464"></a>—Held-out data set. Unlike the validation data set, this is used only after the training of the model is completed. This represents how well the model will do on unseen real-world data. This is because the model has not interacted with the test data set in any way (unlike the training and validation data sets) until test time.</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097466"></a>We will also define a random seed and a batch size for later data generation.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097468"></a>Once you create an <span class="fm-code-in-text">ImageDataGenerator</span>, you can use one of its <span class="fm-code-in-text">flow</span> functions to read data coming from heterogeneous sources. For example, Keras currently offers the following methods:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1097470"></a><span class="fm-code-in-text">flow</span><a class="calibre8" id="marker-1097469"></a><span class="fm-code-in-text">()</span>—Reads data from a NumPy array or a pandas DataFrame</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1097472"></a><span class="fm-code-in-text">flow_from_dataframe</span><a class="calibre8" id="marker-1097471"></a><span class="fm-code-in-text">()</span>—Reads data from a file that contains filenames and their associated labels</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1097474"></a><span class="fm-code-in-text"><a id="marker-1107085"></a>flow_from_directory</span><a class="calibre8" id="marker-1097473"></a><span class="fm-code-in-text">()</span>—Reads from a folder where images are organized into subfolders according to the class where they belong</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097476"></a>First, we will look at <span class="fm-code-in-text">flow_from_directory</span><a class="calibre8" id="marker-1097475"></a><span class="fm-code-in-text">()</span>, because our train directory is in the exact format <span class="fm-code-in-text">flow_from_directory()</span> function<a class="calibre8" id="marker-1097477"></a> expects the data to be in. Specifically, <span class="fm-code-in-text">flow_from_directory</span><a class="calibre8" id="marker-1097478"></a><span class="fm-code-in-text">()</span> expects the data to be in the format shown in figure 6.6.</p>
+
+  <p class="fm-figure"><img alt="06-06" class="calibre10" src="../../OEBPS/Images/06-06.png" width="775" height="406"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1118570"></a>Figure 6.6 Folder structure expected by the <span class="fm-code-in-figurecaption">flow_from_directory()</span> method<a id="marker-1118571"></a></p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097487"></a>The <span class="fm-code-in-text">flow</span> methods return data generators, which are Python generators. A generator is essentially a function that returns an iterator (called a <i class="fm-italics">generator-iterator</i><a class="calibre8" id="marker-1097488"></a>). But to keep our discussion simple, we will refer to both the generator and the iterator as the generator. You can iterate the generator, just like a list, and return items in a sequential manner. Here’s an example of a generator:</p>
+  <pre class="programlisting">def simple_generator():
+    for i in range(0, 100):
+        yield (i, i*2)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097494"></a>Note the use of the keyword <span class="fm-code-in-text">yield</span><a class="calibre8" id="marker-1097492"></a>, which you can treat as you do the <span class="fm-code-in-text">return</span> keyword<a class="calibre8" id="marker-1097493"></a>. However, unlike <span class="fm-code-in-text">return</span>, <span class="fm-code-in-text">yield</span> does not exit the function as soon as the line is executed. Now you can define the iterator as</p>
+  <pre class="programlisting">iterator = simple_generator()</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097496"></a>You can treat <span class="fm-code-in-text">iterator</span> like a <span class="fm-code-in-text">list</span> containing <span class="fm-code-in-text">[(0, 0), (1, 2), (2, 4), ..., (98, 196), (99, 198)]</span>. However, under the hood, generators are far more memory efficient than <span class="fm-code-in-text">list</span> objects. In our case, the data generators will return a single batch of images and targets in a single iteration (i.e., a tuple of images and labels). You can directly feed these generators to a method like <span class="fm-code-in-text">tf.keras.models.Model.fit</span><a class="calibre8" id="marker-1097498"></a><span class="fm-code-in-text">()</span> in order to train a model. The <span class="fm-code-in-text">flow_from_directory()</span> method<a class="calibre8" id="marker-1097499"></a> is used to retrieve data:</p>
+  <pre class="programlisting">target_size = (56,56)
+ 
+train_gen = image_gen.flow_from_directory(
+    directory=os.path.join('data','tiny-imagenet-200', 'train'), 
+    target_size=target_size, classes=None,
+    class_mode='categorical', batch_size=batch_size, 
+    shuffle=True, seed=random_seed, subset='training'
+)
+valid_gen = image_gen.flow_from_directory (
+    directory=os.path.join('data','tiny-imagenet-200', 'train'), 
+    target_size=target_size, classes=None,
+    class_mode='categorical', batch_size=batch_size, 
+    shuffle=True, seed=random_seed, subset='validation'
+)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097514"></a>You can see numerous arguments that have been set for these functions. The most important argument to note is the subset argument, which is set to <span class="fm-code-in-text">"training"</span> for <span class="fm-code-in-text">train_gen</span> and <span class="fm-code-in-text">“validation”</span> for <span class="fm-code-in-text">valid_gen</span>. The other arguments are as follows:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1097515"></a><span class="fm-code-in-text">directory</span> (string)—The location of the parent directory, where data is further divided into subfolders representing classes.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1097516"></a><span class="fm-code-in-text">target_size</span> (tuple of ints)—Target size of the images as a tuple of (height, width). Images will be resized to the specified height and width.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1097517"></a><span class="fm-code-in-text">class_mode</span> (string)—The type of targets we are going to provide to the model. Because we want the targets to be one-hot encoded vectors representing each class, we will set it to <span class="fm-code-in-text">'categorical'</span>. Available types include <span class="fm-code-in-text">"categorical"</span> (default value), <span class="fm-code-in-text">"binary"</span> <i class="fm-italics">(for data sets with two classes, 0 or 1),</i> <span class="fm-code-in-text">"sparse"</span> <i class="fm-italics">(numerical label as opposed to a one-hot encoded vector),</i> <span class="fm-code-in-text">"input"</span> or <span class="fm-code-in-text">None</span> <i class="fm-italics">(no labels), and</i> <span class="fm-code-in-text">"raw" or "multi_output"</span> <i class="fm-italics">(only available in special circumstances).</i></p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1097518"></a><span class="fm-code-in-text">batch_size</span> (int)—The size of a single batch of data.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1097519"></a><span class="fm-code-in-text">shuffle</span> (bool)—Whether to shuffle the data when fetching.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1097520"></a><span class="fm-code-in-text">seed</span> (int)—The random seed for data shuffling, so we get consistent results every time we run it.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1097521"></a><span class="fm-code-in-text">subset</span> (string)—If <span class="fm-code-in-text">validation_split &gt; 0</span>, which subset you need. This needs to be set to either <span class="fm-code-in-text">"training"</span> or <span class="fm-code-in-text">"validation"</span>.</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097522"></a>Note that, even though we have 64 × 64 images, we are resizing them to 56 × 56. This is because the model we will use is designed for 224 × 224 images. Having an image size that is a factor of 224 × 224 makes adapting the model to our data much easier.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097523"></a>We can make our solution a bit shinier! You can see that between <span class="fm-code-in-text">train_gen</span> and <span class="fm-code-in-text">valid_gen</span>, there’s a lot of repetition in the arguments used. In fact, all the arguments except <span class="fm-code-in-text">subset</span> are the same for both generators. This repetition clutters the code and creates room for errors (if you need to change arguments, you might set one and forget the other). You can use the <span class="fm-code-in-text">partial</span> function in Python to create a partial function with the repeating arguments and then use that to create both <span class="fm-code-in-text">train_gen</span> and <span class="fm-code-in-text">valid_gen</span>:</p>
+  <pre class="programlisting">from functools import partial
+target_size = (56,56)
+ 
+partial_flow_func = partial(
+        image_gen.flow_from_directory, 
+        directory=os.path.join('data','tiny-imagenet-200', 'train'), 
+        target_size=target_size, classes=None,
+        class_mode='categorical', batch_size=batch_size, 
+        shuffle=True, seed=random_seed)
+ 
+train_gen = partial_flow_func(subset='training')
+valid_gen = partial_flow_func(subset='validation')</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097538"></a>Here, we first create a <span class="fm-code-in-text">partial_flow_function</span> <a class="calibre8" id="marker-1113825"></a>(a Python function), which is essentially the <span class="fm-code-in-text">flow_from_directory</span> function<a class="calibre8" id="marker-1097539"></a> with some arguments already populated. Then, to create <span class="fm-code-in-text">train_gen</span> and <span class="fm-code-in-text">valid_gen</span>, we only pass the <span class="fm-code-in-text">subset</span> argument. This makes the code much cleaner.</p>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1097540"></a>Validation data check: Don’t expect the framework to take care of things for you</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1097541"></a>Now that we have a training data generator and validation data generator, we shouldn’t blindly commit to using them. We must make sure that our validation data, which is randomly sampled from the training data, is consistent every time we traverse the training data set. It seems like a trivial thing that should be taken care of by the framework itself, but it’s better if you don’t take that for granted. And if you do</p>
+
+    <p class="fm-sidebar-text">not do this check, you ultimately pay the price, so it is a good idea to make sure that we get consistent results across trials.</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1107113"></a>For this, you can iterate through the validation data generator’s output multiple times for a fixed number of iterations and make sure you get the same label sequence in each trial. The code for this is available in the notebook (under the section “Validating the consistency of validation data”).</p>
+  </div>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097544"></a>We’re still not done. We need to do a slight modification to the generator returned by the <span class="fm-code-in-text">flow_from_directory()</span> function<a class="calibre8" id="marker-1097545"></a>. If you look at an item in the data generator, you’ll see that it is a tuple <span class="fm-code-in-text">(x, y)</span>, where <span class="fm-code-in-text">x</span> is a batch of images and <span class="fm-code-in-text">y</span> is a batch of one-hot-encoded targets. The model we use here has a final prediction layer and two additional auxiliary prediction layers. In total, the model has three output layers, so instead of a tuple <span class="fm-code-in-text">(x, y)</span>, we need to return <span class="fm-code-in-text">(x, (y, y, y))</span> by replicating <span class="fm-code-in-text">y</span> three times. We can fix this by defining a new generator <span class="fm-code-in-text">data_gen_aux()</span> that takes in the existing generator and modifies its output, as shown. This needs to be done for both the train data generator and validation data generator:</p>
+  <pre class="programlisting">def data_gen_aux(gen):
+    for x,y in gen:
+        yield x,(y,y,y)
+        
+train_gen_aux = data_gen_aux(train_gen)
+valid_gen_aux = data_gen_aux(valid_gen)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097552"></a>It’s time to create a data generator for test data. Recall that we said the test data we are using (i.e., the <span class="fm-code-in-text">val</span> directory) is structured differently than the train and tran_val data folders. Therefore, it requires special treatment. The class labels are found in a file called val_annotations.txt, and the images are placed in a single folder with a flat structure. Not to worry; Keras has a function for this situation too. In this case, we will first read the val_annotations.txt as a <span class="fm-code-in-text">pd.DataFrame</span> using the <span class="fm-code-in-text">get_test_labels_df()</span> function. The function simply reads the val_annotations.txt file and creates a <span class="fm-code-in-text">pd.DataFrame</span> with two columns, the filename of an image and the class label:</p>
+  <pre class="programlisting">def get_test_labels_df(test_labels_path):
+    test_df = pd.read_csv(test_labels_path, sep='\t', index_col=None, header=None)
+    test_df = test_df.iloc[:,[0,1]].rename({0:"filename", 1:"class"}, axis=1)
+    return test_df
+ 
+test_df = get_test_labels_df(os.path.join('data','tiny-imagenet-200',  'val', 'val_annotations.txt'))</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097561"></a>Next, we will use the <span class="fm-code-in-text">flow_from_dataframe()</span> function<a class="calibre8" id="marker-1097560"></a> to create our test data generator. All you need to do is pass the <span class="fm-code-in-text">test_df</span> we created earlier (for the <span class="fm-code-in-text">dataframe</span> argument) and point at the directory where the images can be found (for the <span class="fm-code-in-text">directory</span> argument). Note that we are setting <span class="fm-code-in-text">shuffle=False</span> for test data, as we would like feed test data in the same order so that the performance metrics we monitor will be the same unless we change the model:</p>
+  <pre class="programlisting">    test_gen = image_gen.flow_from_dataframe(
+        dataframe=test_df, directory=os.path.join('data','tiny-imagenet-
+<span class="fm-code-continuation-arrow">➥</span> 200',  'val', 'images'), target_size=target_size, 
+<span class="fm-code-continuation-arrow">➥</span> class_mode='categorical', batch_size=batch_size, shuffle=False
+    )</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097566"></a>Next, we are going to define one of the complex computer vision models using Keras and eventually train it on the data we have prepared.</p>
+
+  <p class="fm-head2"><a id="pgfId-1097567"></a>Exercise 2</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097568"></a>As part of the testing process, say you want to see how robust the model is against corrupted labels in the training data. For this, you plan to create a generator that sets the label to 0 with 50% probability. How would you change the following generator for this purpose? You can use <span class="fm-code-in-text">np.random.normal()</span> to draw a value randomly from a normal distribution with zero mean and unit<a class="calibre8" id="marker-1097569"></a><a class="calibre8" id="marker-1097570"></a><a class="calibre8" id="marker-1097571"></a> variance:</p>
+  <pre class="programlisting">def data_gen_corrupt(gen):
+    for x,y in gen:
+        yield x,(y,y,y)</pre>
+
+  <h2 class="fm-head" id="sigil_toc_id_77"><a id="pgfId-1097576"></a>6.3 Inception net: Implementing a state-of-the-art image classifier</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097580"></a>You<a class="calibre8" id="marker-1097577"></a><a class="calibre8" id="marker-1097578"></a><a class="calibre8" id="marker-1097579"></a> have analyzed the data set and have a well-rounded idea of what the data looks like. For images, you inarguably turn to CNNs, as they are the best in the business. It’s time to build a model to learn customers’ personal tastes. Here, we will replicate one of the state-of-the-art CNN models (known as <i class="fm-italics">Inception net</i>) using the Keras functional API.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097581"></a>Inception net is a complex CNN that has made its mark by delivering state-of-the art performance. Inception net draws its name from the popular internet meme “We need to go deeper” that features Leonardo De Caprio from the movie <i class="fm-italics">Inception</i>.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097583"></a>The Inception model has six different versions that came out over the course of a short period of time (approximately 2015-2016). That is a testament to how popular the model was among computer vision researchers. To honor the past, we will implement the first inception model that came out (i.e., Inception net v1) and later compare it to other models. As this is an advanced CNN, a good understanding of its architecture and some design decisions is paramount. Let’s look at the Inception model, how is it different from a typical CNN, and most importantly, why it is different.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097584"></a>The Inception model (or Inception net) isn’t a typical CNN. Its prime characteristic is complexity, as the more complex (i.e., more parameters) the model is, the higher the accuracy. For example, Inception net v1 has close to 20 layers. But there are two main problems that rear their heads when it comes to complex models:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1097585"></a>If you don’t have a big enough data set for a complex model, it is likely the model will overfit the training data, leading to poor overall performance on real-world data.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1097586"></a>Complex models lead to more training time and more engineering effort to fit those models into relatively small GPU memory.</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097587"></a>This demands a more pragmatic way to approach this problem, such as by answering the question “How can we introduce <i class="fm-italics">sparsity</i> in deep models (i.e., having fewer parameters) so that the risk of overfitting as well as the appetite for memory goes down?” This is the main question answered in the Inception net model.</p>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1097588"></a>What is overfitting?</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1097589"></a>Overfitting is an important concept in machine learning and can be notoriously hard to avoid. Overfitting refers to the phenomenon where the model learns to represent training data very well (i.e., high train accuracy) but performs poorly on unseen data (i.e., low test accuracy). This happens when the model tries to remember training samples rather than learn generalizable features from the data. This is prevalent in deep networks, as they usually have more parameters than the amount of data. Overfitting will be discussed in more detail in the next chapter.</p>
+  </div>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097591"></a>Let’s remind ourselves of the basics of CNNs.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_78"><a id="pgfId-1097592"></a>6.3.1 Recap on CNNs</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097593"></a>CNNs are predominantly used to process images and solve computer vision problems (e.g., image classification, object detection, etc.). As depicted in figure 6.7, a CNN has three components:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1097594"></a>Convolution layers</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1097595"></a>Pooling layersFully connected layers</p>
+    </li>
+  </ul>
+
+  <p class="fm-figure"><img alt="06-07" class="calibre10" src="../../OEBPS/Images/06-07.png" width="1072" height="767"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1118605"></a>Figure 6.7 A simple convolutional neural network. First, we have an image with height, width, and channel dimensions, followed by a convolution and a pooling layer. Finally, the last convolution/pooling layer output is flattened and fed to a set of fully connected layers.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097603"></a>The convolution operation shifts a small kernel (also called a filter) with a fixed size over the width and height dimensions of the input. While doing so, it produces a single value at each position. The convolution operation consumes an input with some width, height, and a number of channels and produces an output that has some width, height, and a single channel. To produce a multichannel output, a convolution layer stacks many of these filters, leading to as many outputs as the number of filters. A convolution layer has the following important parameters:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1097605"></a><i class="fm-italics">Number of filters</i><a class="calibre8" id="marker-1097604"></a>—Decides the channel depth (or the number of feature maps) of the output produced by the convolution layer</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1097607"></a><i class="fm-italics">Kernel size</i><a class="calibre8" id="marker-1097606"></a>—Also known as the receptive field, it decides the size (i.e., height and width) of the filters. The larger the kernel size, the more of the image the model sees at a given time. But larger filters lead to longer training times and larger memory requirements.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1097609"></a><i class="fm-italics">Stride</i><a class="calibre8" id="marker-1097608"></a>—Determines how many pixels are skipped while convolving the image. A higher stride leads to a smaller output size (stride is typically used only on height and width dimensions).</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1097611"></a><i class="fm-italics">Padding</i><a class="calibre8" id="marker-1097610"></a>—Prevents the automatic dimensionality reductions that take place during the convolution operation by adding an imaginary border of zeros, such that the output has the same height and width as the input.</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097612"></a>Figure 6.8 shows the working of the convolution operation.</p>
+
+  <p class="fm-figure"><img alt="06-08" class="calibre10" src="../../OEBPS/Images/06-08.png" width="700" height="450"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1118646"></a>Figure 6.8 The computations that happen in the convolution operation while shifting the window</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097619"></a>The pooling operation exhibits the same behavior as the convolution operation when processing an input. However, the exact computations involved are different. There are two different types of pooling: max and average. Max pooling takes the maximum value found in the dark gray box shown in figure 6.9 as the window moves over the input. Average pooling takes the average value of the dark gray box as the window moves over the input.</p>
+
+  <p class="fm-callout"><a id="pgfId-1097620"></a><span class="fm-callout-head">NOTE</span> CNNs use average pooling as the closest to the output and max pooling layers everywhere else. This configuration has been found to deliver better performance.</p>
+
+  <p class="fm-figure"><img alt="06-09" class="calibre10" src="../../OEBPS/Images/06-09.png" width="747" height="406"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1118680"></a>Figure 6.9 How the pooling operation computes the output. It looks at a small window and takes the maximum of the input in that window as the output for the corresponding cell.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097621"></a>The benefit of the pooling operation is that it makes CNNs translation invariant. Translation invariance means that the model can recognize an object regardless of where it appears. Due to the way max pooling is computed, the feature maps generated are similar, even when objects/features are offset by a small number of pixels from what the model was trained on. This means that if you are training a model to classify dogs, the network will be resilient against where exactly the dog appears (only to a certain extent).</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097628"></a>Finally, you have a fully connected layer. As we are mostly interested in classification models right now, we need to output a probability distribution over the classes we have for any given image. We do that by connecting a small number of fully connected layers to the end of the CNNs. The fully connected layers will take the last convolution/pooling output as the input and produce a probability distribution over the classes in the classification problem.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097629"></a>As you can see, CNNs have many hyperparameters (e.g., number of layers, convolution window size, strides, fully connected hidden layer sizes, etc.). For optimal results, they need to be selected using a hyperparameter optimization technique (e.g., grid search, random search).</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_79"><a id="pgfId-1097630"></a>6.3.2 Inception net v1</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097632"></a>Inception net v1 (also called GoogLeNet) (<span class="fm-hyperlink"><a class="url" href="http://mng.bz/R4GD">http://mng.bz/R4GD</a></span>) takes CNNs to another level. It is not a typical CNN and requires more effort to implement compared to a standard CNN. At first glance, Inception<a class="calibre8" id="marker-1097633"></a><a class="calibre8" id="marker-1097634"></a> net might look a bit scary (see figure 6.10). But there are only a handful of new concepts that you need to grok to understand this model. It’s mostly the repetitive application of those concepts that makes the model sophisticated.</p>
+
+  <p class="fm-figure"><img alt="06-10" class="calibre10" src="../../OEBPS/Images/06-10.png" width="792" height="1244"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1118714"></a>Figure 6.10 Abstract architecture of Inception net v1. Inception net starts with a stem, which is an ordinary sequence of convolution/pooling layers that is found in a typical CNN. Then Inception net introduces a new component known as an Inception block. Finally, Inception net also makes use of auxiliary output layers.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097635"></a>Let’s first understand what’s in the Inception model at a macro level, as shown in figure 6.10, temporarily ignoring the details, such as layers and their parameters. We will flesh these out once we develop a strong macro-level understanding.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097643"></a>Inception net starts with something called a <i class="fm-italics">stem</i><a id="marker-1097642"></a><a class="calibre8" id="marker-1118748"></a>. The stem consists of convolution and pooling layers identical to the convolution and pooling layers of a typical CNN. In other words, the stem is a sequence of convolution and pooling layers organized in a specific order.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097644"></a>Next you have several <i class="fm-italics">Inception blocks</i> interleaved by max pooling layers. An inception block contains a parallel set of sub-convolution layers with varying kernel sizes. This enables the model to look at the input with different-sized receptive fields at a given depth. We will study the details and motivations behind this in detail.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097645"></a>Finally, you have a fully connected layer, which resembles the final prediction layer you have in a typical CNN. You can also see that there are two more interim fully connected layers. These are known as <i class="fm-italics">auxiliary output layers</i>. Just like the final prediction layer, they consist of fully connected layers and a softmax activation that outputs a probability distribution over the classes in the data set. Though they have the same appearance as the final prediction layer, they do not contribute to the final output of the model but do play an important role in stabilizing the model during training. Stable training becomes more and more strenuous as the model gets deeper (mostly due to the limited precision of numerical values in a computer).</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097646"></a>Let’s implement a version of the original Inception net from scratch. While doing so, we will discuss any new concepts we come across.</p>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1097647"></a>Caveat! We are going to build a slightly different Inception net v1</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1097648"></a>We are implementing something slightly different from the original Inception net v1 model to deal with a certain practical limitation. The original Inception net is designed to process inputs of size 224 × 224 × 3 belonging to 1,000 classes, whereas we have 64 × 64 × 3 inputs belonging to 200 classes, which we will resize to 56 × 56 × 3 such that it is a factor of 224 (i.e., 56 × 4 = 224). Therefore, we will make some changes to the original Inception net. You can safely ignore the details that follow for the moment if you like. But if you are interested, we specifically make the following changes:</p>
+
+    <ul class="calibre9">
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1097649"></a>Make stride 1 for the first three layers that have stride 2 (in the stem) so that we enjoy the full depth of the model for the smaller input images we have.</p>
+      </li>
+
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1097650"></a>Change the size of the last fully connected classification layer from 1,000 to 200 as we only have 200 classes.</p>
+      </li>
+
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1097651"></a>Remove some regularization (i.e., dropout, loss weighting; these will be reintroduced in the next chapter).</p>
+      </li>
+    </ul>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1097652"></a>If you are comfortable with the model discussed here, there will be no issue with understanding the original Inception v1 model.</p>
+  </div>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097654"></a>First let’s define a function that creates the stem of Inception net v1. The stem is the first few layers of Inception net and looks like nothing more than the typical convolution/ pooling layers you find in a typical CNN. But there is a new layer (called a <i class="fm-italics">lambda layer</i><a class="calibre8" id="marker-1097655"></a>) that performs something known as <i class="fm-italics">local response normalization</i> (LRN<a class="calibre8" id="marker-1097656"></a>). We will discuss the purpose of this layer in more detail soon (see the next listing).</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1097658"></a>Listing 6.3 Defining the stem of Inception net</p>
+  <pre class="programlisting">def stem(inp):
+    conv1 = Conv2D(
+        64, (7,7), strides=(1,1), activation='relu', padding='same'
+    )(inp)                                                                <span class="fm-combinumeral">❶</span>
+maxpool2 = MaxPool2D((3,3), strides=(2,2), padding='same')(conv1)         <span class="fm-combinumeral">❷</span>
+lrn3 = Lambda(
+    lambda x: tf.nn.local_response_normalization(x)
+)(maxpool2)                                                               <span class="fm-combinumeral">❸</span>
+ 
+conv4 = Conv2D(
+    64, (1,1), strides=(1,1), padding='same'
+)(lrn3)                                                                   <span class="fm-combinumeral">❹</span>
+conv5 = Conv2D(
+    192, (3,3), strides=(1,1), activation='relu', padding='same'
+)(conv4)                                                                  <span class="fm-combinumeral">❹</span>
+    lrn6 = Lambda(lambda x: tf.nn.local_response_normalization(x))(conv5) <span class="fm-combinumeral">❺</span>
+ 
+    maxpool7 = MaxPool2D((3,3), strides=(1,1), padding='same')(lrn6)      <span class="fm-combinumeral">❻</span>
+ 
+    return maxpool7                                                       <span class="fm-combinumeral">❼</span></pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1115389"></a><span class="fm-combinumeral">❶</span> The output of the first convolution layer</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1115410"></a><span class="fm-combinumeral">❷</span> The output of the first max pooling layer</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1115427"></a><span class="fm-combinumeral">❸</span> The first local response normalization layer. We define a lambda function that encapsulates LRN functionality.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1115444"></a><span class="fm-combinumeral">❹</span> Subsequent convolution layers</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1115461"></a><span class="fm-combinumeral">❺</span> The second LRN layer</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1115481"></a><span class="fm-combinumeral">❻</span> Max pooling layer</p>
+
+  <p class="fm-code-annotation-mob"><a class="calibre8" id="pgfId-1115498"></a><span class="fm-combinumeral">❼</span> Returns the final output (i.e., output of the max pooling layer)</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097685"></a>Most of this code should be familiar to you by now. It is a series of layers, starting from an input to produce an output.</p>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1097686"></a>Lambda layers (tf.keras.layers.Lambda)</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1097687"></a>Lambda layers in Keras have a similar purpose to standard Python lambda functions. They encapsulate some computations that are not typically available as a standard layer in Keras when written as a standard lambda function. For example, you can define a Keras layer that takes the maximum over axis 1 as follows. However, you can only use TensorFlow/Keras computations in the Keras lambda function:</p>
+    <pre class="programlisting">x = tf.keras.layers.Input(shape=(10,))
+max_out = tf.keras.layers.Lambda(lambda x: tf.reduce_max(x, axis=1))(x)</pre>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1097690"></a>You might notice that the purpose of a lambda layer is almost identical to the sub-classing API of Keras. Well, yes, but the lambda layer does not require the amount of code scaffolding required in the sub-classing API. For layers with complex operations (e.g., <span class="fm-code-in-text1">if-else</span> conditions, <span class="fm-code-in-text1">for</span> loops, etc.), you might find the sub-classing API easier.</p>
+  </div>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097692"></a>Specifically, we define the following layers:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1097693"></a>A convolution layer</p>
+
+      <ul class="calibre18">
+        <li class="fm-sidebar-bullet-sub">
+          <p class="list"><a class="calibre8" id="pgfId-1097694"></a>64 filters, (7,7) kernel size, (2,2) strides, activation ReLU, same padding</p>
+        </li>
+      </ul>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1097695"></a>A local response normalization layer</p>
+
+      <ul class="calibre18">
+        <li class="fm-sidebar-bullet-sub">
+          <p class="list"><a class="calibre8" id="pgfId-1097697"></a>This is specified using a <span class="fm-code-in-text">tf.keras.layers.Lambda</span> layer<a class="calibre8" id="marker-1097696"></a>. This layer provides you an easy way to define a Keras layer that encapsulates TensorFlow/Keras computations that are not readily available. Local response normalization is a technique to normalize a given input.</p>
+        </li>
+      </ul>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1097698"></a>Second convolution layer</p>
+
+      <ul class="calibre18">
+        <li class="fm-sidebar-bullet-sub">
+          <p class="list"><a class="calibre8" id="pgfId-1097699"></a>192 filters, (3,3) kernel size, (2, 2) strides, ReLU activation, same padding</p>
+        </li>
+      </ul>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1097700"></a>A local response normalization layer</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1097701"></a>A max pool layer</p>
+
+      <ul class="calibre18">
+        <li class="fm-sidebar-bullet-sub">
+          <p class="list"><a class="calibre8" id="pgfId-1097702"></a>(3,3) kernel size, (2,2) stride, and same padding</p>
+        </li>
+      </ul>
+    </li>
+  </ul>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1097703"></a>Local response normalization</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1097705"></a>Local response normalization (LRN<a id="marker-1105818"></a>) is an early layer normalization technique introduced in the paper “ImageNet Classification with Deep CNNs” (<span class="fm-hyperlink"><a class="url" href="http://mng.bz/EWPr">http://mng.bz/EWPr</a></span>).</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text">This technique is inspired by the lateral inhibition (<span class="fm-hyperlink"><a class="url" href="http://mng.bz/N6PX">http://mng.bz/N6PX</a></span>) exhibited in a biological system. This refers to the phenomenon where excited neurons suppress the activity of neighboring neurons (e.g., observed in retinal receptors). Essentially, the LRN layer normalizes each value of a convolution output by dividing it by the values found in its neighborhood (the neighborhood is parametrized by a radius, which is a hyperparameter of the layer). This normalization creates competition among neurons and leads to slightly better performance. We will not discuss the exact equation involved in this computation, as this method has fallen out of fashion and better and more promising regularization techniques, such as batch normalization, have taken over.</p>
+  </div>
+
+  <p class="fm-head2"><a id="pgfId-1097709"></a>Going deeper into the Inception block</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097712"></a>As<a class="calibre8" id="marker-1097710"></a><a class="calibre8" id="marker-1097711"></a> stated earlier, one of the main breakthroughs in Inception net is the Inception block. Unlike a typical convolution layer that has a fixed kernel size, the Inception block is a collection of parallel convolutional layers with different kernel sizes. Specifically, the Inception block in Inception v1 contains a 1 × 1 convolution, a 3 × 3 convolution, a 5 × 5 convolution, and pooling. Figure 6.11 shows the architecture of an Inception block.</p>
+
+  <p class="fm-figure"><img alt="06-11" class="calibre10" src="../../OEBPS/Images/06-11.png" width="972" height="1444"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1118760"></a>Figure 6.11 The computations in the Inception block, which is essentially a set of parallel convolution/pooling layers with different kernel sizes</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097719"></a>Let’s understand why these parallel convolution layers are better than having a giant block of convolution filters with the same kernel size. The main advantage is that the Inception block is highly parameter efficient compared to a single convolution block. We can crunch some numbers to assure ourselves that this is the case. Let’s say we have two convolution blocks: one Inception block and a standard convolution block. Assume that the Inception block has the following:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1097720"></a>A 1 × 1 convolution layer with 32 filters</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1097721"></a>A 3 × 3 convolution layer with 16 filters</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1097722"></a>A 5 × 5 convolution layer with 16 filters</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097723"></a>If you were to design a standard convolution layer that has the representational power of the Inception block, you’d need</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1097724"></a>A 5 × 5 convolution layer with 64 filters</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097725"></a>Assuming we’re processing an input with a single channel, the inception block has 576 parameters given by</p>
+
+  <p class="fm-equation"><a id="pgfId-1097726"></a>1 × 1 × 1 × 32 + 3 × 3 × 1 × 16 + 5 × 5 × 1 × 16 = 576</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097727"></a>The standard convolution block has 1,600 parameters:</p>
+
+  <p class="fm-equation"><a id="pgfId-1097728"></a>5 × 5 × 1 × 64 = 1,600</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097729"></a>In other words, the Inception block has a 64% reduction in the number of parameters compared to a standard convolution layer that has the representational power of the Inception block.</p>
+
+  <p class="fm-head2"><a id="pgfId-1097730"></a>Connection between Inception block and sparsity</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097734"></a>For<a class="calibre8" id="marker-1097731"></a><a class="calibre8" id="marker-1097732"></a><a class="calibre8" id="marker-1097733"></a> the curious minds out there, there might still be a lingering question: How does the Inception<a class="calibre8" id="marker-1097735"></a><a class="calibre8" id="marker-1097736"></a> block introduce sparsity? Think of the following two scenarios where you have three convolution filters. In one scenario, you have three 5 × 5 convolution filters, whereas in the other you have a 1 × 1, 3 × 3 and 5 × 5 convolution filter. Figure 6.12 illustrates the difference between the two scenarios.</p>
+
+  <p class="fm-figure"><img alt="06-12" class="calibre10" src="../../OEBPS/Images/06-12.png" width="875" height="922"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1118801"></a>Figure 6.12 How the Inception block encourages sparsity in the model. You can view a 1 × 1 convolution as a highly sparse 5 × 5 convolution.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097743"></a>It is not that hard to see that when you have three 5 × 5 convolution filters, it creates a very dense connection between the convolution layer and the input. However, when you have a 1 × 1, 3 × 3, and 5 × 5 convolution layer, the connections between the input and the layer are sparser. Another way to think about this is that a 1 × 1 convolution is essentially a 5 × 5 convolution layer, where all the elements are switched off except for the center element. Therefore, a 1 × 1 convolution is a highly sparse 5 × 5 convolution layer. Similarly, a 3 × 3 convolution is a sparse 5 × 5 convolution layer. And by enforcing sparsity, we make the CNN parameter efficient and reduce the chances of overfitting. This explanation is motivated by the discussion found at<a class="calibre8" id="marker-1097744"></a><a class="calibre8" id="marker-1097745"></a><a class="calibre8" id="marker-1097746"></a> <span class="fm-hyperlink"><a class="url" href="http://mng.bz/Pn8g">http://mng.bz/Pn8g</a></span>.</p>
+
+  <p class="fm-head2"><a id="pgfId-1097748"></a>1 × 1 convolutions as a dimensionality reduction method</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097752"></a>Usually<a class="calibre8" id="marker-1097749"></a><a class="calibre8" id="marker-1097750"></a><a class="calibre8" id="marker-1097751"></a>, the deeper your model is, the higher the performance (given that you have enough data). As we already know, the depth of a CNN comes at a price. The more layers you have, the more parameters it creates. Therefore, you need to be extra cautious of the parameter count of deep models.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097753"></a>Being a deep model, Inception net leverages 1 × 1 convolution filters within Inception blocks to suppress a large increase in parameters. This is done by using 1 × 1 convolution layers to produce smaller outputs from a larger input and feed those smaller outputs as inputs to the convolution sublayers in the Inception blocks (figure 6.13). For example, if you have a 10 × 10 × 256-sized input, by convolving it with a 1 × 1 convolution layer with 32 filters, you get a 10 × 10 × 32-sized output. This output is eight times smaller than the original input. In other words, a 1 × 1 convolution reduces the channel depth/dimension of large inputs.</p>
+
+  <p class="fm-figure"><img alt="06-13" class="calibre10" src="../../OEBPS/Images/06-13.png" width="908" height="647"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1118835"></a>Figure 6.13 The computations of a 1 × 1 convolution and how it enables reduction of a channel dimension of an input</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1118829"></a>Thus, it is considered a dimensionality reduction method. The weights of these 1 × 1 convolutions can be treated just like parameters of the network and let the network learn the best values for these filters to solve a given task.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097760"></a>Now it’s time to define a function that represents this new and improved Inception block, as shown in the following listing.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1097762"></a>Listing 6.4 Defining the Inception block of the Inception net</p>
+  <pre class="programlisting">def inception(inp, n_filters):
+ 
+    # 1x1 layer
+    out1 = Conv2D(
+        n_filters[0][0], (1,1), strides=(1,1), activation='relu', 
+<span class="fm-code-continuation-arrow">➥</span> padding='same'
+    )(inp)
+ 
+    # 1x1 followed by 3x3
+    out2_1 = Conv2D(
+        n_filters[1][0], (1,1), strides=(1,1), activation='relu', 
+<span class="fm-code-continuation-arrow">➥</span> padding='same')
+(inp)
+    out2_2 = Conv2D(
+        n_filters[1][1], (3,3), strides=(1,1), activation='relu', 
+<span class="fm-code-continuation-arrow">➥</span> padding='same'
+)(out2_1)
+ 
+# 1x1 followed by 5x5
+out3_1 = Conv2D(
+    n_filters[2][0], (1,1), strides=(1,1), activation='relu', 
+<span class="fm-code-continuation-arrow">➥</span> padding='same'
+)(inp)
+out3_2 = Conv2D(
+    n_filters[2][1], (5,5), strides=(1,1), activation='relu', 
+<span class="fm-code-continuation-arrow">➥</span> padding='same'
+)(out3_1)
+ 
+# 3x3 (pool) followed by 1x1
+out4_1 = MaxPool2D(
+    (3,3), strides=(1,1), padding='same'
+)(inp)
+out4_2 = Conv2D(
+    n_filters[3][0], (1,1), strides=(1,1), activation='relu', 
+<span class="fm-code-continuation-arrow">➥</span> padding='same'
+)(out4_1)
+ 
+out = Concatenate(axis=-1)([out1, out2_2, out3_2, out4_2])
+return out</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097797"></a>The <span class="fm-code-in-text">inception()</span> function takes in some input (four-dimensional: batch, height, width, channel, dimensions) and a list of filter sizes for the convolution sublayers in the Inception block. This list should have the filter sizes in the following format:</p>
+  <pre class="programlisting">[(1x1 filters), (1x1 filters, 3x3 filters), (1x1 filters, 5x5 filters), (1x1 filters)]</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097799"></a>The outer loop corresponds to the vertical pillars in the Inception block, and the inner loops correspond to the convolution layers in each pillar (<i class="fm-italics">figure 6.14</i>).</p>
+
+  <p class="fm-figure"><img alt="06-14" class="calibre10" src="../../OEBPS/Images/06-14.png" width="1064" height="1244"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1118872"></a>Figure 6.14 The Inception block alongside the full architecture of the Inception net model</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097806"></a>We then define the four vertical streams of computations that finally get concatenated to one at the end:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1097807"></a>The 1 × 1 convolution</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1097808"></a>The 1 × 1 convolution followed by a 3 × 3 convolution</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1097809"></a>The 1 × 1 convolution followed by a 5 × 5 convolution</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1097810"></a>The 3 × 3 pooling layer followed by a 1 × 1 convolution</p>
+    </li>
+  </ul>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1097811"></a>Mathematical view of dimensionality reduction using 1 × 1 convolutions</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1097812"></a>If you are not a fan of the picturesque method, here’s a more concise and mathematical view of how 1 × 1 convolutions reduce dimensions. Say you have an input of size 10 × 10 × 256. Say you have a 1 × 1 convolution layer of size 1 × 1 × 32:</p>
+
+    <ul class="calibre9">
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1097813"></a>Size (input) = 10 × 10 × 256</p>
+      </li>
+
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1097814"></a>Size (layer) = 1 × 1 × 32</p>
+      </li>
+    </ul>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1097815"></a>You can represent your convolution layer as a 1 × 32 matrix. Next, repeat the columns on axis = 0 (i.e., row dimension), 256 times which gives us</p>
+
+    <ul class="calibre9">
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1097816"></a>Size (input) = 10 × 10 × 256</p>
+      </li>
+
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1097817"></a>Size (layer) = 256 × 32</p>
+      </li>
+    </ul>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1097818"></a>Now you can multiply the input with the convolution filter</p>
+
+    <ul class="calibre9">
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1097819"></a>Size (output) = (10 × 10 × 256) (256 × 32)</p>
+      </li>
+    </ul>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1097820"></a>which gives us an output of size</p>
+
+    <ul class="calibre9">
+      <li class="fm-sidebar-number">
+        <p class="list1"><a id="pgfId-1097821"></a>Size (output) = 10 × 10 × 32</p>
+      </li>
+    </ul>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1097822"></a>which is much smaller than the original input.</p>
+  </div>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097824"></a>Finally, we concatenate all the outputs of these streams into one on the last axis (denoted by axis = -1). Note the last dimension is the channel dimension of all the outputs. In other words, we are stacking these outputs on the channel dimension. Figure 6.14 illustrates how the Inception block sits in the overall Inception net model. Next, we will discuss another component of the Inception net model known as auxiliary output layers.</p>
+
+  <p class="fm-head2"><a id="pgfId-1097825"></a>Auxiliary output layers</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097831"></a>Finally<a class="calibre8" id="marker-1097826"></a><a class="calibre8" id="marker-1097827"></a>, we have two auxiliary output<a class="calibre8" id="marker-1097828"></a><a class="calibre8" id="marker-1097829"></a><a class="calibre8" id="marker-1097830"></a> layers that help stabilize our deep CNN. As mentioned earlier, the auxiliary outputs are there to stabilize the training of deep networks. In Inception net, the auxiliary output layer has the following (figure 6.15).</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1097832"></a>A 5 × 5 average pooling layer</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1097833"></a>A 1 × 1 convolution layer</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1097835"></a>A <span class="fm-code-in-text">Dense</span> layer with ReLU activation that consumes the flattened output from the 1 × 1 convolution layer</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1097838"></a>A <span class="fm-code-in-text">Dense</span> layer<a class="calibre8" id="marker-1097836"></a><a class="calibre8" id="marker-1097837"></a> with softmax that outputs the probabilities of the classes</p>
+    </li>
+  </ul>
+
+  <p class="fm-figure"><img alt="06-15" class="calibre10" src="../../OEBPS/Images/06-15.png" width="700" height="1244"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1118913"></a>Figure 6.15 Auxiliary output layer alongside the full Inception net architecture</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097845"></a>We define a function that produces the auxiliary output predictions as follows (listing 6.5).</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1097847"></a>Listing 6.5 Defining the auxiliary output as a Python function</p>
+  <pre class="programlisting">def aux_out(inp,name=None):    
+    avgpool1 = AvgPool2D((5,5), strides=(3,3), padding='valid')(inp)       <span class="fm-combinumeral">❶</span>
+    conv1 = Conv2D(128, (1,1), activation='relu', padding='same')(avgpool1)<span class="fm-combinumeral">❷</span>
+    flat = Flatten()(conv1)                                                <span class="fm-combinumeral">❸</span>
+    dense1 = Dense(1024, activation='relu')(flat)                          <span class="fm-combinumeral">❹</span>
+    aux_out = Dense(200, activation='softmax', name=name)(dense1)          <span class="fm-combinumeral">❺</span>
+    return aux_out</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1115081"></a><span class="fm-combinumeral">❶</span> The output of the average pooling layer. Note that it uses valid pooling, which results in a 4 × 4-sized output for the next layer.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1115102"></a><span class="fm-combinumeral">❷</span> 1 × 1 convolution layer’s output</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1115119"></a><span class="fm-combinumeral">❸</span> Flattens the output of the convolution layer so that it can be fed to a Dense layer</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1115139"></a><span class="fm-combinumeral">❹</span> The first Dense layer’s output</p>
+
+  <p class="fm-code-annotation-mob"><a class="calibre8" id="pgfId-1115156"></a><span class="fm-combinumeral">❺</span> The final prediction for Dense layer’s output</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097861"></a>The <span class="fm-code-in-text">aux_out()</span> function defines the auxiliary output layer. It starts with an average pool layer with a kernel size of (5,5) and strides (3,3) and valid padding. This means that the layer does not try to correct for the dimensionality reduction introduced while pooling (as done in same padding). Then it’s followed by a convolution layer with 128 filters, (1,1) kernel size, ReLU activation, and same padding. Then, a <span class="fm-code-in-text">Flatten()</span> layer<a class="calibre8" id="marker-1097862"></a> is needed before feeding the output to a <span class="fm-code-in-text">Dense</span> layer<a class="calibre8" id="marker-1097863"></a>. Remember that the <span class="fm-code-in-text">Flatten()</span> layer<a class="calibre8" id="marker-1097864"></a> flattens the height, width, and channel dimension to a single dimension. Finally, a <span class="fm-code-in-text">Dense</span> layer<a class="calibre8" id="marker-1097865"></a> with 200 nodes and a softmax activation is applied. With that, we have all the building blocks to build our very own<a class="calibre8" id="marker-1097866"></a><a class="calibre8" id="marker-1097867"></a> Inception net.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_80"><a id="pgfId-1097868"></a>6.3.3 Putting everything together</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097869"></a>We have come a long way. Let’s catch our breath and reflect on what we have achieved so far:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1097872"></a>The abstract architecture and components of the Inception<a class="calibre8" id="marker-1097870"></a><a class="calibre8" id="marker-1097871"></a> net model consist of a stem, Inception blocks, and auxiliary outputs.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1097873"></a>Precise details of these components. Stem resembles the stem (everything except the fully connected layers) of a standard CNN. The Inception blocks carry sub-convolution layers with different kernel sizes that encourage sparsity and reduce overfitting.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1097874"></a>The auxiliary outputs make the network training smoother and rid the network of any undesirable numerical errors during training.</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097875"></a>We also defined methods to encapsulate these so that we can call these methods and build the full Inception net. Now we can define the full Inception model (see the next listing). Additionally, you can find the exact Inception block specifications (as per the original paper) summarized in table 6.5.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1097877"></a>Listing 6.6 Defining the full Inception net model</p>
+  <pre class="programlisting">def inception_v1():
+    
+    K.clear_session()
+    
+    inp = Input(shape=(56,56,3))                                          <span class="fm-combinumeral">❶</span>
+    stem_out = stem(inp)                                                  <span class="fm-combinumeral">❷</span>
+    inc_3a = inception(stem_out, [(64,),(96,128),(16,32),(32,)])          <span class="fm-combinumeral">❸</span>
+    inc_3b = inception(inc_3a, [(128,),(128,192),(32,96),(64,)])          <span class="fm-combinumeral">❸</span>
+ 
+    maxpool = MaxPool2D((3,3), strides=(2,2), padding='same')(inc_3b)
+ 
+    inc_4a = inception(maxpool, [(192,),(96,208),(16,48),(64,)])          <span class="fm-combinumeral">❸</span>
+    inc_4b = inception(inc_4a, [(160,),(112,224),(24,64),(64,)])          <span class="fm-combinumeral">❸</span>
+ 
+    aux_out1 = aux_out(inc_4a, name='aux1')                               <span class="fm-combinumeral">❹</span>
+ 
+    inc_4c = inception(inc_4b, [(128,),(128,256),(24,64),(64,)])
+    inc_4d = inception(inc_4c, [(112,),(144,288),(32,64),(64,)])
+    inc_4e = inception(inc_4d, [(256,),(160,320),(32,128),(128,)])
+    
+    maxpool = MaxPool2D((3,3), strides=(2,2), padding='same')(inc_4e)
+    
+    aux_out2 = aux_out(inc_4d, name='aux2')                               <span class="fm-combinumeral">❹</span>
+ 
+    inc_5a = inception(maxpool, [(256,),(160,320),(32,128),(128,)])
+    inc_5b = inception(inc_5a, [(384,),(192,384),(48,128),(128,)])
+    avgpool1 = AvgPool2D((7,7), strides=(1,1), padding='valid')(inc_5b)   <span class="fm-combinumeral">❺</span>
+ 
+    flat_out = Flatten()(avgpool1)                                        <span class="fm-combinumeral">❻</span>
+    out_main = Dense(200, activation='softmax', name='final')(flat_out)   <span class="fm-combinumeral">❼</span>
+ 
+    model = Model(inputs=inp, outputs=[out_main, aux_out1, aux_out2])   
+    model.compile(loss='categorical_crossentropy', 
+                       optimizer='adam', metrics=['accuracy'])            <span class="fm-combinumeral">❽</span>
+    return model</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1114425"></a><span class="fm-combinumeral">❶</span> Defines an input layer. It takes a batch of 64 × 64 × 3-sized inputs.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1114451"></a><span class="fm-combinumeral">❷</span> To define the stem, we use the previously defined stem() function.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1114468"></a><span class="fm-combinumeral">❸</span> Defines Inception blocks. Note that each Inception block has different numbers of filters.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1114485"></a><span class="fm-combinumeral">❹</span> Defines auxiliary outputs</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1114502"></a><span class="fm-combinumeral">❺</span> The final pooling layer is defined as an Average pooling layer.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1114519"></a><span class="fm-combinumeral">❻</span> The Flatten layer flattens the average pooling layer and prepares it for the fully connected layers.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1114536"></a><span class="fm-combinumeral">❼</span> The final prediction layer that has 200 output nodes (one for each class)</p>
+
+  <p class="fm-code-annotation-mob"><a class="calibre8" id="pgfId-1114553"></a><span class="fm-combinumeral">❽</span> When compiling the model, we use categorical cross-entropy loss for all the output layers and the optimizer adam.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1097921"></a>You can see that the model has nine Inception blocks following the original paper. In addition, it has the stem, auxiliary outputs, and a final output layer. The specifics of the layers are listed in table 6.5.</p>
+
+  <p class="fm-table-caption"><a id="pgfId-1104214"></a>Table 6.5 Summary of the filter counts of the Inception modules in the Inception net v1 model. <span class="fm-code-in-figurecaption">C(nxn)</span> represents a <span class="fm-code-in-figurecaption">nxn</span> convolution layer, whereas <span class="fm-code-in-figurecaption">MaxP(mxm)</span> represents a <span class="fm-code-in-figurecaption">mxm</span> max-pooling layer.</p>
+
+  <table border="1" class="contenttable" width="100%">
+    <colgroup class="calibre12">
+      <col class="calibre13" span="1" width="13%"/>
+      <col class="calibre13" span="1" width="14%"/>
+      <col class="calibre13" span="1" width="15%"/>
+      <col class="calibre13" span="1" width="14%"/>
+      <col class="calibre13" span="1" width="15%"/>
+      <col class="calibre13" span="1" width="14%"/>
+      <col class="calibre13" span="1" width="15%"/>
+    </colgroup>
+
+    <tr class="calibre14">
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1104228"></a><b class="fm-bold">Inception layer</b></p>
+      </th>
+
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1104230"></a><b class="fm-bold"><span class="fm-code-in-figurecaption1">C</span>(1 × 1)</b></p>
+      </th>
+
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1104232"></a><b class="fm-bold"><span class="fm-code-in-figurecaption1">C</span>(1 × 1); before <span class="fm-code-in-figurecaption1">C</span>(3 × 3)</b></p>
+      </th>
+
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1104234"></a><b class="fm-bold"><span class="fm-code-in-figurecaption1">C</span>(3 × 3)</b></p>
+      </th>
+
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1104236"></a><b class="fm-bold"><span class="fm-code-in-figurecaption1">C</span>(1 × 1); before <span class="fm-code-in-figurecaption1">C</span>(5 × 5)</b></p>
+      </th>
+
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1104238"></a><b class="fm-bold"><span class="fm-code-in-figurecaption1">C</span>(5 × 5)</b></p>
+      </th>
+
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1104240"></a><b class="fm-bold"><span class="fm-code-in-figurecaption1">C</span>(1 × 1); after <span class="fm-code-in-figurecaption1">MaxP</span>(3 × 3)</b></p>
+      </th>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104242"></a><span class="fm-code-in-figurecaption">Inc_3a</span></p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104244"></a>64</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104246"></a>96</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104248"></a>128</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104250"></a>16</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104252"></a>32</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104254"></a>32</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104256"></a><span class="fm-code-in-figurecaption">Inc_3b</span></p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104258"></a>128</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104260"></a>128</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104262"></a>192</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104264"></a>32</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104266"></a>96</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104268"></a>64</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104270"></a><span class="fm-code-in-figurecaption">Inc_4a</span></p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104272"></a>192</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104274"></a>96</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104276"></a>208</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104278"></a>16</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104280"></a>48</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104282"></a>64</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104284"></a><span class="fm-code-in-figurecaption">Inc_4b</span></p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104286"></a>160</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104288"></a>112</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104290"></a>224</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104292"></a>24</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104294"></a>64</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104296"></a>64</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104298"></a><span class="fm-code-in-figurecaption">Inc_4c</span></p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104300"></a>128</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104302"></a>128</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104304"></a>256</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104306"></a>24</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104308"></a>64</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104310"></a>64</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104312"></a><span class="fm-code-in-figurecaption">Inc_4d</span></p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104314"></a>112</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104316"></a>144</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104318"></a>288</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104320"></a>32</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104322"></a>64</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104324"></a>64</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104326"></a><span class="fm-code-in-figurecaption">Inc_4e</span></p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104328"></a>256</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104330"></a>160</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104332"></a>320</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104334"></a>32</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104336"></a>128</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104338"></a>128</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104340"></a><span class="fm-code-in-figurecaption">Inc_5a</span></p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104342"></a>256</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104344"></a>160</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104346"></a>320</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104348"></a>32</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104350"></a>128</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104352"></a>128</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104354"></a><span class="fm-code-in-figurecaption">Inc_5b</span></p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104356"></a>384</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104358"></a>192</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104360"></a>384</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104362"></a>48</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104364"></a>128</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1104366"></a>128</p>
+      </td>
+    </tr>
+  </table>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098068"></a>The layer definitions will be quite similar to what you have already seen. However, the way we define the model and the compilation will be new to some of you. As we discussed, Inception net is a multi-output model. You can define the Keras model with multiple outputs by passing a list of outputs instead of a single output:</p>
+  <pre class="programlisting">model = Model(inputs=inp, outputs=[out_main, aux_out1, aux_out2])</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098070"></a>When compiling the model, you can define loss as a list of a single string. If you define a single string, that loss will be used for all the outputs. We compile the model using the categorical cross-entropy loss (for both the final output layer and auxiliary outputs) and the optimizer <span class="fm-code-in-text">adam</span><a class="calibre8" id="marker-1098071"></a>, which is a state-of-the-art optimizer widely used to optimize models and that can adapt the learning rate appropriately as the model trains. In addition, we will inspect the accuracy of the model:</p>
+  <pre class="programlisting">model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098074"></a>With the <span class="fm-code-in-text">inception_v1()</span> function defined, you can create a model as follows:</p>
+  <pre class="programlisting">model = inception_v1()</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098076"></a>Let’s take a moment to reflect on what we have achieved so far. We have downloaded the data, dissected it, and analyzed the data to understand the specifics. Then we created an image data pipeline using <span class="fm-code-in-text">tensorflow.keras.preprocessing.image.ImageDataGenerator</span>. We split the data into three parts: training, validation, and testing. Finally, we defined our model, which is a state-of-the art image classifier known as Inception net. We will now look at other Inception models that have emerged over the years.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_81"><a id="pgfId-1098077"></a>6.3.4 Other Inception models</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098078"></a>We successfully implemented an Inception net model, which covers most of the basics we need to understand other Inception models. There have been five more Inception nets since the v1 model. Let’s go on a brief tour of the evolution of Inception net.</p>
+
+  <p class="fm-head2"><a id="pgfId-1098079"></a>Inception v1</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098082"></a>We<a class="calibre8" id="marker-1098080"></a><a class="calibre8" id="marker-1098081"></a> have already discussed Inception net v1 in depth. The biggest breakthroughs introduced in Inception net v1 are as follows:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1098083"></a>The concept of an Inception block, which allows the CNN to have different receptive fields (i.e., kernels sizes) at the same depth of the model. This encourages sparsity in the model, leading to fewer parameters and fewer chances of overfitting.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1098084"></a>With the 20 layers in the Inception model, the memory of a modern GPU can be exhausted if you are not careful. Inception net mitigates this problem by using 1 × 1 convolution layers to reduce output channel depth whenever it increases too much.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1098085"></a>The deeper the networks are, the more they are prone to having instable gradients during model training. This is because the gradients must travel a long way (from the top to the very bottom), which can lead to instable gradients. Auxiliary output layers introduced in the middle of the network as regularizers alleviate this problem, leading to stable<a class="calibre8" id="marker-1098086"></a><a class="calibre8" id="marker-1098087"></a> gradients.</p>
+    </li>
+  </ul>
+
+  <p class="fm-head2"><a id="pgfId-1098088"></a>Inception v2</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098091"></a>Inception net v2 came not long after Inception<a class="calibre8" id="marker-1105866"></a><a class="calibre8" id="marker-1105867"></a> net v1 was released (“Rethinking the Inception Architecture for Computer Vision,” <span class="fm-hyperlink"><a class="url" href="https://arxiv.org/pdf/1512.00567.pdf">https://arxiv.org/pdf/1512.00567.pdf</a></span>). The main contributions of this model are as follows.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098092"></a>A representational bottle neck occurs when a layer does not have enough capacity (i.e., parameters) to learn a good representation of the input. This can happen if you decrease the size of the layers too fast as you go deep. Inception v2 rejigged the architecture to ensure that no representational bottlenecks are present in the model. This is mostly achieved by changing the layer sizes while keeping the rest of the details the same.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098093"></a>Minimizing the parameters of the network further to reduce overfitting was reinforced. This is done by replacing higher-order convolutions (e.g., 5 × 5 and 7 × 7) with 3 × 3 convolutions (also known as factorizing large convolution layers). How is that possible? Let me illustrate that for you (figure 6.16).</p>
+
+  <p class="fm-figure"><img alt="06-16" class="calibre10" src="../../OEBPS/Images/06-16.png" width="1103" height="483"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1118947"></a>Figure 6.16 A 5 × 5 convolution layer (left) with two 3 × 3 convolution layers (right)</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098100"></a>By representing 5 × 5 convolution with two smaller 3 × 3 convolution operations, we enjoy a reduction of 28% in parameters. Figure 6.17 contrasts Inception v1 block with Inception v2 block.</p>
+
+  <p class="fm-figure"><img alt="06-17" class="calibre10" src="../../OEBPS/Images/06-17.png" width="817" height="1133"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1118981"></a>Figure 6.17 Inception block in Inception net v1 (left) versus Inception block in Inception net v2 (right)</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098107"></a>Here’s what the TensorFlow code looks like:</p>
+  <pre class="programlisting"># 1x1 layer
+out1 = Conv2D(64, (1,1), strides=(1,1), activation='relu', padding='same')(inp)
+# 1x1 followed by 3x3
+out2_1 = Conv2D(
+    96, (1,1), strides=(1,1), activation='relu', padding='same'
+)(inp)
+out2_2 = Conv2D(
+    128, (3,3), strides=(1,1), activation='relu', padding='same'
+)(out2_1)
+ 
+# 1x1 followed by 5x5
+# Here 5x5 is represented by two 3x3 convolution layers
+out3_1 = Conv2D(
+    16, (1,1), strides=(1,1), activation='relu', padding='same'
+)(inp)
+out3_2 = Conv2D(
+    32, (3,3), strides=(1,1), activation='relu', padding='same'
+)(out3_1)
+out3_3 = Conv2D(
+    32, (3,3), strides=(1,1), activation='relu', padding='same'
+)(out3_2)
+ 
+# 3x3 (pool) followed by 1x1
+out4_1 = MaxPool2D((3,3), strides=(1,1), padding='same')(inp)
+out4_2 = Conv2D(
+    32, (1,1), strides=(1,1), activation='relu', padding='same'
+)(out4_1)
+ 
+out = Concatenate(axis=-1)([out1, out2_2, out3_3, out4_2])</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098138"></a>But we don’t have to stop here. We can factorize any n × n convolution operation to two 1 × n and n × 1 convolution layers, for example, giving 33% parameter reduction for a 3 × 3 convolution layer (figure 6.18). Empirically, it has been found that factorizing n × n operation to two 1 × n and n × 1 operations is useful only in higher layers. You can refer to the paper to understand when and where these types of factorizations are<a class="calibre8" id="marker-1098139"></a><a class="calibre8" id="marker-1098140"></a> used.</p>
+
+  <p class="fm-figure"><img alt="06-18" class="calibre10" src="../../OEBPS/Images/06-18.png" width="1083" height="439"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1119022"></a>Figure 6.18 A 3 × 3 convolution layer (left) with 3 × 1 and 1 × 3 convolution layers (right)</p>
+
+  <p class="fm-head2"><a id="pgfId-1098147"></a>Inception v3</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098150"></a>Inception v3<a class="calibre8" id="marker-1104799"></a><a class="calibre8" id="marker-1104800"></a> was introduced in the same paper as Inception net v2. The primary contribution that sets v3 apart from v2 is the use of batch normalization layers. Batch normalization (“Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift,” <span class="fm-hyperlink"><a class="url" href="http://proceedings.mlr.press/v37/ioffe15.pdf">http://proceedings.mlr.press/v37/ioffe15.pdf</a></span>) normalizes the outputs of a given layer <i class="fm-italics">x</i> by subtracting the mean (<i class="fm-timesitalic">E</i>(<i class="fm-timesitalic">x</i>)) and standard deviation (<span class="fm-symbol1">√</span>(<i class="fm-timesitalic">Var</i>(<i class="fm-timesitalic">x</i>)) from the outputs:</p>
+
+  <p class="fm-equation"><img alt="06_18a" class="calibre10" src="../../OEBPS/Images/06_18a.png" width="149" height="72"/><br class="calibre2"/>
+  <a id="pgfId-1102019"></a></p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098155"></a>This process helps the network stabilize its output values without letting them become too large or too small. Next, it has two trainable parameters, <i class="fm-timesitalic">γ</i> and <i class="fm-timesitalic">β</i>, that scale and offset the normalized output:</p>
+
+  <p class="fm-equation"><a id="pgfId-1098157"></a>y = <i class="fm-timesitalic">γ</i> <i class="fm-italics">x̂</i> + <i class="fm-timesitalic">β</i></p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098158"></a>This way, the network has the flexibility to learn its own variation of the normalization by learning optimal <i class="fm-timesitalic">γ</i> and <i class="fm-timesitalic">β</i> in case <i class="fm-timesitalic">x̂</i> is not the optimal normalization configuration. At this time, all you need to understand is that batch normalization normalizes the output of a given layer in the network. We will discuss how batch normalization is used within the Inception net model in more detail in the next<a class="calibre8" id="marker-1098159"></a><a class="calibre8" id="marker-1098160"></a> chapter.</p>
+
+  <p class="fm-head2"><a id="pgfId-1098161"></a>Inception v4</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098164"></a>Inception-v4<a class="calibre8" id="marker-1112889"></a><a class="calibre8" id="marker-1112890"></a> was introduced in the paper “Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning” (<span class="fm-hyperlink"><a class="url" href="http://mng.bz/J28P">http://mng.bz/J28P</a></span>) and does not introduce any new concepts, but rather focuses on making the model simpler without sacrificing performance. Mainly, v4 simplifies the stem of the network and other elements. As this is mostly grooming the network’s hyperparameters for better performance and not introducing any new concepts, we will not dive into this model in great<a class="calibre8" id="marker-1112893"></a><a class="calibre8" id="marker-1112894"></a> detail.</p>
+
+  <p class="fm-head2"><a id="pgfId-1098167"></a>Inception-ResNet v1 and Inception-ResNet v2</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098170"></a>Inception-ResNet v1<a class="calibre8" id="marker-1105919"></a><a class="calibre8" id="marker-1105920"></a> and v2 were introduced in the same paper and were its main contributions. Inception-ResNet simplifies the Inception blocks that are used in the model and removes some cluttering details. More importantly, it introduces residual connections. <i class="fm-italics">Residual connections</i><a class="calibre8" id="marker-1105922"></a> (or <i class="fm-italics">skip connections</i><a class="calibre8" id="marker-1105923"></a>) were introduced in the paper by Kaiming He et al. titled “Deep Residual Learning for Image Recognition” (<span class="fm-hyperlink"><a class="url" href="https://arxiv.org/pdf/1512.03385.pdf">https://arxiv.org/ pdf/1512.03385.pdf</a></span>). It’s an elegantly simple concept, yet very powerful, and it has been responsible for many of the top-performing models in many different domains.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098179"></a>As shown in figure 6.19, residual connections represent simply adding a lower input (close to the input) to a higher-level input (further from the input). This creates a shortcut between the lower input and a higher input, essentially creating another shortcut from the resulting output to the lower layer. We will not dive into too much detail here, as we will discuss Inception-ResNet models in detail in the next chapter. Next, we will train the model we just defined on the image data we have<a class="calibre8" id="marker-1119054"></a><a class="calibre8" id="marker-1119055"></a> prepared.</p>
+
+  <p class="fm-figure"><img alt="06-19" class="calibre10" src="../../OEBPS/Images/06-19.png" width="703" height="528"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1119074"></a>Figure 6.19 How residual connections are introduced to a network. It is a simple operation, where you add a lower output (closer to input) of a layer to a higher output (further from input). Skip connections can be designed in such a way to skip any number of layers you like. The figure also highlights the flow of gradients; you can see how skip connections allow gradients to bypass certain layers and travel to lower layers.</p>
+
+  <p class="fm-head2"><a id="pgfId-1098182"></a>Exercise 3</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098184"></a>As a part of research, you are testing a new technique called <i class="fm-italics">poolception</i>. Conceptually similar to an Inception block, poolception has three parallel pooling layers with the following specifications:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1098185"></a>A 3 × 3 max pooling layer with stride 2 and same padding</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1098186"></a>A 5 × 5 max pooling layer with stride 2 and same padding</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1098187"></a>A 3 × 3 average pooling layer with stride 2 and same padding</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098188"></a>Finally, the outputs of these layers are concatenated on the channel axis. Can you implement this as a Python function called <span class="fm-code-in-text">poolception</span> that takes the previous layer’s input <span class="fm-code-in-text">x</span> as an<a class="calibre8" id="marker-1098190"></a><a class="calibre8" id="marker-1098191"></a><a class="calibre8" id="marker-1098192"></a> argument?</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_82"><a id="pgfId-1098193"></a>6.4 Training the model and evaluating performance</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098194"></a>Great work! You have defined one of the state-of-the-art model architectures that has delivered great performance on similar (and larger) data sets. Your next task is to train this model and analyze its performance.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098195"></a>Model training is an imperative step if you need a model that performs well once it’s time to use it. Training the model optimizes (i.e., changes) the parameters of the model in such a way that it can produce the correct prediction given an input. Typically, model training is done for several epochs, where each epoch can consist of thousands of iterations. This process can take anywhere from hours to even weeks depending on the size of the data set and the model. As we have already discussed, deep neural networks, due to their well-known memory requirements, consume data in small batches. A step where the model is optimized with a single data batch is known as an <i class="fm-italics">iteration</i><a class="calibre8" id="marker-1098196"></a>. When you traverse the full data set in such batches, it’s known as an <i class="fm-italics">epoch</i>.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098198"></a>Finally, once the training is done, you need to ensure that the model performs well on unseen data. This unseen data must not have had any interaction with the model during the training. The most common evaluation metric for deep learning networks is accuracy. Therefore, we measure the test accuracy to ensure the model’s sturdiness.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098199"></a>In order to train the model, let us first define a function that computes the number of steps or iterations per epoch, given the size of the data set and batch size. It’s always a good idea to run for a predefined number of steps for every epoch. There can be instances where Keras is unable to figure out the number of steps, in which case it can leave the model running until you stop it:</p>
+  <pre class="programlisting">def get_steps_per_epoch(n_data, batch_size):
+    if n_data%batch_size==0:
+        return int(n_data/batch_size)
+    else:
+        return int(n_data*1.0/batch_size)+1</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098205"></a>It’s a very simple calculation. The number of steps for an epoch is the number of data points (<span class="fm-code-in-text">n_data</span>) divided by batch size (<span class="fm-code-in-text">batch_size</span>). And if <span class="fm-code-in-text">n_data</span> is not divisible by <span class="fm-code-in-text">batch_size</span>, you need to add 1 to the returned value to make sure you’re not leaving any data behind. Now let’s train the model in the following listing.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1098207"></a>Listing 6.7 Training the Inception net</p>
+  <pre class="programlisting">from tensorflow.keras.callbacks import CSVLogger
+import time
+import os
+ 
+if not os.path.exists('eval'):
+    os.mkdir('eval')                                               <span class="fm-combinumeral">❶</span>
+    
+csv_logger = CSVLogger(os.path.join('eval','1_eval_base.log'))     <span class="fm-combinumeral">❷</span>
+    
+history = model.fit(
+    x=train_gen_aux,                                               <span class="fm-combinumeral">❸</span>
+    validation_data=valid_gen_aux,                                 <span class="fm-combinumeral">❸</span>
+    steps_per_epoch=get_steps_per_epoch(0.9*500*200,batch_size),   <span class="fm-combinumeral">❸</span>
+    validation_steps=get_steps_per_epoch(0.1*500*200,batch_size),  <span class="fm-combinumeral">❸</span>
+    epochs=50, 
+    callbacks=[csv_logger]                                         <span class="fm-combinumeral">❸</span>
+)                                                                  <span class="fm-combinumeral">❸</span>
+ 
+if not os.path.exists('models'):
+    os.mkdir("models")
+model.save(os.path.join('models', 'inception_v1_base.h5'))         <span class="fm-combinumeral">❹</span></pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1114123"></a><span class="fm-combinumeral">❶</span> Creates a directory called eval to store the performance results</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1114166"></a><span class="fm-combinumeral">❷</span> This is a Keras callback that you pass to the fit() function. It writes the metrics data to a CSV file.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1114183"></a><span class="fm-combinumeral">❸</span> By fitting the model, you can see that we are passing the train and validation data generators to the function.</p>
+
+  <p class="fm-code-annotation-mob"><a class="calibre8" id="pgfId-1114124"></a><span class="fm-combinumeral">❹</span> Saves the model to disk so it can be brought up again if needed</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098233"></a>When training the model, the following steps are generally followed:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1098234"></a>Train the model for a number of epochs.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1098235"></a>At the end of every training epoch, measure performance on the validation data set.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1098236"></a>After all the training epochs have finished, measure the performance on the test set.</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098237"></a>When <span class="fm-code-in-text">model.fit()</span> is called in the code, it takes care of the first two steps. We will look at the <span class="fm-code-in-text">model.fit()</span> function<a class="calibre8" id="marker-1098238"></a> in a bit more detail. We pass the following arguments to the function:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1098239"></a><span class="fm-code-in-text">X</span>—Takes the train data generator to the model, which contains both inputs (<span class="fm-code-in-text">x</span>) and targets (<span class="fm-code-in-text">y</span>).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1098240"></a><span class="fm-code-in-text">y</span>—Typically takes in the targets. Here we do not specify <span class="fm-code-in-text">y</span>, as <span class="fm-code-in-text">x</span> already contains the targets.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1098241"></a><span class="fm-code-in-text">validation_data</span>—Takes the validation data generator.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1098242"></a><span class="fm-code-in-text">steps_per_epoch</span>—Number of steps (iterations) per epoch in training.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1098243"></a><span class="fm-code-in-text">validation_steps</span>—Number of steps (iterations) per epoch in validation.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1098244"></a><span class="fm-code-in-text">epochs</span>—Number of epochs.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1098245"></a><span class="fm-code-in-text">callbacks</span>—Any callbacks that need to be passed to the model (for a full list of callbacks visit <span class="fm-hyperlink"><a class="url" href="http://mng.bz/woEW">http://mng.bz/woEW</a></span>).</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098246"></a>You should get something like the following after training the model:</p>
+  <pre class="programlisting">Train for 704 steps, validate for 79 steps
+Epoch 1/50
+704/704 [==============================] - 196s 279ms/step - loss: 14.6223 
+<span class="fm-code-continuation-arrow">➥</span> - final_loss: 4.9449 - aux1_loss: 4.8074 - aux2_loss: 4.8700 - 
+<span class="fm-code-continuation-arrow">➥</span> final_accuracy: 0.0252 - aux1_accuracy: 0.0411 - aux2_accuracy: 0.0347 
+<span class="fm-code-continuation-arrow">➥</span> - val_loss: 13.3207 - val_final_loss: 4.5473 - val_aux1_loss: 4.3426 - 
+<span class="fm-code-continuation-arrow">➥</span> val_aux2_loss: 4.4308 - val_final_accuracy: 0.0595 - val_aux1_accuracy: 
+<span class="fm-code-continuation-arrow">➥</span> 0.0860 - val_aux2_accuracy: 0.0765
+...
+Epoch 50/50
+704/704 [==============================] - 196s 279ms/step - loss: 0.6361 - 
+<span class="fm-code-continuation-arrow">➥</span> final_loss: 0.2271 - aux1_loss: 0.1816 - aux2_loss: 0.2274 - 
+<span class="fm-code-continuation-arrow">➥</span> final_accuracy: 0.9296 - aux1_accuracy: 0.9411 - aux2_accuracy: 0.9264 
+<span class="fm-code-continuation-arrow">➥</span> - val_loss: 27.6959 - val_final_loss: 7.9506 - val_aux1_loss: 10.4079 - 
+<span class="fm-code-continuation-arrow">➥</span> val_aux2_loss: 9.3375 - val_final_accuracy: 0.2703 - val_aux1_accuracy: 
+<span class="fm-code-continuation-arrow">➥</span> 0.2318 - val_aux2_accuracy: 0.2361</pre>
+
+  <p class="fm-callout"><a id="pgfId-1098253"></a><span class="fm-callout-head">NOTE</span> On an Intel Core i5 machine with an NVIDIA GeForce RTX 2070 8GB, the training took approximately 2 hours and 45 minutes. You can reduce the training time by cutting down the number of epochs.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098254"></a>Finally, we will test the trained model on the test data (i.e., the data in the val folder). You can easily get the model’s test performance by calling <span class="fm-code-in-text">model.evaluate()</span> by passing the test data generator (<span class="fm-code-in-text">test_gen_aux</span>) and the number of steps (iterations) for the test set:</p>
+  <pre class="programlisting">model = load_model(os.path.join('models','inception_v1_base.h5'))
+test_res = model.evaluate(test_gen_aux, steps=get_steps_per_epoch(200*50, 
+<span class="fm-code-continuation-arrow">➥</span> batch_size))
+test_res_dict = dict(zip(model.metrics_names, test_res))</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098258"></a>You will get the following output:</p>
+  <pre class="programlisting">196/196 [==============================] - 17s 88ms/step - loss: 27.7303 - 
+<span class="fm-code-continuation-arrow">➥</span> final_loss: 7.9470 - aux1_loss: 10.3892 - aux2_loss: 9.3941 - 
+<span class="fm-code-continuation-arrow">➥</span> final_accuracy: 0.2700 - aux1_accuracy: 0.2307 - aux2_accuracy: 0.2367</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098260"></a>We can see that the model reaches around 30% validation and test accuracy and a whopping ~94% training accuracy. This is a clear indication that we haven’t steered clear from overfitting. But this is not entirely bad news. Thirty percent accuracy means that the model did recognize around 3,000/10,000 images in the validation and test sets. In terms of the sheer data amount, this corresponds to 60 classes out of 200.</p>
+
+  <p class="fm-callout"><a id="pgfId-1098261"></a><span class="fm-callout-head">NOTE</span> An overfitted model is like a student who memorized all the answers for an exam, whereas a generalized model is a student who worked hard to understand concepts that will be tested on the exam. The student who memorized answers will only perform well in the exam and fail in the real world, whereas the student who understood concepts can generalize their knowledge both to the exam and the real world.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098262"></a>Overfitting can happen for a number of reasons:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1098263"></a>The model architecture is not optimal for the data set we have.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1098264"></a>More regularization is needed to reduce overfitting, such as dropout and batch normalization.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1098265"></a>We are not using a pretrained model that has already been trained on similar data.</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098266"></a>We are going to address each of these concerns in the next chapter, where it will be exciting to see how much things improve.</p>
+
+  <p class="fm-head2"><a id="pgfId-1098267"></a>Exercise 4</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098268"></a>If you train a model for 10 epochs with a data set that has 50,000 samples with a batch size of 250, how many iterations would you train the model for? Assuming you are given the inputs as a variable <span class="fm-code-in-text">x</span> and labels as a variable <span class="fm-code-in-text">y</span>, populate the necessary arguments in <span class="fm-code-in-text">model.fit()</span> to train the model according to this specification. When not using a data generator, you can set the batch size using the <span class="fm-code-in-text">batch_size</span> argument and ignore the <span class="fm-code-in-text">steps_per_epoch</span> argument (automatically inferred) in <span class="fm-code-in-text">model.fit()</span>.</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_83"><a id="pgfId-1098269"></a>Summary</h2>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1098270"></a>Exploratory data analysis (EDA) is a crucial step in the machine learning life cycle that must be performed before starting on any modeling.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1098271"></a>The more aspects of the data you analyze, the better.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1098272"></a>The Keras data generator can be used to read images from disk and load them into memory to train the model.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1098273"></a>Inception net v1 is one of the state-of-the-art computer vision models for image classification designed for reducing overfitting and memory requirements of deep models.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1098274"></a>Inception net v1 consists of a stem, several inception blocks, and auxiliary outputs.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1098275"></a>An Inception block is a layer in the Inception net that consists of several sub-convolution layers with different kernel sizes, whereas the auxiliary output ensures smoothness in<a class="calibre8" id="marker-1098276"></a><a class="calibre8" id="marker-1098277"></a><a class="calibre8" id="marker-1098278"></a> model training.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1098279"></a>When training a model, there are three data sets: training, validation, and test.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1098280"></a>Typically, we train the model on training data for several epochs, and at the end of every epoch, we measure the performance on the validation set. Finally, after the training has finished, we measure performance on the test data set.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1098281"></a>A model that overfits is like a student who memorized all the answers for an exam. It can do very well on the training data but will do poorly in generalizing its knowledge to analyze unseen data.</p>
+    </li>
+  </ul>
+
+  <h2 class="fm-head" id="sigil_toc_id_84"><a id="pgfId-1098282"></a>Answers to exercises</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098283"></a><b class="fm-bold">Exercise 1</b></p>
+  <pre class="programlisting">def get_img_minimum(path):
+    img = np.array(Image.open(path))
+    return np.min(img)
+ 
+df[“minimum”] = df[“filepath”].apply(lambda x: get_img_minimum(x))</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098289"></a><b class="fm-bold">Exercise 2</b></p>
+  <pre class="programlisting">def data_gen_corrupt(gen):
+    for x,y in gen:
+        if np.random.normal()&gt;0:
+            y = 0
+        yield x,(y,y,y)
+ </pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098295"></a><b class="fm-bold">Exercise 3</b></p>
+  <pre class="programlisting">def poolception(x):
+    out1 = MaxPool2D(pool_size=(3,3), strides=(2,2), padding=’same’)(x)
+    out2 = MaxPool2D(pool_size=(5,5), strides=(2,2), padding=’same’)(out1)
+    out3 = AvgPool2D(pool_size=(3,3), strides=(2,2), padding=’same’)(out2)
+    out = Concatenate(axis=-1)([out1, out2, out3])
+    return out</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1098304"></a><b class="fm-bold">Exercise 4:</b><a class="calibre8" id="marker-1098302"></a><a class="calibre8" id="marker-1098303"></a> Total number of iterations = (data set size/batch_size) * epochs = (50,000/250) * 10 = 2,000</p>
+  <pre class="programlisting">model.fit(x=x, y=y, batch_size=250, epochs=10)</pre>
+</div>
+</div>
+</body>
+</html>

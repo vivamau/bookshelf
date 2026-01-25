@@ -1,0 +1,2181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xml:lang="en"
+      lang="en"
+      xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:epub="http://www.idpf.org/2007/ops">
+<head>
+<title>TensorFlow in Action</title>
+<link rel="stylesheet" type="text/css" href="../../override_v1.css"/>
+<link rel="stylesheet" type="text/css" href="../../stylesheet.css"/><link rel="stylesheet" type="text/css" href="../../page_styles.css"/>
+</head>
+<body>
+<div id="book-content">
+<div id="sbo-rt-content" class="calibre"><h1 class="tochead"><a id="pgfId-1282297"></a>11 Sequence-to-sequence learning: Part 1</h1>
+
+  <p class="co-summary-head"><a id="pgfId-1282299"></a>This chapter<a id="marker-1283998"></a> covers</p>
+
+  <ul class="calibre9">
+    <li class="co-summary-bullet"><a class="calibre8" id="pgfId-1282301"></a><a class="calibre8" id="aHlk69103576"></a>Understanding sequence-to-sequence data</li>
+
+    <li class="co-summary-bullet"><a class="calibre8" id="pgfId-1282303"></a>Building<a class="calibre8" id="aHlk69104098"></a> a sequence-to-sequence machine translation model</li>
+
+    <li class="co-summary-bullet"><a class="calibre8" id="pgfId-1282304"></a>Training and evaluating sequence-to-sequence models</li>
+
+    <li class="co-summary-bullet"><a class="calibre8" id="pgfId-1282305"></a>Repurposing the trained model to generate translations for unseen text</li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282306"></a>In the previous chapter, we discussed solving an NLP task known as language modeling with deep recurrent neural networks. In this chapter, we are going to further our discussion and learn how we can use recurrent neural networks to solve more complex tasks. We will learn about a variety of tasks in which an arbitrary-length input sequence is mapped to another arbitrary-length sequence. Machine translation is a very appropriate example of this that involves converting a sequence of words in one language to a sequence of words in another.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282307"></a>In this chapter, our primary focus is on building an English-to-German machine translator. To arrive at that, we will first download a machine translation data set, look at the structure of that data set, and apply some processing to prepare it for the model. Then we will define a machine translation model that can learn to map arbitrarily long sequences to other arbitrarily long sequences. This is an encoder-decoder-based model, meaning there is an encoder that takes in one sequence (e.g., an English phrase) to produce a latent representation of the sequence and a decoder that decodes that information to produce a target sequence (e.g., a German phrase). A special characteristic of this model will be its ability to take in raw strings and convert them to numerical representations internally. Therefore, this model is more end-to-end than other NLP models we have created in previous chapters. Once the model is defined, we will train it using the data set we processed and evaluate it on two metrics: per-word accuracy of the sequences produced and BLEU (biLingual evaluation understudy). BLEU is a more advanced metric than accuracy that mimics how a human would evaluate the quality of a translation. Finally, we will define a slightly modified decoder that can recursively produce words (starting from an initial seed) while taking the previous prediction as the input for the current time step. In the first section, we will discuss the data a bit before diving into modeling.</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_148"><a id="pgfId-1282309"></a>11.1 Understanding the machine translation data</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282312"></a>You<a class="calibre8" id="marker-1282310"></a><a class="calibre8" id="marker-1282311"></a> are developing a machine translation service for tourists who are visiting Germany. You found a bilingual parallel corpus of English and German text (available at <span class="fm-hyperlink"><a class="url" href="http://www.manythings.org/anki/deu-eng.zip">http://www.manythings.org/anki/deu-eng.zip</a></span>). It contains English text and a corresponding German translation side by side in a text file. The idea is to use this to train a sequence-to-sequence model, and before doing that, you have to understand the organization of the data, load it into memory, and analyze the vocabulary size and the sequence length. Furthermore, you will process the text so that it has the special token “sos” (denotes “start of sentence”) at the beginning of the German translation and “eos” (denotes “end of sentence”) at the end of the translation. These are important tags that will help us at the time of generating translations from the model.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282314"></a>Let’s first download the data set and take a tour of it. You will need to manually download this data set (available at <span class="fm-hyperlink"><a class="url" href="http://www.manythings.org/anki/deu-eng.zip">http://www.manythings.org/anki/deu-eng.zip</a></span>), as this web page does not support automatic retrieval through script. Once downloaded, we will extract the data, which has a text file containing the data:</p>
+  <pre class="programlisting">import os
+import requests
+import zipfile
+ 
+# Make sure the zip file has been downloaded
+if not os.path.exists(os.path.join('data','deu-eng.zip')):
+    raise FileNotFoundError(
+        "Uh oh! Did you download the deu-eng.zip from 
+<span class="fm-code-continuation-arrow">➥</span> http:/ /www.manythings.org/anki/deu-eng.zip manually and place it in the 
+<span class="fm-code-continuation-arrow">➥</span> Ch11/data folder?"
+    )
+ 
+else:
+    if not os.path.exists(os.path.join('data', 'deu.txt')):
+        with zipfile.ZipFile(os.path.join('data','deu-eng.zip'), 'r') as zip_ref:
+            zip_ref.extractall('data')
+    else:
+        print("The extracted data already exists")</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282336"></a>If you open the text file, it will have entries as follows:</p>
+  <pre class="programlisting">Go.    Geh.    CC-BY 2.0 (France) Attribution: tatoeba.org 
+<span class="fm-code-continuation-arrow">➥</span> #2877272 (CM) &amp; #8597805 (Roujin)
+Hi.    Hallo!    CC-BY 2.0 (France) Attribution: tatoeba.org 
+<span class="fm-code-continuation-arrow">➥</span> #538123 (CM) &amp; #380701 (cburgmer)
+Hi.    Grüß Gott!    CC-BY 2.0 (France) Attribution: 
+<span class="fm-code-continuation-arrow">➥</span> tatoeba.org #538123 (CM) &amp; #659813 (Esperantostern)
+...
+If someone who doesn't know your background says that you sound like 
+<span class="fm-code-continuation-arrow">➥</span> a native speaker, ... . In other words, you don't really sound like 
+<span class="fm-code-continuation-arrow">➥</span> a native speaker.    Wenn jemand, der nicht weiß, woher man 
+<span class="fm-code-continuation-arrow">➥</span> kommt, sagt, man erwecke doch den Eindruck, Muttersprachler zu sein, 
+<span class="fm-code-continuation-arrow">➥</span> ... - dass man diesen Eindruck mit anderen Worten eigentlich nicht 
+<span class="fm-code-continuation-arrow">➥</span> erweckt.    CC-BY 2.0 (France) Attribution: tatoeba.org #953936 
+<span class="fm-code-continuation-arrow">➥</span>  (CK) &amp; #8836704 (Pfirsichbaeumchen)
+Doubtless there exists in this world precisely the right woman for 
+<span class="fm-code-continuation-arrow">➥</span> any given man to marry and vice versa; ..., that probably, since 
+<span class="fm-code-continuation-arrow">➥</span> the earth was created, the right man has never yet met the right 
+<span class="fm-code-continuation-arrow">➥</span> woman.    Ohne Zweifel findet sich auf dieser Welt zu jedem Mann 
+<span class="fm-code-continuation-arrow">➥</span> genau die richtige Ehefrau und umgekehrt; ..., dass seit Erschaffung 
+<span class="fm-code-continuation-arrow">➥</span> ebenderselben wohl noch nie der richtige Mann der richtigen Frau 
+<span class="fm-code-continuation-arrow">➥</span> begegnet ist.    CC-BY 2.0 (France) Attribution: tatoeba.org 
+<span class="fm-code-continuation-arrow">➥</span> #7697649 (RM) &amp; #7729416 (Pfirsichbaeumchen)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282359"></a>The data is in tab-separated format and has a <span class="fm-code-in-text">&lt;German phrase&gt;&lt;tab&gt;&lt;English phrase&gt;&lt;tab&gt;&lt;Attribution&gt;</span> format. We really care about the first two tab-separated values in a record. Once the data is downloaded, we can easily load the data to a pandas DataFrame. Here we will load the data, set up column names, and extract the columns that are of interest to us:</p>
+  <pre class="programlisting">import pandas as pd
+ 
+# Read the csv file
+df = pd.read_csv(
+    os.path.join('data', 'deu.txt'), delimiter='\t', header=None
+)
+# Set column names
+df.columns = ["EN", "DE", "Attribution"]
+df = df[["EN", "DE"]]</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282371"></a>We can also compute the size of the DataFrame through</p>
+  <pre class="programlisting">print('df.shape = {}'.format(df.shape))</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282375"></a>which will return</p>
+  <pre class="programlisting">df.shape = (227080, 2)</pre>
+
+  <p class="fm-callout"><a id="pgfId-1282379"></a><span class="fm-callout-head">NOTE</span> The data here is updated over time. Therefore, you can get slightly different results (e.g., data set size, vocabulary size, vocabular distribution, etc.) than shown here.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282380"></a>We have around 227,000 examples in our data set. Each example contains an English phrase/sentence/paragraph and the corresponding German translation. We will do one more cleaning step. It seems that some of the entries in the text file have some Unicode issues. These are handled fine by pandas, but are problematic for some downstream TensorFlow components. Therefore, let's run the following cleanup step to ignore those problematic lines in the data:</p>
+  <pre class="programlisting">clean_inds = [i for i in range(len(df)) if b"\xc2" not in df.iloc[i]["DE"].encode("utf-8")]
+ 
+df = df.iloc[clean_inds]</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1298265"></a>Let’s analyze some of the samples by calling <span class="fm-code-in-text">df.head()</span> (table 11.1) and <span class="fm-code-in-text">df.tail()</span> (table 11.2). <span class="fm-code-in-text">df.head()</span> returns the contents of table 11.1, whereas <span class="fm-code-in-text">df.tail()</span> produces the contents of table 11.2.<a class="calibre8" id="aRef71294846"></a><a class="calibre8" id="aRef71294887"></a></p>
+
+  <p class="fm-table-caption"><a id="pgfId-1284528"></a>Table 11.1 Some of the examples at the beginning of the data</p>
+
+  <table border="1" class="contenttable" width="100%">
+    <colgroup class="calibre12">
+      <col class="calibre13" span="1" width="33.33%"/>
+      <col class="calibre13" span="1" width="33.33%"/>
+      <col class="calibre13" span="1" width="33.33%"/>
+    </colgroup>
+
+    <tr class="calibre14">
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1284534"></a> </p>
+      </th>
+
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1284536"></a><b class="fm-bold">EN</b></p>
+      </th>
+
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1284538"></a><b class="fm-bold">DE</b></p>
+      </th>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284540"></a>0</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284542"></a>Go.</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284544"></a>Geh.</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284546"></a>1</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284548"></a>Hi.</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284550"></a>Hallo!</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284552"></a>2</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284554"></a>Hi.</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284556"></a>Grüß Gott!</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284558"></a>3</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284560"></a>Run!</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284562"></a>Lauf!</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284564"></a>4</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284566"></a>Run.</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284568"></a>Lauf!</p>
+      </td>
+    </tr>
+  </table>
+
+  <p class="fm-table-caption"><a id="pgfId-1284696"></a>Table 11.2 Some of the examples at the end of the data</p>
+
+  <table border="1" class="contenttable" width="100%">
+    <colgroup class="calibre12">
+      <col class="calibre13" span="1" width="33.33%"/>
+      <col class="calibre13" span="1" width="33.33%"/>
+      <col class="calibre13" span="1" width="33.33%"/>
+    </colgroup>
+
+    <tr class="calibre14">
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1284702"></a> </p>
+      </th>
+
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1284704"></a><b class="fm-bold">EN</b></p>
+      </th>
+
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1284706"></a><b class="fm-bold">DE</b></p>
+      </th>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284708"></a>227075</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284710"></a>Even if some by non-native speakers...</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284712"></a>Auch wenn Sätze von Nichtmuttersprachlern mitu...</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284714"></a>227076</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284716"></a>If someone who doesn’t your background sa...</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284718"></a>Wenn jemand, der deine Herkunft nicht kennt, s...</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284720"></a>227077</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284722"></a>If someone who doesn’t your background sa...</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284724"></a>Wenn jemand Fremdes dir sagt, dass du dich wie...</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284726"></a>227078</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284728"></a>If someone who doesn’t your background sa...</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284730"></a>Wenn jemand, der nicht weiß, woher man kommt, ...</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284732"></a>227079</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284734"></a>Doubtless there exists in this world precisely...</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1284736"></a>Ohne Zweifel findet sich auf dieser Welt zu je...</p>
+      </td>
+    </tr>
+  </table>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282393"></a>The examples are sorted by their length, and you can see that they start with examples of a single word and end up with examples with approximately 50 words. We will only use a sample of 50,000 phrases from this data set to speed up our workflow:</p>
+  <pre class="programlisting">n_samples = 50000
+df = df.sample(n=n_samples, random_state=random_seed)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282396"></a>We set the random seed as <span class="fm-code-in-text">random_seed=4321</span>.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282397"></a>Finally, we will introduce two special tokens to the German translations: <span class="fm-code-in-text">sos</span> and <span class="fm-code-in-text">eos</span>. <span class="fm-code-in-text">sos</span> marks the start of the translation, whereas <span class="fm-code-in-text">eos</span> marks the end of the translation. As you will see, these tokens serve an important purpose when it comes to generating translations after the model trained. But for consistency during training and inference (or generation), we will introduce these tokens to all of our examples. This can be easily done as follows:</p>
+  <pre class="programlisting">start_token = 'sos'
+end_token = 'eos'
+df["DE"] = start_token + ' ' + df["DE"] + ' ' + end_token</pre>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1285336"></a>SOS and EOS tokens</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1285337"></a>The choice of SOS and EOS is just a convenience, and technically they could be represented by any two unique tokens, as long as they are not words from the corpus itself. It is important to make these tokens unique, as they play an important role when generating translations from previously unseen English sentences. The specifics of the role will be discussed in a later section.</p>
+  </div>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282405"></a>It’s a very straightforward transformation. This will convert the phrase <span class="fm-code-in-text">"Grüß Gott!"</span> to <span class="fm-code-in-text">"sos Grüß Gott! eos"</span>. Next, we’re going to generate a training/validation/test subset from the data we sampled:</p>
+  <pre class="programlisting"># Randomly sample 10% examples from the total 50000 randomly
+test_df = df.sample(n=n=int(n_samples/10), random_state=random_seed)
+# Randomly sample 10% examples from the remaining randomly
+valid_df = df.loc[~df.index.isin(test_df.index)].sample(
+    n=n=int(n_samples/10), random_state=random_seed
+)
+# Assign the rest to training data
+train_df = df.loc[~(df.index.isin(test_df.index) | 
+<span class="fm-code-continuation-arrow">➥</span> df.index.isin(valid_df.index))]</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282414"></a>We will keep 10% of the data as test data, another 10% as validation data, and the remaining 80% as training data. The data will be randomly sampled (without replacement) for the data sets. We then move on to analyze two important characteristics of text data sets, as we have done over and over again: the vocabulary size (listing 11.1) and the sequence length (listing 11.2).</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1285430"></a>Listing 11.1 Analyzing the vocabulary size</p>
+  <pre class="programlisting">from collections import Counter
+ 
+en_words = train_df["EN"].str.split().sum()                    <span class="fm-combinumeral">❶</span>
+de_words = train_df["DE"].str.split().sum()                    <span class="fm-combinumeral">❷</span>
+ 
+n=10                                                           <span class="fm-combinumeral">❸</span>
+ 
+def get_vocabulary_size_greater_than(words, n, verbose=True):
+    
+    """ Get the vocabulary size above a certain threshold """
+    
+    counter = Counter(words)                                   <span class="fm-combinumeral">❹</span>
+    
+    freq_df = pd.Series(                                       <span class="fm-combinumeral">❺</span>
+        list(counter.values()), 
+        index=list(counter.keys())
+    ).sort_values(ascending=False)
+    
+    if verbose:
+        print(freq_df.head(n=10))                              <span class="fm-combinumeral">❻</span>
+ 
+    n_vocab = (freq_df&gt;=n).sum()                               <span class="fm-combinumeral">❼</span>
+    
+    if verbose:
+        print("\nVocabulary size (&gt;={} frequent): {}".format(n, n_vocab))
+        
+    return n_vocab
+ 
+print("English corpus")
+print('='*50)
+en_vocab = get_vocabulary_size_greater_than(en_words, n)
+ 
+print("\nGerman corpus")
+print('='*50)
+de_vocab = get_vocabulary_size_greater_than(de_words, n)</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1305275"></a><span class="fm-combinumeral">❶</span> Create a flattened list from English words.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1305296"></a><span class="fm-combinumeral">❷</span> Create a flattened list of German words.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1305313"></a><span class="fm-combinumeral">❸</span> Get the vocabulary size of words appearing more than or equal to 10 times.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1305330"></a><span class="fm-combinumeral">❹</span> Generate a counter object (i.e., dict word -&gt; frequency).</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1305347"></a><span class="fm-combinumeral">❺</span> Create a pandas series from the counter, and then sort most frequent to least.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1305364"></a><span class="fm-combinumeral">❻</span> Print the most common words.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1305381"></a><span class="fm-combinumeral">❼</span> Get the count of words that appear at least 10 times.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282460"></a>which will return</p>
+  <pre class="programlisting">English corpus
+==================================================
+Tom    9427
+to     8673
+I      8436
+the    6999
+you    6125
+a      5680
+is     4374
+in     2664
+of     2613
+was    2298
+dtype: int64
+ 
+Vocabulary size (&gt;=10 frequent): 2238
+German corpus
+==================================================
+sos      40000
+eos      40000
+Tom       9928
+Ich       7749
+ist       4753
+nicht     4414
+zu        3583
+Sie       3465
+du        3112
+das       2909
+dtype: int64
+ 
+Vocabulary size (&gt;=10 frequent): 2497</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282492"></a>Next, sequence analysis is done in the following function.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1282494"></a><a id="aRef71304134"></a>Listing 11.2 Analyzing the sequence length</p>
+  <pre class="programlisting">def print_sequence_length(str_ser):
+    
+    """ Print the summary stats of the sequence length """
+    
+    seq_length_ser = str_ser.str.split(' ').str.len()             <span class="fm-combinumeral">❶</span>
+ 
+    print("\nSome summary statistics")                            <span class="fm-combinumeral">❷</span>
+    print("Median length: {}\n".format(seq_length_ser.median()))  <span class="fm-combinumeral">❷</span>
+    print(seq_length_ser.describe())                              <span class="fm-combinumeral">❷</span>
+    
+    print(
+        "\nComputing the statistics between the 1% and 99% quantiles (to 
+<span class="fm-code-continuation-arrow">➥</span> ignore outliers)"
+    )
+    p_01 = seq_length_ser.quantile(0.01)                          <span class="fm-combinumeral">❸</span>
+    p_99 = seq_length_ser.quantile(0.99)                          <span class="fm-combinumeral">❸</span>
+    
+    print(
+        seq_length_ser[
+            (seq_length_ser &gt;= p_01) &amp; (seq_length_ser &lt; p_99)
+        ].describe()                                              <span class="fm-combinumeral">❹</span>
+    )</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1305034"></a><span class="fm-combinumeral">❶</span> Create a pd.Series, which contains the sequence length for each review.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1305055"></a><span class="fm-combinumeral">❷</span> Get the median as well as summary statistics of the sequence length.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1305072"></a><span class="fm-combinumeral">❸</span> Get the quantiles at given marks (i.e., 1% and 99% percentiles).</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1305089"></a><span class="fm-combinumeral">❹</span> Print the summary stats of the data between the defined quantiles.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282523"></a>Next, call this function on the data to get the statistics:</p>
+  <pre class="programlisting">print("English corpus")
+print('='*50)
+print_sequence_length(train_df["EN"])
+ 
+print("\nGerman corpus")
+print('='*50)
+print_sequence_length(train_df["DE"])</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282533"></a>This produces</p>
+  <pre class="programlisting">English corpus
+==================================================
+Some summary statistics
+Median length: 6.0
+ 
+count    40000.000000
+mean         6.360650
+std          2.667726
+min          1.000000
+25%          5.000000
+50%          6.000000
+75%          8.000000
+max        101.000000
+Name: EN, dtype: float64
+ 
+Computing the statistics between the 1% and 99% quantiles (to ignore outliers)
+count    39504.000000
+mean         6.228002
+std          2.328172
+min          2.000000
+25%          5.000000
+50%          6.000000
+75%          8.000000
+max         14.000000
+Name: EN, dtype: float64
+ 
+German corpus
+==================================================
+ 
+Some summary statistics
+Median length: 8.0
+ 
+count    40000.000000
+mean         8.397875
+std          2.652027
+min          3.000000
+25%          7.000000
+50%          8.000000
+75%         10.000000
+max         77.000000
+Name: DE, dtype: float64
+ 
+Computing the statistics between the 1% and 99% quantiles (to ignore outliers)
+count    39166.000000
+mean         8.299035
+std          2.291474
+min          5.000000
+25%          7.000000
+50%          8.000000
+75%         10.000000
+max         16.000000
+Name: DE, dtype: float64</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282590"></a>Next, let’s print out the vocabulary size and the sequence length parameters for the two languages:</p>
+  <pre class="programlisting">print("EN vocabulary size: {}".format(en_vocab))
+print("DE vocabulary size: {}".format(de_vocab))
+ 
+# Define sequence lengths with some extra space for longer sequences
+en_seq_length = 19
+de_seq_length = 21
+ 
+print("EN max sequence length: {}".format(en_seq_length))
+print("DE max sequence length: {}".format(de_seq_length))</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282602"></a>This will return</p>
+  <pre class="programlisting">EN vocabulary size: 359
+DE vocabulary size: 336
+EN max sequence length: 19
+DE max sequence length: 21</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282607"></a>Now we have the language-specific parameters needed to define the model. In the next section, we’ll look at how we can define a model to translate between languages.</p>
+
+  <p class="fm-head2"><a id="pgfId-1282608"></a>Exercise 1</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282609"></a>You have been given a pandas Series <span class="fm-code-in-text">ser</span> in the following format:</p>
+  <pre class="programlisting">0       [a, b, c]
+1          [d, e]
+2    [f, g, h, i]
+...
+ 
+dtype: object</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282619"></a>Write a function called <span class="fm-code-in-text">vocab_size(ser)</span> to return the vocabulary<a class="calibre8" id="marker-1282617"></a><a class="calibre8" id="marker-1282618"></a> size.</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_149"><a id="pgfId-1282620"></a>11.2 Writing an English-German seq2seq machine translator</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282623"></a>You<a class="calibre8" id="marker-1282621"></a><a class="calibre8" id="marker-1282622"></a> have a clean data set that is ready to go into a model. You will be using a sequence-to-sequence deep learning model as the machine translation model. It consists of two parts: an encoder that produces a hidden representation of the English (source) text and a decoder that decodes that representation to German (target) text. Both the encoder and the decoder are recurrent neural networks. Moreover, the model will accept raw text and will convert the raw text to token IDs using a <span class="fm-code-in-text">TextVectorization</span> layer provided in TensorFlow. These token IDs will go to an embedding layer that will return word vectors of the token IDs.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282624"></a>We have the data prepared and ready to go. Now let’s learn about the model that can consume this data. Sequence-to-sequence learning maps an arbitrarily long sequence to another arbitrarily long sequence. This poses a unique challenge for us, as the model not only needs to be able to consume a sequence of arbitrary length, but also needs to be able to produce a sequence of arbitrary length as the output. For example, in machine translation, it is very common for translations to have fewer or more words than the input. Because of this, they require a special type of model. These models are known as <i class="fm-italics">encoder-decoder</i> or <i class="fm-italics">seq2seq</i> (short for sequence-to-sequence) models.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282626"></a>Encoder-decoder models are, in fact, two different models interconnected in a certain way. Conceptually, the encoder takes in a sequence and produces a context vector (or a thought vector) that embeds the information present in the input sequence. The decoder takes in the representation produced by the encoder and decodes it to generate another sequence. Since the two parts (i.e., the encoder and the decoder) operate on separate things (i.e., the encoder consumes the input sequence while the decoder generates the output sequence), encoder-decoder models are well suited for solving sequence-to-sequence tasks. Another way to understand what the encoder and the decoder do is as follows: the encoder processes the source language input (i.e., the language to translate from), and the decoder processes the target language input (i.e., the language to translate to). This is depicted in figure 11.1.</p>
+
+  <p class="fm-figure"><img alt="11-01" class="calibre10" src="../../OEBPS/Images/11-01.png" width="1003" height="506"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1306249"></a>Figure 11.1 High-level components of the encoder-decoder architecture in the context of machine translation</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282633"></a>Particularly, the encoder contains a recurrent neural network. We will be using a gated recurrent unit<a class="calibre8" id="marker-1282634"></a><a class="calibre8" id="marker-1282635"></a> (GRU) model. It goes through the input sequence and produces a final output, which is the final output of the GRU cell after it processes the last element in the input sequence.</p>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1282636"></a>Thought vector</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1282637"></a>A <i class="fm-italics">thought vector</i> is a term popularized by Geoffery Hinten, a luminary in deep learning who has been involved since its inception. A thought vector refers to a vectorized representation of a thought. The ability to generate accurate numerical representations of thoughts would revolutionize the way we search documents or search on the web (e.g., Google). This is similar to how a numerical representation of a word is called a <i class="fm-italics">word vector</i>. In the context of machine translation, the context vector can be called a thought vector as it captures the essence of a sentence or a phrase in a single vector.</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1292378"></a>You can read more about this at <span class="fm-hyperlink"><a class="url" href="https://wiki.pathmind.com/thought-vectors">https://wiki.pathmind.com/thought-vectors</a></span>.</p>
+  </div>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282642"></a>Next, we have the decoder, which also consists of a GRU model and several <span class="fm-code-in-text">Dense</span> layers<a class="calibre8" id="marker-1285996"></a>. The purpose of the <span class="fm-code-in-text">Dense</span> layers is to generate a final prediction (a word from the target vocabulary). The weights of the <span class="fm-code-in-text">Dense</span> layers present in the decoder are shared across time. This means that, just as the GRU layer updates the same weights as it moves from one input to the other, the <span class="fm-code-in-text">Dense</span> layer reuses the same weights across the time steps. This process is depicted in figure 11.2.</p>
+
+  <p class="fm-figure"><img alt="11-02" class="calibre10" src="../../OEBPS/Images/11-02.png" width="975" height="511"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1306303"></a>Figure 11.2 Specific components in the encoder and decoder modules. The encoder has a GRU layer, and the decoder consists of a GRU layer followed by one or more <span class="fm-code-in-text">Dense</span> layers, whose weights are shared across time.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282649"></a>Up until now, when solving NLP tasks, converting string tokens to numerical IDs was considered a preprocessing step. In other words, we would perform the tokens-to-ID conversion and input the IDs to the model. But it doesn’t have to be that way. We can define more versatile models that do such text processing internally as well as learn to solve the tasks. Keras provides certain layers that can plug into your model to be more end-to-end. The <span class="fm-code-in-text">tensorflow.keras.layers.experimental.preprocessing.TextVectorization</span> layer<a class="calibre8" id="marker-1296033"></a> is one such layer. Let’s examine the usage of this layer.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_150"><a id="pgfId-1282651"></a>11.2.1 The TextVectorization layer</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282655"></a>The<a class="calibre8" id="marker-1282652"></a><a class="calibre8" id="marker-1282653"></a><a class="calibre8" id="marker-1282654"></a> <span class="fm-code-in-text">TextVectorization</span> layer takes in a string, tokenizes it, and converts the tokens to IDs by means of a vocabulary (or dictionary) lookup. It takes a list of strings (or an array of strings) as the input, where each string can be a word/phrase/sentence (and so on). Then it learns the vocabulary from that corpus. Finally, the layer can be used to convert a list of strings to a tensor that contains a sequence of token IDs for each string in the list provided. Let’s see this layer in action. First import the layer with</p>
+  <pre class="programlisting">from tensorflow.keras.layers.experimental.preprocessing import 
+<span class="fm-code-continuation-arrow">➥</span> TextVectorization</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282657"></a>Then define the layer as follows. Here we’re defining the layer for the English language. Keep in mind that we need two <span class="fm-code-in-text">TextVectorization</span> layers in our model, one for English and one for German:</p>
+  <pre class="programlisting">en_vectorize_layer = TextVectorization(
+    max_tokens=en_vocab,
+    output_mode='int',
+    output_sequence_length=None
+)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282665"></a>It’s worthwhile to stop here and look at the different arguments we’re providing:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1282666"></a><span class="fm-code-in-text">max_tokens</span>—Specifies the number of words in the vocabulary. Any word that is not present in the vocabulary (i.e., an out-of-vocabulary word) is converted to <span class="fm-code-in-text">[UNK]</span>.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1282667"></a><span class="fm-code-in-text">output_mode</span>—Specifies the type of the final output. Can be one of <span class="fm-code-in-text">"int"</span>, <span class="fm-code-in-text">"binary"</span>, <span class="fm-code-in-text">"count"</span>, and <span class="fm-code-in-text">"tf-idf"</span>. <span class="fm-code-in-text">"int"</span> means the layer will output a token ID for each token. <span class="fm-code-in-text">"binary"</span> implies that the output will be a [&lt;batch size&gt;, &lt;vocab size&gt;] tensor, where a value of 1 is given at an index, if the token indicated by that index is present in that example. <span class="fm-code-in-text">"count"</span> gives a similar output as <span class="fm-code-in-text">"binary"</span>, but instead of 1s, it contains the number of times a token appeared in that example. <span class="fm-code-in-text">"tf-id"</span> gives a similar output as <span class="fm-code-in-text">"binary",</span> but the TF-IDF value at each position.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1282668"></a><span class="fm-code-in-text">output_sequence_length</span>—Specifies the length of the batched input sequence after converting to token IDs. If set to <span class="fm-code-in-text">None</span>, it means the sequence length will be set to the length of the longest sequence in the batch. The shorter sequences are padded with a special token (special token defaults to <span class="fm-code-in-text">""</span>).</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282669"></a>To make the best out of this layer, we have to fit it on a text corpus so that it can learn the vocabulary. Calling the <span class="fm-code-in-text">adapt()</span> function and passing the list of strings (or an array of strings) to it achieves that. In other words, <span class="fm-code-in-text">adapt()</span> yields the same results as the <span class="fm-code-in-text">fit()</span> method<a class="calibre8" id="marker-1282671"></a> of a scikit-learn model (<span class="fm-hyperlink"><a class="url" href="http://mng.bz/aJmB">http://mng.bz/aJmB</a></span>). It takes in some data and trains (or adapts) the model according to the data. In the case of the tokenizer, among other things, it builds out a dictionary (a mapping from word to ID):</p>
+  <pre class="programlisting">en_vectorize_layer.adapt(np.array(train_df["EN"].tolist()).astype('str'))</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282673"></a>After fitting the layer, you can get the vocabulary</p>
+  <pre class="programlisting">print(en_vectorize_layer.get_vocabulary()[:10])</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282675"></a>which prints</p>
+  <pre class="programlisting">['', '[UNK]', 'tom', 'to', 'you', 'the', 'i', 'a', 'is', 'that']</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282677"></a>In other words, the vocabulary is a list of tokens where the ID corresponds to their indexes in the list. You can compute the size of the vocabulary by</p>
+  <pre class="programlisting">print(len(en_vectorize_layer.get_vocabulary()))</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282679"></a>which returns</p>
+  <pre class="programlisting">2238</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282681"></a>Next, to use this layer to convert strings to numerical IDs, we must wrap it in a model. To do so, let’s first define a Keras Sequential model. Let’s name the model <span class="fm-code-in-text">toy_model</span> as this will only be used to learn the behavior of the text vectorizer:</p>
+  <pre class="programlisting">toy_model = tf.keras.models.Sequential()</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282683"></a>Define an input layer, set its size to accept a tensor with a single column (i.e., a list of strings), and set the data type to <span class="fm-code-in-text">tf.string</span>:</p>
+  <pre class="programlisting">toy_model.add(tf.keras.Input(shape=(1,), dtype=tf.string))</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282685"></a>Then add the text vectorization layer we defined:</p>
+  <pre class="programlisting">toy_model.add(en_vectorize_layer)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282687"></a>You can use this just like any other Keras model and convert arbitrary text to numerical ID sequences. Specifically, you use the <span class="fm-code-in-text">model.predict()</span> function<a class="calibre8" id="marker-1282688"></a> on some input data, which takes in the input and transforms it accordingly depending on the layers used in the model:</p>
+  <pre class="programlisting">input_data = [["run"], ["how are you"],["ectoplasmic residue"]]
+pred = toy_model.predict(input_data)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282691"></a>Finally, print the inputs and results as follows</p>
+  <pre class="programlisting">print("Input data: \n{}\n".format(input_data))
+print("\nToken IDs: \n{}".format(pred))</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282694"></a>which gives</p>
+  <pre class="programlisting">Input data: 
+[['run'], ['how are you'], ['ectoplasmic residue']]
+Token IDs: 
+[[427   0   0]
+ [ 40  23   4]
+ [  1   1   0]]</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282703"></a>The layer does everything accordingly. Let’s first looks at the shape of the output. The shape, since we set the <span class="fm-code-in-text">output_sequence_length=None</span>, pads all the examples in the input up to the length of the longest input in the inputs. Here, “how are you” is the longest and has three words in it. Therefore, all the rows are padded with zeros, such that each example has three columns. Generally, the layer returns a [&lt;batch size&gt;, sequence_length]-sized output.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282704"></a>If the word is found in the vocabulary, it is converted to some number (e.g., “run” is converted to 427). If the word is not found in the vocabulary (e.g., “ectoplasmic”), it is replaced with a special ID (1) that corresponds to out-of-vocabulary<a class="calibre8" id="marker-1282705"></a><a class="calibre8" id="marker-1282706"></a><a class="calibre8" id="marker-1282707"></a> words.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_151"><a id="pgfId-1282708"></a>11.2.2 Defining the TextVectorization layers for the seq2seq model</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282712"></a>With<a class="calibre8" id="marker-1282709"></a><a class="calibre8" id="marker-1282710"></a><a class="calibre8" id="marker-1282711"></a> a good understanding of the <span class="fm-code-in-text">TextVectorization</span> layer, let’s define a function to return a text vectorization layer wrapped in a <span class="fm-code-in-text">Keras Model</span> object<a class="calibre8" id="marker-1282713"></a>. This function, named <span class="fm-code-in-text">get_vectorizer()</span>, takes in the following arguments:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1282715"></a><span class="fm-code-in-text">corpus</span>—Accepts a list (or array) of strings (i.e., a corpus to build the vocabulary).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1282716"></a><span class="fm-code-in-text">n_vocab</span>—Vocabulary size. The most common <span class="fm-code-in-text">n_vocab</span> words are kept to build the vocabulary.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1282717"></a><span class="fm-code-in-text">max_length</span> (optional)—Length of the resulting token sequences. It defaults to <span class="fm-code-in-text">None</span>, in which case the sequence length will be the length of the longest text sequence.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1282718"></a><span class="fm-code-in-text">return_vocabulary</span> (optional)—Whether to return the vocabulary (i.e., list of string tokens).</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1282719"></a><span class="fm-code-in-text">name</span> (optional)—String to set the model name</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282720"></a>It defines an input layer that accepts a batch of strings (having a total shape of [<span class="fm-code-in-text">None</span>, 1]). Next, the function defines a text vectorizer layer. Note that the layer has a vocabulary size of <span class="fm-code-in-text">n_vocab + 2</span>. The extra 2 is necessary to accommodate the special tokens <span class="fm-code-in-text">" "</span> and <span class="fm-code-in-text">"[UNK]"</span>. The layer is fitted with the text corpus passed into the function. Finally, we define a Keras model with the input layer (<span class="fm-code-in-text">inp</span>) and the output of the text vectorization layer (<span class="fm-code-in-text">vectorize_out</span>). If the <span class="fm-code-in-text">return_vocabulary</span> is set to <span class="fm-code-in-text">True</span>, it will also return the vocabulary of the <span class="fm-code-in-text">vectorize_layer</span>, as shown in the next listing.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1282721"></a>Listing 11.3 Defining the text vectorizers for the encoder-decoder model</p>
+  <pre class="programlisting">def get_vectorizer(
+    corpus, n_vocab, max_length=None, return_vocabulary=True, name=None
+):
+    
+    """ Return a text vectorization layer or a model """
+    
+    inp = tf.keras.Input(shape=(1,), dtype=tf.string, name='encoder_input')<span class="fm-combinumeral">❶</span>
+ 
+    vectorize_layer = 
+<span class="fm-code-continuation-arrow">➥</span> tf.keras.layers.experimental.preprocessing.TextVectorization(
+        max_tokens=n_vocab+2,                                              <span class="fm-combinumeral">❷</span>
+        output_mode='int',
+        output_sequence_length=max_length,                
+    )
+    
+    vectorize_layer.adapt(corpus)                                          <span class="fm-combinumeral">❸</span>
+        
+    vectorized_out = vectorize_layer(inp)                                  <span class="fm-combinumeral">❹</span>
+        
+    if not return_vocabulary: 
+        return tf.keras.models.Model(
+            inputs=inp, outputs=vectorized_out, name=name
+        )                                                                  <span class="fm-combinumeral">❺</span>
+    else:
+        return tf.keras.models.Model(
+            inputs=inp, outputs=vectorized_out, name=name                  <span class="fm-combinumeral">❻</span>
+        ), vectorize_layer.get_vocabulary()        </pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1304653"></a><span class="fm-combinumeral">❶</span> Define an input layer that takes a list of strings (or an array of strings).</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1304674"></a><span class="fm-combinumeral">❷</span> When defining the vocab size, we use n_vocab + 2 ,as there are two special tokens, "(Padding)" and "[UNK]", added automatically.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1304691"></a><span class="fm-combinumeral">❸</span> Fit the vectorizer layer on the data.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1304715"></a><span class="fm-combinumeral">❹</span> Get the token IDs for the data fed to the input.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1304732"></a><span class="fm-combinumeral">❺</span> Return the model only. The model takes an array of strings and outputs a tensor of token IDs.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1304749"></a><span class="fm-combinumeral">❻</span> Return the vocabulary in addition to the model.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282756"></a>Since we have defined the function, let’s use it and define two vectorizers, one for the English inputs and one for the German inputs:</p>
+  <pre class="programlisting"># Get the English vectorizer/vocabulary
+en_vectorizer, en_vocabulary = get_vectorizer(
+    corpus=np.array(train_df[“EN”].tolist()), n_vocab=en_vocab, 
+    max_length=en_seq_length, name=’en_vectorizer’
+)
+# Get the German vectorizer/vocabulary
+de_vectorizer, de_vocabulary = get_vectorizer(
+    corpus=np.array(train_df[“DE”].tolist()), n_vocab=de_vocab, 
+    max_length=de_seq_length-1, name=’de_vectorizer’
+)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282767"></a>Here, the corpus takes in a list or an array of text. Each text is a string containing an English or German phrase/sentence. <span class="fm-code-in-text">n_vocab</span> defines the size of the vocabulary, and <span class="fm-code-in-text">max_length</span> defines the sequence length to which we should pad the data. Note how we use <span class="fm-code-in-text">de_seq_length-1</span> for the decoder. This Subtraction of 1 here is a necessity due to the way data is presented to the decoder during the model training. We will discuss the specific details when we reach model training. Finally, we can define a name to keep track of different<a class="calibre8" id="marker-1282768"></a><a class="calibre8" id="marker-1282769"></a><a class="calibre8" id="marker-1282770"></a> layers.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_152"><a id="pgfId-1282771"></a>11.2.3 Defining the encoder</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282775"></a>Moving<a class="calibre8" id="marker-1282772"></a><a class="calibre8" id="marker-1282773"></a><a class="calibre8" id="marker-1282774"></a> on to the encoder, we will use a GRU model at the core of our encoder. The encoder is responsible for processing the source input sequence. Its responsibility is to process the source input and produce a <i class="fm-italics">context vector</i><a class="calibre8" id="marker-1282776"></a> (sometimes called a <i class="fm-italics">thought vector</i>). This vector captures the essence of the input sequence in a compact, vectorized representation. Normally, this context vector would be the GRU cell’s last output state after it processes the full input sequence.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282777"></a>Let’s see the steps involved in getting the encoder ready. For this, we will use the Keras <span class="fm-code-in-text">Functional</span> layer<a class="calibre8" id="marker-1282778"></a>. Sequence-to-sequence models are not sequential and involve nonlinear connections between the encoder and the decoder. Therefore, we cannot use the Keras Sequential API. First, we define the input layer:</p>
+  <pre class="programlisting"># The input is (None,1) shaped and accepts an array of strings
+inp = tf.keras.Input(shape=(1,), dtype=tf.string, name='e_input')</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282781"></a>The input accepts a list of strings. Note how we are setting the shape to <span class="fm-code-in-text">(1,)</span> to make sure the model accepts a tensor with just one column and <span class="fm-code-in-text">dtype</span> to <span class="fm-code-in-text">tf.string</span>. Next, we vectorize the text input fed forward by <span class="fm-code-in-text">inp</span>:</p>
+  <pre class="programlisting"># Vectorize the data (assign token IDs)
+vectorized_out = en_vectorizer(inp)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282784"></a>Here, the vectorizer is a model that performs text vectorization, which is output by the <span class="fm-code-in-text">get_vectorizer()</span> function we defined earlier.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282785"></a>Next, we define an embedding layer that will convert the token IDs returned by the vectorizer to word vectors. This is a layer that has trainable weights. Therefore, during the training, the model will tune the word embeddings to reflect useful representations to solve the task at hand:</p>
+  <pre class="programlisting"># Define an embedding layer to convert IDs to word vectors
+emb_layer = tf.keras.layers.Embedding(
+    input_dim=n_vocab+2, output_dim=128, mask_zero=True, name=’e_embedding’
+)
+# Get the embeddings of the token IDs
+emb_out = emb_layer(vectorized_out)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282792"></a>When defining the embedding layer, you need to always pass the vocabulary size (<span class="fm-code-in-text">input_dim</span>) and the <span class="fm-code-in-text">output_dim</span>. Note that the vocabulary size has been increased by 2 to accommodate the two special tokens (i.e., UNK and PAD) that are introduced. We will set the <span class="fm-code-in-text">output_dim</span> to 128. We also want to mask excessive zeros that were padded from the final computations and thus set <span class="fm-code-in-text">mask_zero=True</span>. Finally, we will also pass a name to identify the layer easily.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282795"></a>Now we are coming to the core of our model: the recurrent neural network<a class="calibre8" id="marker-1282794"></a> (RNN). As mentioned earlier, we will use a GRU model but with an added twist! We are going to make our GRU model bidirectional! A bidirectional RNN is a special type of RNN that processes a sequence both forward and backward. This is in contrast to a standard RNN, which only processes the sequence forward:</p>
+  <pre class="programlisting">gru_layer = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(128))</pre>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1282799"></a>Bidirectional RNN: Reading text forward and backward</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1305685"></a>The standard RNN reads the text forward, one time step at a time, and outputs a sequence of outputs. Bidirectional RNNs, as the name suggests, not only read the text forward, but read it backward. This means that bidirectional RNNs have two sequences of outputs. Then these two sequences are combined using a combination strategy (e.g., <i class="fm-italics">concatenation</i>) to produce the final output. Bidirectional RNNs typically outperform standard RNNs because they understand relationships in text both forward and backward, as shown in the following figure.</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1306331"></a> </p>
+
+    <p class="fm-figure"><img alt="11-02-unnumb" class="calibre10" src="../../OEBPS/Images/11-02-unnumb.png" width="753" height="1194"/><br class="calibre2"/></p>
+
+    <p class="fm-figure-caption"><a id="pgfId-1306338"></a>Comparison between standard RNNs and bidirectional RNNs</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1294734"></a>Why does reading text backward help? There are some languages that are read backward (e.g., Arabic, Hebrew). Unless the text is specifically processed to account for this writing style, a standard RNN would have a very difficult time understanding the language. By having a bidirectional RNN, you are removing the model's dependency on a language to always be left to right or right to left.</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1294735"></a>If we consider the English language, there can be instances where it's impossible to infer a relationship going only forward. Consider the two sentences</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1294736"></a>John went toward the bank on Clarence Street.</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1294737"></a>John went towards the bank of the river.</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1294738"></a>Since the two sentences are identical up to the word "bank," it is not possible to know if the bank is referring to the financial institution or a river bank until you read the rest. For a bidirectional RNN, this is trivial.</p>
+  </div>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282813"></a>Then we get the output of the <span class="fm-code-in-text">gru_layer</span> and assign it to <span class="fm-code-in-text">gru_out</span>:</p>
+  <pre class="programlisting">gru_out = gru_layer(emb_out)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282818"></a>Finally, we define the encoder model as a <span class="fm-code-in-text">tf.keras.models.Model</span> object<a class="calibre8" id="marker-1286931"></a>. It takes <span class="fm-code-in-text">inp</span> (i.e., a single-column tensor of type <span class="fm-code-in-text">tf.string</span>) and outputs <span class="fm-code-in-text">gru_out</span> (i.e., the final state of the bidirectional GRU model). This final state of the GRU model is what is considered the context vector that provides the decoder information about the source language sentence/phrase input:</p>
+  <pre class="programlisting">encoder = tf.keras.models.Model(inputs=inp, outputs=gru_out)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282821"></a>You can observe the step-by-step build of the encoder model encapsulated in a function, as shown in the following listing.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1282823"></a>Listing 11.4 The function that returns the encoder</p>
+  <pre class="programlisting">def get_encoder(n_vocab, vectorizer):
+    """ Define the encoder of the seq2seq model"""
+    
+    inp = tf.keras.Input(shape=(1,), dtype=tf.string, name='e_input')   <span class="fm-combinumeral">❶</span>
+ 
+    vectorized_out = vectorizer(inp)                                    <span class="fm-combinumeral">❷</span>
+    
+    
+    emb_layer = tf.keras.layers.Embedding(
+        n_vocab+2, 128, mask_zero=True, name='e_embedding'              <span class="fm-combinumeral">❸</span>
+    )
+    
+    emb_out = emb_layer(vectorized_out)                                 <span class="fm-combinumeral">❹</span>
+ 
+    gru_layer = tf.keras.layers.Bidirectional(
+        tf.keras.layers.GRU(128, name='e_gru'),                         <span class="fm-combinumeral">❺</span>
+        name='e_bidirectional_gru'
+    )
+    
+    gru_out = gru_layer(emb_out)                                        <span class="fm-combinumeral">❻</span>
+    
+    
+    encoder = tf.keras.models.Model(
+        inputs=inp, outputs=gru_out, name='encoder'
+    )                                                                   <span class="fm-combinumeral">❼</span>
+        
+    return encoder</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1304217"></a><span class="fm-combinumeral">❶</span> The input is (None,1) shaped and accepts an array of strings.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1304238"></a><span class="fm-combinumeral">❷</span> Vectorize the data (assign token IDs)</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1304255"></a><span class="fm-combinumeral">❸</span> Define an embedding layer to convert IDs to word vectors.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1304272"></a><span class="fm-combinumeral">❹</span> Get the embeddings of the token IDs.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1304289"></a><span class="fm-combinumeral">❺</span> Define a bidirectional GRU layer. The encoder looks at the English text (i.e., the input) both backward and forward.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1304306"></a><span class="fm-combinumeral">❻</span> Get the output of the gru the last (the last output state vector returned by the model).</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1304323"></a><span class="fm-combinumeral">❼</span> Define the encoder model; it takes in a list/array of strings and returns the last output state of the GRU model.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282862"></a>After defining the function, you can simply call it to build the encoder<a class="calibre8" id="marker-1282859"></a><a class="calibre8" id="marker-1282860"></a><a class="calibre8" id="marker-1282861"></a> model:</p>
+  <pre class="programlisting">encoder = get_encoder(en_vocab, en_vectorizer)</pre>
+
+  <h3 class="fm-head1" id="sigil_toc_id_153"><a id="pgfId-1282864"></a>11.2.4 Defining the decoder and the final model</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282869"></a>The<a class="calibre8" id="marker-1282865"></a><a class="calibre8" id="marker-1282866"></a><a class="calibre8" id="marker-1282868"></a> encoder is done and dusted, and it’s time to look at the decoder. The decoder is going to look slightly more complex than the encoder. The core model of the decoder is again a GRU model. It is then followed by a fully connected hidden layer and a fully connected prediction layer. The prediction layer outputs a word from the German vocabulary (by computing probability over all the words in the vocabulary) for each time step.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282870"></a>During model training, the decoder predicts the next word in a given target sequence. For example, the decoder, given the target sequence [A, B, C, D], will train the model for three time steps on the following input-output tuples: (A, B), (B, C), and (C, D). In other words, given the token A, predict token B; given the token B, predict token C; and so on. If you think about the end-to-end process of the encoder-decoder model, the following steps take place:</p>
+
+  <ol class="calibre11">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1282871"></a>The encoder processes the source input sequence (i.e., English) and produces a context vector (i.e., the last output state of the GRU model).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1282872"></a>The decoder uses the context vector produced by the encoder as its initial state for the recurrent component.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1282873"></a>The decoder takes in the target input sequence (i.e., German) and predicts the next token given the previous token. For each time step, it predicts a token over the complete target vocabulary using a fully connected layer and a softmax layer.</p>
+    </li>
+  </ol>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282875"></a>This way of training the model is known as <i class="fm-italics">teacher forcing</i><a class="calibre8" id="marker-1282874"></a>, as you are guiding the decoder with the target sequence (i.e., the teacher). Using teacher forcing quickly leads to better performance, compared to not using teacher forcing during the training of encoder-decoder-type models. Let’s look at the decoder and see how the encoder and the decoder tie in to create the final model in more depth, shown in figure 11.3.</p>
+
+  <p class="fm-figure"><img alt="11-03" class="calibre10" src="../../OEBPS/Images/11-03.png" width="981" height="1367"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1306382"></a>Figure 11.3 The implementation of the final sequence-to-sequence model with the focus on various layers and outputs involved</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282882"></a>It’s time to discuss the specifics of building the decoder and the final model. The first thing we have to do is get the encoder’s output by passing an input. We define an input layer identical to the input of the encoder and pass that to the encoder model we defined earlier:</p>
+  <pre class="programlisting">e_inp = tf.keras.Input(shape=(1,), dtype=tf.string, name='e_input_final') </pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282884"></a>Then we pass the <span class="fm-code-in-text">e_inp</span> to the encoder model, which will give us the last output state of the GRU model as the output. This is an important input for the decoder:</p>
+  <pre class="programlisting">d_init_state = encoder(e_inp)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282886"></a>As the starting point of the decoder, we define an input layer with identical specifications to the encoder’s input:</p>
+  <pre class="programlisting">d_inp = tf.keras.Input(shape=(1,), dtype=tf.string, name='d_input')</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282888"></a>We then pass the input to a text vectorization model given the <span class="fm-code-in-text">get_vectorizer()</span> function:</p>
+  <pre class="programlisting">vectorized_out = de_vectorizer(inp)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282890"></a>We define an embedding layer as we did with the encoder so that token IDs produced by the text vectorization layer are converted to word vectors. Note that we have two separate embedding layers for the encoder and the decoder, as they use sequences from two different languages:</p>
+  <pre class="programlisting">emb_layer = tf.keras.layers.Embedding(
+    input_dim=n_vocab+2, output_dim=128, mask_zero=True, name='d_embedding'
+)
+emb_out = emb_layer(vectorized_out)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282895"></a>It’s now time to implement the recurrent component of the decoder. Similar to the encoder, we are using a GRU model to process the sequence:</p>
+  <pre class="programlisting">gru_layer = tf.keras.layers.GRU(256, return_sequences=True)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282897"></a>But note that, in contrast to the encoder, in the decoder we are not using a bidirectional wrapper on the GRU model. The decoder cannot rely on a backward reading capability because it should generate the next output depending only on the previous and the current input. Note also that we have set <span class="fm-code-in-text">return_sequences=True</span>:</p>
+  <pre class="programlisting">gru_out = gru_layer(emb_out, initial_state=d_init_state)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282899"></a>Finally, passing the output of the embedding layer to the <span class="fm-code-in-text">gru_layer</span>, we get the output. We stated earlier that the <span class="fm-code-in-text">d_init_state</span> (i.e., the encoder’s output) is one of the important inputs to the decoder. Here, we pass the <span class="fm-code-in-text">d_init_state</span> as the initial state to the decoder’s GRU layer. This means that, instead of starting out with a zero-initialized state vector, the decoder will use the encoder’s context vector as the initial state. Since we have set <span class="fm-code-in-text">return_sequences=True</span>, the output will contain output state vectors from all the time steps, not just the last one. This means the output will be of size [&lt;batch size&gt;, &lt;time steps&gt;, 256].</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1282900"></a>Listing 11.5 Defining the decoder and the final model</p>
+  <pre class="programlisting">def get_final_seq2seq_model(n_vocab, encoder, vectorizer):
+    """ Define the final encoder-decoder model """    
+    e_inp = tf.keras.Input(
+        shape=(1,), dtype=tf.string, name='e_input_final'
+    )                                                                    <span class="fm-combinumeral">❶</span>
+ 
+    d_init_state = encoder(e_inp)                                        <span class="fm-combinumeral">❶</span>
+    
+    d_inp = tf.keras.Input(shape=(1,), dtype=tf.string, name='d_input')  <span class="fm-combinumeral">❷</span>
+    
+    d_vectorized_out = vectorizer(d_inp)                                 <span class="fm-combinumeral">❸</span>
+   
+    d_emb_layer = tf.keras.layers.Embedding(
+        n_vocab+2, 128, mask_zero=True, name='d_embedding'               <span class="fm-combinumeral">❹</span>
+    )
+    d_emb_out = d_emb_layer(d_vectorized_out)
+    
+    d_gru_layer = tf.keras.layers.GRU(
+        256, return_sequences=True, name='d_gru'
+    )                                                                    <span class="fm-combinumeral">❺</span>
+    
+    d_gru_out = d_gru_layer(d_emb_out, initial_state=d_init_state)       <span class="fm-combinumeral">❻</span>
+    
+    d_dense_layer_1 = tf.keras.layers.Dense(
+        512, activation='relu', name='d_dense_1'
+    )                                                                    <span class="fm-combinumeral">❼</span>
+    d_dense1_out = d_dense_layer_1(d_gru_out)                            <span class="fm-combinumeral">❼</span>
+    
+    d_dense_layer_final = tf.keras.layers.Dense(
+        n_vocab+2, activation='softmax', name='d_dense_final'            <span class="fm-combinumeral">❽</span>
+    )
+    d_final_out = d_dense_layer_final(d_dense1_out)                      <span class="fm-combinumeral">❽</span>
+    
+    seq2seq = tf.keras.models.Model(
+        inputs=[e_inp, d_inp], outputs=d_final_out, name='final_seq2seq' <span class="fm-combinumeral">❾</span>
+    )
+    
+    return seq2seq</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1303582"></a><span class="fm-combinumeral">❶</span> Define an encoder input layer and get the encoder output (i.e., the context vector).</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1303603"></a><span class="fm-combinumeral">❷</span> The input is (None,1) shaped and accepts an array of strings. We feed the German sequence as the input and ask the model to predict it with the words offset by 1 (i.e., the next word).</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1303620"></a><span class="fm-combinumeral">❸</span> Get the decoder’s vectorized output.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1303661"></a><span class="fm-combinumeral">❹</span> Define an embedding layer to convert IDs to word vectors. This is a different layer from the encoder's embedding layer.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1303678"></a><span class="fm-combinumeral">❺</span> Define a GRU layer. Unlike the encoder, we cannot define a bidirectional GRU for the decoder.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1303695"></a><span class="fm-combinumeral">❻</span> Get the output of the GRU layer of the decoder.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1303712"></a><span class="fm-combinumeral">❼</span> Define an intermediate Dense layer and get the output.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1303729"></a><span class="fm-combinumeral">❽</span> The final prediction layer with softmax</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1303746"></a><span class="fm-combinumeral">❾</span> Define the full model.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282949"></a>We can now define everything needed for our final model as</p>
+  <pre class="programlisting"># Get the English vectorizer/vocabulary
+en_vectorizer, en_vocabulary = get_vectorizer(
+    corpus=np.array(train_df["EN"].tolist()), n_vocab=en_vocab, 
+    max_length=en_seq_length, name='e_vectorizer'
+)
+# Get the German vectorizer/vocabulary
+de_vectorizer, de_vocabulary = get_vectorizer(
+    corpus=np.array(train_df["DE"].tolist()), n_vocab=de_vocab,
+    max_length=de_seq_length-1, name='d_vectorizer'
+)
+ 
+# Define the final model
+encoder = get_encoder(n_vocab=en_vocab, vectorizer=en_vectorizer)
+   final_model = get_final_seq2seq_model(
+       n_vocab=de_vocab, encoder=encoder, vectorizer=de_vectorizer
+   )</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282968"></a>Here, we are defining the English and German vectorizers (<span class="fm-code-in-text">en_vectorizer</span> and <span class="fm-code-in-text">de_vectorizer</span>, respectively). An <span class="fm-code-in-text">encoder</span> is then defined using the English vocabulary size and the English vectorizer. Finally, the final encoder-decoder model is defined using the German vocabulary size (<span class="fm-code-in-text">de_vocab</span>) encoder and the German vectorizer<a class="calibre8" id="marker-1282969"></a><a class="calibre8" id="marker-1282970"></a><a class="calibre8" id="marker-1282972"></a> (<span class="fm-code-in-text">de_vectorizer</span>).</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_154"><a id="pgfId-1282973"></a>11.2.5 Compiling the model</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282976"></a>The<a class="calibre8" id="marker-1282974"></a><a class="calibre8" id="marker-1282975"></a> last thing to do have the model ready for training is compile the model. We will use sparse categorical cross-entropy loss, the Adam optimizer, and the accuracy as metrics:</p>
+  <pre class="programlisting">from tensorflow.keras.metrics import SparseCategoricalAccuracy
+ 
+final_model.compile(
+    loss='sparse_categorical_crossentropy', 
+    optimizer='adam', 
+    metrics=['accuracy']
+)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282985"></a>Finally, let’s print the model summary</p>
+  <pre class="programlisting">final_model.summary()</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1282988"></a>which will output</p>
+  <pre class="programlisting">Model: "final_seq2seq"
+___________________________________________________________________________
+Layer (type)                    Output Shape         Param #       
+<span class="fm-code-continuation-arrow">➥</span> Connected to                     
+===========================================================================
+d_input (InputLayer)            [(None, 1)]          0                     
+___________________________________________________________________________
+d_vectorizer (Functional)       (None, 20)           0           
+<span class="fm-code-continuation-arrow">➥</span> d_input[0][0]                    
+___________________________________________________________________________
+e_input_final (InputLayer)      [(None, 1)]          0                     
+___________________________________________________________________________
+d_embedding (Embedding)         (None, 20, 128)      319872      
+<span class="fm-code-continuation-arrow">➥</span> d_vectorizer[0][0]               
+___________________________________________________________________________
+encoder (Functional)            (None, 256)          484864      
+<span class="fm-code-continuation-arrow">➥</span> e_input_final[0][0]              
+___________________________________________________________________________
+d_gru (GRU)                     (None, 20, 256)      296448      
+<span class="fm-code-continuation-arrow">➥</span> d_embedding[0][0]                
+<span class="fm-code-continuation-arrow">➥</span> encoder[0][0]                    
+___________________________________________________________________________
+d_dense_1 (Dense)               (None, 20, 512)      131584      
+<span class="fm-code-continuation-arrow">➥</span> d_gru[0][0]                      
+___________________________________________________________________________
+d_dense_final (Dense)           (None, 20, 2499)     1281987     
+<span class="fm-code-continuation-arrow">➥</span> d_dense_1[0][0]                  
+===========================================================================
+Total params: 2,514,755
+Trainable params: 2,514,755
+Non-trainable params: 0
+___________________________________________________________________________</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283014"></a>In the next section, we will learn how the model we just defined can be trained with the data we prepared.</p>
+
+  <p class="fm-head2"><a id="pgfId-1283015"></a>Exercise 2</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283016"></a>In contrast to teacher forcing, another technique used to define encoder-decoder models is by defining a model where</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1283017"></a>The encoder takes in the English token sequence</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1283018"></a>The decoder takes in the context vector repeated on the time axis as inputs so that the same context vector is fed to the decoder for every time step</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283019"></a>You have been provided the following encoder. Define the decoder that has a GRU layer and two fully connected hidden layers and the final model that starts with <span class="fm-code-in-text">en_inp</span>, and produce the final predictions:</p>
+  <pre class="programlisting">en_inp = tf.keras.Input(shape=(1,), dtype=tf.string, name='e_input')
+en_vectorized_out = en_vectorizer(inp)
+en_emb_layer = tf.keras.layers.Embedding(
+   en_vocab+2, 128, mask_zero=True, name='e_embedding'
+)
+en_emb_out = emb_layer(vectorized_out)
+en_gru_layer = tf.keras.layers.GRU(256, name='e_gru')
+en_gru_out = gru_layer(emb_out)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283029"></a>You can use the <span class="fm-code-in-text">tf.keras.layers.RepeatVector</span> layer<a class="calibre8" id="marker-1283028"></a> to repeat the context vector for any number of times. For example, if you pass a [<span class="fm-code-in-text">None</span>, 32]-sized tensor to the <span class="fm-code-in-text">tf.keras.layers.RepeatVector(5)</span> layer<a class="calibre8" id="marker-1283030"></a>, it returns a [<span class="fm-code-in-text">None</span>, 5, 32]-sized tensor by repeating the [<span class="fm-code-in-text">None</span>, 32] tensor five times on the<a class="calibre8" id="marker-1283031"></a><a class="calibre8" id="marker-1283032"></a> time<a class="calibre8" id="marker-1283033"></a><a class="calibre8" id="marker-1283034"></a> dimension.</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_155"><a id="pgfId-1283036"></a>11.3 Training and evaluating the model</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283040"></a>You<a class="calibre8" id="marker-1283037"></a><a class="calibre8" id="marker-1283038"></a><a class="calibre8" id="marker-1283039"></a> have defined an end-to-end model that can consume raw text and generate translations. Next, you will train this model on the data that was prepared earlier. You will use the training set to train the model and the validation set to monitor the performance as it trains. Finally, the model will be tested on test data. To evaluate the model, we will use two metrics: accuracy and BLEU. BLEU is a popular metric used in sequence-to-sequence problems to measure the quality of the output sequence (e.g., translation).</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283041"></a>We have defined and compiled the model. We will now train the model on training data and evaluate its performance on validation and testing data across several metrics. We will use a performance metric known as BLEU to measure the performance of our model. It is not a standard metric provided in Keras and will be implemented using standard Python/NumPy functions. Due to this, we will write custom train/ evaluation loops to train and evaluate the model, respectively.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283042"></a>To facilitate the model training and evaluation, we are going to create several helper functions. First, we will create a function to create inputs and targets from the Python DataFrame objects we defined at the beginning (see the next listing).</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1283044"></a>Listing 11.6 Preparing the training/validation/test data for model training and evaluation</p>
+  <pre class="programlisting">def prepare_data(train_df, valid_df, test_df):
+    """ Create a data dictionary from the dataframes containing data """
+    
+    data_dict = {}                                                       <span class="fm-combinumeral">❶</span>
+    for label, df in zip(
+        ['train', 'valid', 'test'], [train_df, valid_df, test_df]
+    ):                                                                   <span class="fm-combinumeral">❷</span>
+        en_inputs = np.array(df["EN"].tolist())                          <span class="fm-combinumeral">❸</span>
+        de_inputs = np.array(
+            df["DE"].str.rsplit(n=1, expand=True).iloc[:,0].tolist()     <span class="fm-combinumeral">❹</span>
+        )
+        de_labels = np.array(
+            df["DE"].str.split(n=1, expand=True).iloc[:,1].tolist()      <span class="fm-combinumeral">❺</span>
+        )
+        data_dict[label] = {
+            'encoder_inputs': en_inputs,                                 <span class="fm-combinumeral">❻</span>
+            'decoder_inputs': de_inputs, 
+            'decoder_labels': de_labels
+        }
+    
+    return data_dict</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1303202"></a><span class="fm-combinumeral">❶</span> Define a dictionary for containing train/validation/test data.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1303223"></a><span class="fm-combinumeral">❷</span> Iterate through the train, valid, and test DataFrames.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1303240"></a><span class="fm-combinumeral">❸</span> Define the encoder inputs as the English text.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1303257"></a><span class="fm-combinumeral">❹</span> Define the decoder inputs as all of the German text but the last token.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1303274"></a><span class="fm-combinumeral">❺</span> Define the decoder outputs as all of the German text but the first token.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1303291"></a><span class="fm-combinumeral">❻</span> Update the dictionary with encoder inputs, decoder inputs, and the decoder outputs.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283072"></a>This function takes in the three data frames, <span class="fm-code-in-text">train_df</span>, <span class="fm-code-in-text">valid_df</span>, and <span class="fm-code-in-text">test_df</span>, and performs some transformations on them to return a dictionary that contains three keys: <span class="fm-code-in-text">train</span>, <span class="fm-code-in-text">valid</span>, and <span class="fm-code-in-text">test</span>. Under each key, you will find the following:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1283073"></a>Encoder inputs (i.e., an English word sequence)</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1283074"></a>Decoder inputs (i.e., a German word sequence)</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1283075"></a>Decoder outputs (i.e., a German word sequence)</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283076"></a>As we stated earlier, we are using a technique known as teacher forcing to lift the model’s performance. Therefore, the decoder’s object becomes predicting the next word given the previous word(s). For instance, for the example <span class="fm-code-in-text">(“I want a piece of chocolate cake”, “Ich möchte ein Stück Schokoladenkuchen”)</span>, encoder inputs, decoder inputs, and decoder outputs become the following:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1283077"></a> <span class="fm-code-in-text">[“I”, “want”, “a”, “piece”, “of”, “chocolate”, “cake”]</span> (encoder inputs)</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1283078"></a> <span class="fm-code-in-text">[“Ich”, “möchte”, “ein”, “Stück”]</span> (decoder inputs)</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1283079"></a> <span class="fm-code-in-text">[“möchte”, “ein”, “Stück”, “Schokoladenkuchen”]</span> (decoder outputs)</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283080"></a>As can be seen, at every time step, the decoder is predicting the next word given the previous word(s). The <span class="fm-code-in-text">prepare_data(...)</span> function<a class="calibre8" id="marker-1283081"></a> does this, as the next listing shows. Then we will write a function to shuffle the data. This function will then be used to shuffle data at the beginning of every epoch during training.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1283083"></a>Listing 11.7 <a id="aRef71386485"></a>Shuffling the training data</p>
+  <pre class="programlisting">def shuffle_data(en_inputs, de_inputs, de_labels, shuffle_indices=None): 
+    """ Shuffle the data randomly (but all of inputs and labels at ones)"""
+        
+    if shuffle_indices is None:        
+        shuffle_indices = np.random.permutation(np.arange(en_inputs.shape[0]))       <span class="fm-combinumeral">❶</span>
+    else:        
+        shuffle_indices = np.random.permutation(shuffle_indices)                     <span class="fm-combinumeral">❷</span>
+    
+    return (
+        en_inputs[shuffle_indices], 
+        de_inputs[shuffle_indices], 
+        de_labels[shuffle_indices]                                                   <span class="fm-combinumeral">❸</span>
+    ), shuffle_indices</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1303032"></a><span class="fm-combinumeral">❶</span> If shuffle_indices are not passed, create shuffled indices automatically.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1303060"></a><span class="fm-combinumeral">❷</span> Shuffle the provided shuffle_indices.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1303077"></a><span class="fm-combinumeral">❸</span> Return shuffled data.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283101"></a>The <span class="fm-code-in-text">shuffle_data()</span> function takes the data output by the <span class="fm-code-in-text">prepare_data</span> function (i.e., encoder inputs, decoder inputs, and decoder outputs). Optionally, it takes in a shuffled representation of the data indices. We allow the shuffle indices to be passed into the function so that, by shuffling the already shuffled indices, you get a new permutation of the order of the data. This is useful for generating different shuffle configurations in every epoch during the training.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283102"></a>The <span class="fm-code-in-text">shuffle_data()</span> function, if <span class="fm-code-in-text">shuffle_indices</span> is not passed, will generate a random permutation of the data indices. Data indices are generated by <span class="fm-code-in-text">np.arange(en_ inputs.shape[0])</span>, which creates an ordered number sequence from 0 to the number of examples in <span class="fm-code-in-text">en_inputs</span>. A random permutation of a given array can be generated by calling the <span class="fm-code-in-text">np.random.permutation()</span> function<a class="calibre8" id="marker-1296806"></a> on the array. If an array has been passed to the <span class="fm-code-in-text">shuffle_indices</span> argument, then the array passed into <span class="fm-code-in-text">shuffle_indices</span> will be shuffled, generating a new shuffled data configuration. Finally, we return encoder inputs (<span class="fm-code-in-text">en_inputs</span>), decoder inputs (<span class="fm-code-in-text">de_inputs</span>), and decoder outputs (<span class="fm-code-in-text">de_labels</span>) shuffled, as determined by the <span class="fm-code-in-text">shuffle_indices</span> array.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283105"></a>Next, we will write a function to evaluate the model. In this function, we evaluate a given model on given data using the defined <span class="fm-code-in-text">batch_size</span>. Particularly, we evaluate the machine translation model on three metrics:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1283106"></a><i class="fm-italics">Cross-entropy loss</i>—The standard multiclass cross-entropy loss calculated between the prediction probabilities and true targets.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1283107"></a><i class="fm-italics">Accuracy</i>—Standard accuracy measured on whether the model predicts the same word as the true target at a given time step. In other words, the prediction must match the true target exactly, from word to word.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1283108"></a><i class="fm-italics">BLEU score</i>—A more powerful metric than the accuracy that is based on precision but takes into account many n-grams for different values of n.</p>
+    </li>
+  </ul>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1283109"></a>Bilingual Evaluation Understudy (BLEU)</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1283110"></a>BLEU is a metric used to measure the quality of generated text sequences (e.g., translations) by measuring how close the translation is to a given ground truth (or multiple ground truths per translation, as the same thing can be said differently in languages). It was introduced in the paper “BLEU: A Method for Automatic Evaluation of Machine Translation” by Papineni et al. (<span class="fm-hyperlink"><a class="url" href="https://www.aclweb.org/anthology/P02-1040.pdf">https://www.aclweb.org/anthology/P02-1040.pdf</a></span>). A BLEU score is a variant of the precision metric that is used to compute the similarity between a candidate text (i.e., prediction) against <i class="fm-italics">multiple</i> reference translations (i.e., ground truths).</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1283111"></a>To understand the BLEU metric, let’s consider the following candidates and references:</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1283112"></a>Candidate 1 (C1): the cat was on the red mat</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1283113"></a>Candidate 2 (C2): the cat the cat the cat the</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1283114"></a>Reference 1: the cat is on the floor</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1283115"></a>Reference 2: there was a cat on the mat</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1283116"></a>The precision for candidate 1 and 2 can be computed as</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1283117"></a>precision = Number of words matched any reference/Number of words in the candidate</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1283118"></a>which means</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1283119"></a>Precision(C1) = 6/7 and Precision(C2) = 7/7</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1283120"></a>This contradicts intuition. Obviously, C1 is a much better choice as a match for the references. But the precision tells another story. Therefore, BLEU introduces a modified precision. In modified precision, for a given unique word in the candidate, you compute the number of times that the word appears in any single reference and take the maximum of it. Then you sum this value for all the unique words in the candidate text. For example, for C1 and C2, modified unigram precision is</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1283121"></a>ModPrecision(C1) = (2 + 1 + 1 + 2 + 0 + 1) /7 = 5/7 and ModPrecision(C2) = (2 + 1)/7 = 3/7</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1283122"></a>This is much better: C1 has a higher precision than C2, which is what we wanted. BLEU extends the modified unigram precision to modified n-gram precision and computes the modified precision for several n-grams (e.g., unigrams, bigrams, trigrams, etc.). Computing modified precision over many different n-grams enables BLEU to favor translations or candidates that have longer subsequences matching the reference.</p>
+  </div>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283124"></a>We will define an object called <span class="fm-code-in-text">BLEUMetric</span>, which will compute the BLEU score for a given batch of predictions and targets, as shown in the following listing.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1283126"></a><a id="aRef71386670"></a>Listing 11.8 Defining the <span class="fm-code-in-listingcaption">BLEUMetric</span> for evaluating the machine translation model</p>
+  <pre class="programlisting">class BLEUMetric(object):
+    
+    def __init__(self, vocabulary, name='perplexity', **kwargs):
+      """ Computes the BLEU score (Metric for machine translation) """
+      super().__init__()
+      self.vocab = vocabulary                                                <span class="fm-combinumeral">❶</span>
+      self.id_to_token_layer = StringLookup(
+          vocabulary=self.vocab, invert=True, 
+          num_oov_indices=0
+      )                                                                      <span class="fm-combinumeral">❷</span>
+    
+    def calculate_bleu_from_predictions(self, real, pred):
+        """ Calculate the BLEU score for targets and predictions """
+                
+        pred_argmax = tf.argmax(pred, axis=-1)                               <span class="fm-combinumeral">❸</span>
+        
+        pred_tokens = self.id_to_token_layer(pred_argmax)                    <span class="fm-combinumeral">❹</span>
+        real_tokens = self.id_to_token_layer(real)                           <span class="fm-combinumeral">❹</span>
+        
+        def clean_text(tokens):
+            
+            """ Clean padding and [SOS]/[EOS] tokens to only keep meaningful words """
+                        
+            t = tf.strings.strip(                                            <span class="fm-combinumeral">❺</span>
+                        tf.strings.regex_replace(                            <span class="fm-combinumeral">❻</span>
+                            tf.strings.join(                                 <span class="fm-combinumeral">❼</span>
+                                tf.transpose(tokens), separator=' '
+                            ),
+                        "eos.*", ""),
+                   )
+                        
+            t = np.char.decode(t.numpy().astype(np.bytes_), encoding='utf-8')<span class="fm-combinumeral">❽</span>
+            
+            t = [doc if len(doc)&gt;0 else '[UNK]' for doc in t ]               <span class="fm-combinumeral">❾</span>
+            
+            t = np.char.split(t).tolist()                                    <span class="fm-combinumeral">❿</span>
+            
+            return t
+        
+        pred_tokens = clean_text(pred_tokens)                                <span class="fm-combinumeral">⓫</span>
+        real_tokens = [[r] for r in clean_text(real_tokens)]                 <span class="fm-combinumeral">⓬</span>
+        
+        
+        bleu, precisions, bp, ratio, translation_length, reference_length = 
+<span class="fm-code-continuation-arrow">➥</span> compute_bleu(real_tokens, pred_tokens, smooth=False)                      <span class="fm-combinumeral">⓭</span>
+ 
+        return bleu</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1302173"></a><span class="fm-combinumeral">❶</span> Get the vocabulary from the fitted TextVectorizer.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1302201"></a><span class="fm-combinumeral">❷</span> Define a StringLookup layer, which can convert token IDs to words.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1302218"></a><span class="fm-combinumeral">❸</span> Get the predicted token IDs.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1302238"></a><span class="fm-combinumeral">❹</span> Convert token IDs to words using the vocabulary and the StringLookup.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1302255"></a><span class="fm-combinumeral">❺</span> Strip the string of any extra white spaces.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1302272"></a><span class="fm-combinumeral">❻</span> Replace everything after the EOS token with a blank.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1302289"></a><span class="fm-combinumeral">❼</span> Join all the tokens to one string in each sequence.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1302306"></a><span class="fm-combinumeral">❽</span> Decode the byte stream to a string.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1302323"></a><span class="fm-combinumeral">❾</span> If the string is empty, add a [UNK] token. If not, it can lead to numerical errors.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1302340"></a><span class="fm-combinumeral">❿</span> Split the sequences into individual tokens.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1302357"></a><span class="fm-combinumeral">⓫</span> Get the clean versions of the predictions and real sequences.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1302374"></a><span class="fm-combinumeral">⓬</span> We have to wrap each real sequence in a list to make use of a third-party function to compute BLEU.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1302391"></a><span class="fm-combinumeral">⓭</span> Get the BLEU value for the given batch of targets and predictions.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283187"></a>First, we define an <span class="fm-code-in-text">__init__(...)</span> function and several attributes of this class, such as <span class="fm-code-in-text">vocab</span>, which will have the decoder’s vocabulary returned by the <span class="fm-code-in-text">TextVectorization</span> layer. Next, we define a TensorFlow <span class="fm-code-in-text">StringLookup</span> layer<a class="calibre8" id="marker-1283188"></a> that can return the string token given the token ID, and vice versa. All that is required by the <span class="fm-code-in-text">StringLookup</span> function<a class="calibre8" id="marker-1283189"></a> is the vocabulary of the decoder’s <span class="fm-code-in-text">TextVectorization</span> layer. By default, the <span class="fm-code-in-text">StringLookup</span> layer converts a given string token to a token ID. Setting <span class="fm-code-in-text">invert=true</span> means that this layer will convert a given token ID to a string token. We also need to say that we don't want this layer to automatically add representations for out-of-vocabulary words. For that we set <span class="fm-code-in-text">num_oov_indices=0</span>.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283191"></a>Next, we define a function called <span class="fm-code-in-text">calculate_bleu_from_predictions(...)</span> that takes a batch of true targets and a batch of prediction probabilities given by the model to compute the BLEU score for that batch. First, it computes the predicted token IDs by taking the maximum index of each probability vector for each time step:</p>
+  <pre class="programlisting">pred_argmax = tf.argmax(pred, axis=-1)  </pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283193"></a>Next, the string tokens are generated using the <span class="fm-code-in-text">StringLookup</span> layer defined earlier:</p>
+  <pre class="programlisting">pred_tokens = self.id_to_token_layer(pred_argmax)
+real_tokens = self.id_to_token_layer(real)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283197"></a>Specifically, we pass the token ID matrices (predicted and target) to the <span class="fm-code-in-text">StringLookup</span> layer. For example, if</p>
+  <pre class="programlisting">real = [
+    [4,1,0],
+    [8,2,21]
+]
+ 
+vocabulary = ['', '[UNK]', 'sos', 'eos', 'tom', 'ich', 'nicht', 'ist', 'du', 'sie']</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283205"></a>then</p>
+  <pre class="programlisting">real_tokens = tf.Tensor([
+    [b'tom' b'[UNK]' b'']
+    [b'du' b'sos' b'[UNK]']
+], shape=(2, 3), dtype=string)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283210"></a>After that, we define a function to perform some cleaning. The defined function will truncate the predictions such that everything after the EOS token is removed (inclusive) and will tokenize the sentences into lists of words. The input to this function is a tensor, where each row is a list of tokens (i.e., <span class="fm-code-in-text">pred_tokens</span>). Let’s make this an opportunity to hone our understanding of the TensorFlow string operations. TensorFlow has a namespace known as <span class="fm-code-in-text">tf.strings</span> (<span class="fm-hyperlink"><a class="url" href="http://mng.bz/gw7E">http://mng.bz/gw7E</a></span>) that provides a variety of basic string manipulation functionality:</p>
+  <pre class="programlisting">def clean_text(tokens):
+            
+    """ Clean padding and [SOS]/[EOS] tokens to only keep meaningful words """
+    # 3. Strip the string of any extra white spaces
+    translations_in_bytes = tf.strings.strip(
+        # 2. Replace everything after the eos token with blank
+        tf.strings.regex_replace(
+            # 1. Join all the tokens to one string in each sequence
+            tf.strings.join(tf.transpose(tokens), separator=' '),
+             "eos.*", ""
+        ),
+     )
+            
+     # Decode the byte stream to a string
+     translations = np.char.decode(
+         translations_in_bytes.numpy().astype(np.bytes_), encoding='utf-8'
+     )
+            
+     # If the string is empty, add a [UNK] token
+     # Otherwise get a Division by zero error
+     translations = [sent if len(sent)&gt;0 else '[UNK]' for sent in translations ]
+            
+     # Split the sequences to individual tokens 
+     translations = np.char.split(translations).tolist()
+            
+     return translations</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283239"></a>Let’s look at the first line of code that calls several <span class="fm-code-in-text">tf.string</span> operations<a class="calibre8" id="marker-1283238"></a> on the inputs:</p>
+  <pre class="programlisting">translations_in_bytes = tf.strings.strip(
+        # 2. Replace everything after the eos token with blank
+        tf.strings.regex_replace(
+            # 1. Join all the tokens to one string in each sequence
+            tf.strings.join(tf.transpose(tokens), separator=' '),
+             "eos.*", ""
+        ),
+     )</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283249"></a>It executes a sequence of transformations on the input string tensor. First, calling <span class="fm-code-in-text">tf.strings.join()</span> on tokens will join all the tokens in one column using a given separator. For example</p>
+  <pre class="programlisting">[
+    ['a','b','c'],
+    ['d', 'e', 'f']
+]</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283255"></a>becomes</p>
+  <pre class="programlisting">['ad', 'be', 'cf']</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283258"></a>Since our sentences are across the rows, we first need to transpose tokens, such that sentences are in the columns. Next, <span class="fm-code-in-text">tf.strings.regex_replace()</span> is called on the tensor, where each item is a sentence resulting from the join. It will remove everything followed by the EOS token. This string pattern is captured by the <span class="fm-code-in-text">eos.*</span> regex. Finally, we strip any starting and ending spaces from the resulting strings.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283260"></a>TensorFlow keeps strings in byte format. In order to convert the string to UTF-8 encoding, we have a series of conversions to get it into the correct format:</p>
+
+  <ol class="calibre11">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1283261"></a>First, we have to convert the array to a NumPy array. The elements in this array would be in <span class="fm-code-in-text">Object</span> format.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1283263"></a>Next, we convert this to an array of bytes by calling <span class="fm-code-in-text">translations_in_bytes.numpy().astype(np.bytes_)</span>.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1283264"></a>Finally, we decode the array of bytes and convert it to a desired encoding (in our case, UTF-8).</p>
+    </li>
+  </ol>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283265"></a>The rest of the code is straightforward to understand and has been delineated in the code as annotations.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283267"></a>Finally, we call the <span class="fm-code-in-text">clean_text()</span> function on both predicted and real token tensors and feed the final results to a third-party implementation of the BLEU metric:</p>
+  <pre class="programlisting">pred_tokens = clean_text(pred_tokens)
+real_tokens = [[r] for r in clean_text(real_tokens)]
+        
+bleu, precisions, bp, ratio, translation_length, reference_length = 
+<span class="fm-code-continuation-arrow">➥</span> compute_bleu(real_tokens, pred_tokens)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283272"></a>The <span class="fm-code-in-text">clean_text()</span> function will convert both predicted translations and true translations (sometimes referred to as <i class="fm-italics">references</i>) to a list of a list of tokens. Here, the outer list represents individual examples, whereas the inner list represents the tokens in a given example. As the final step, we will wrap each reference in another list structure so that <span class="fm-code-in-text">real_tokens</span> becomes a list of a list of a list of tokens. This is a necessity, as we will be using a third-party implementation of the BLEU metric. <span class="fm-code-in-text">compute_bleu</span>, used here, is a third-party implementation found in the TensorFlow repository (<span class="fm-hyperlink"><a class="url" href="http://mng.bz/e7Ev">http://mng.bz/e7Ev</a></span>). The <span class="fm-code-in-text">compute_bleu()</span> function expects two main arguments:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1283274"></a><i class="fm-italics">Translation</i>—A list of a list of tokens.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1283275"></a><i class="fm-italics">References</i>—A list of a list of list of tokens. In other words, each translation can have multiple references, where each reference is a list of tokens.</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283276"></a>Then it returns</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1296952"></a><span class="fm-code-in-text">bleu</span>—BLEU score for a given batch of candidate reference pairs.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1296953"></a><span class="fm-code-in-text">precisions</span>—Individual n-gram precisions that build up the final BLEU score.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1296954"></a><span class="fm-code-in-text">bp</span>—Brevity penalty (special part of BLEU score that penalizes short candidates).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1296955"></a><span class="fm-code-in-text">ratio</span>—Candidate length divided by reference length.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1296956"></a><span class="fm-code-in-text">translation_length</span>—Sum of lengths of candidates in the batch.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1283277"></a><span class="fm-code-in-text">reference_length</span>—Sum of lengths of references in the batch. In the case of multiple references per candidate, minimum is selected.</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283278"></a>Let’s test the <span class="fm-code-in-text">compute_bleu()</span> function in action. Let’s imagine a translation and a reference. In the first scenario, the translation has <span class="fm-code-in-text">[UNK]</span> tokens<a class="calibre8" id="marker-1283279"></a> appearing at the beginning and the remaining match the reference completely. In the second scenario, we again have two <span class="fm-code-in-text">[UNK]</span> tokens, but they appear at the beginning and in the middle. Let’s see the result:</p>
+  <pre class="programlisting">translation = [['[UNK]', '[UNK]', 'mÃssen', 'wir', 'in', 'erfahrung', 
+<span class="fm-code-continuation-arrow">➥</span> 'bringen', 'wo', 'sie', 'wohnen']]
+reference = [[['als', 'mÃssen', 'mÃssen', 'wir', 'in', 'erfahrung', 
+<span class="fm-code-continuation-arrow">➥</span> 'bringen', 'wo', 'sie', 'wohnen']]]
+ 
+bleu1, _, _, _, _, _ = compute_bleu(reference, translation)
+ 
+translation = [['[UNK]', 'einmal', 'mÃssen', '[UNK]', 'in', 'erfahrung', 
+<span class="fm-code-continuation-arrow">➥</span> 'bringen', 'wo', 'sie', 'wohnen']]
+reference = [[['als', 'mÃssen', 'mÃssen', 'wir', 'in', 'erfahrung', 
+<span class="fm-code-continuation-arrow">➥</span> 'bringen', 'wo', 'sie', 'wohnen']]]
+ 
+ 
+bleu2, _, _, _, _, _ = compute_bleu(reference, translation)
+ 
+print("BLEU score with longer correctly predict phrases: {}".format(bleu1))
+print("BLEU score without longer correctly predict phrases: 
+<span class="fm-code-continuation-arrow">➥</span> {}".format(bleu2))</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283298"></a>This will print<a class="calibre8" id="marker-1298844"></a></p>
+  <pre class="programlisting">BLEU score with longer correctly predict phrases: 0.7598356856515925
+BLEU score without longer correctly predict phrases: 0.537284965911771</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283302"></a>If you were to compute the word-to-word accuracy of the translation compared to the reference, you would get the same result, as only the two <span class="fm-code-in-text">[UNK]</span> tokens are mismatched. However, the BLEU score is different for the two instances. It clearly shows that BLEU prefers the translation that gets more words continuously right, without breaks.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283303"></a>We have all the bells and whistles we need to write the training and evaluation loops for the model. Let’s first write the evaluation loop (see the next listing), as it will be used in the training loop to evaluate the model.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1283305"></a><a id="aRef71406827"></a>Listing 11.9 Evaluating the encoder-decoder model</p>
+  <pre class="programlisting">def evaluate_model(
+    model, vectorizer, en_inputs_raw, de_inputs_raw, de_labels_raw, batch_size
+):
+    """ Evaluate the model on various metrics such as loss, accuracy and BLEU """
+        
+    bleu_metric = BLEUMetric(de_vocabulary)                                   <span class="fm-combinumeral">❶</span>
+    
+    loss_log, accuracy_log, bleu_log = [], [], []
+    
+    n_batches = en_inputs_raw.shape[0]//batch_size                            <span class="fm-combinumeral">❷</span>
+    print(" ", end='\r')
+   
+    for i in range(n_batches):                                                <span class="fm-combinumeral">❸</span>
+        
+        print("Evaluating batch {}/{}".format(i+1, n_batches), end='\r')      <span class="fm-combinumeral">❹</span>
+        x = [
+            en_inputs_raw[i*batch_size:(i+1)*batch_size],                     <span class="fm-combinumeral">❺</span>
+            de_inputs_raw[i*batch_size:(i+1)*batch_size]
+        ]
+        y = de_vectorizer(de_labels_raw[i*batch_size:(i+1)*batch_size])       <span class="fm-combinumeral">❺</span>
+        
+        loss, accuracy = model.evaluate(x, y, verbose=0)                      <span class="fm-combinumeral">❻</span>
+        pred_y = model.predict(x)                                             <span class="fm-combinumeral">❼</span>
+           bleu = bleu_metric.calculate_bleu_from_predictions(y, pred_y)      <span class="fm-combinumeral">❽</span>
+        loss_log.append(loss)                                                 <span class="fm-combinumeral">❾</span>
+        accuracy_log.append(accuracy)                                         <span class="fm-combinumeral">❾</span>
+        bleu_log.append(bleu)                                                 <span class="fm-combinumeral">❾</span>
+    
+    return np.mean(loss_log), np.mean(accuracy_log), np.mean(bleu_log)</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1301560"></a><span class="fm-combinumeral">❶</span> Define the metric.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1301581"></a><span class="fm-combinumeral">❷</span> Get the number of batches.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1301598"></a><span class="fm-combinumeral">❸</span> Evaluate one batch at a time.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1301615"></a><span class="fm-combinumeral">❹</span> Status update</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1301632"></a><span class="fm-combinumeral">❺</span> Get the inputs and targets.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1301649"></a><span class="fm-combinumeral">❻</span> Get the evaluation metrics.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1301666"></a><span class="fm-combinumeral">❼</span> Get the predictions to compute BLEU.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1301683"></a><span class="fm-combinumeral">❽</span> Update logs that contain loss, accuracy, and BLEU metrics.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1301700"></a><span class="fm-combinumeral">❾</span> Compute the BLEU metric.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283348"></a>The <span class="fm-code-in-text">evaluate_model()</span> function takes in several important arguments:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1283349"></a><span class="fm-code-in-text">model</span>—The encoder-decoder model we defined.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1283350"></a><span class="fm-code-in-text">en_inputs_raw</span>—The encoder inputs (text). This will be an array of strings, where each string is an English sentence/phrase.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1283351"></a><span class="fm-code-in-text">de_inputs_raw</span>—The decoder inputs (text). This will be an array of strings. It will have all the words but the last word in every German translation.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1283352"></a><span class="fm-code-in-text">de_labels_raw</span>—The decoder labels (text). This will be an array of strings. It will have all the words but the first one in every German translation.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1283353"></a><span class="fm-code-in-text">de_vectorizer</span>—The decoder vectorizer to convert <span class="fm-code-in-text">decoder_labels_raw</span> (text) to token IDs.</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283355"></a>The function defines a <span class="fm-code-in-text">BLEUMetric</span> object<a class="calibre8" id="marker-1283354"></a> we defined earlier. It defines placeholders for accumulating loss, accuracy, and BLEU scores for each batch in the given data set. Then it goes through each batch of data and does the following:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1283356"></a>Creates the batch input as the corresponding batch of data from <span class="fm-code-in-text">en_inputs_ raw</span> and <span class="fm-code-in-text">de_inputs_raw</span></p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1283357"></a>Creates the targets as token IDs using <span class="fm-code-in-text">de_labels_raw</span></p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1283358"></a>Evaluates the model using batch inputs and targets to get the loss and accuracy scores of the batch</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1283359"></a>Computes the BLEU score using the true targets and predictions</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1283360"></a>Accumulates the metrics in the placeholders defined earlier</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283361"></a>Finally, after the model has iterated through all the batches of data, it will return the mean loss, accuracy, and BLEU scores as the final evaluation benchmark for the data set.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283362"></a>With that, we jump into defining the training loop (see the next listing). We will define a function called <span class="fm-code-in-text">train_model()</span> that will do following four core tasks:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1283363"></a>Train the model with the training data.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1283364"></a>Evaluate the model with the training data.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1283365"></a>Evaluate the model with validation data.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1283366"></a>Evaluate the model with testing data.</p>
+    </li>
+  </ul>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1283368"></a><a id="aRef71407102"></a>Listing 11.10 Training the model using a custom training/evaluation loop</p>
+  <pre class="programlisting">def train_model(model, vectorizer, train_df, valid_df, test_df, epochs, batch_size):
+    """ Training the model and evaluating on validation/test sets """
+        
+    bleu_metric = BLEUMetric(de_vocabulary)                                <span class="fm-combinumeral">❶</span>
+ 
+    data_dict = prepare_data(train_df, valid_df, test_df)                  <span class="fm-combinumeral">❷</span>
+    shuffle_inds = None
+    
+    
+    for epoch in range(epochs):
+        
+        bleu_log = []                                                      <span class="fm-combinumeral">❸</span>
+        accuracy_log = []                                                  <span class="fm-combinumeral">❸</span>
+        loss_log = []                                                      <span class="fm-combinumeral">❸</span>
+ 
+        (en_inputs_raw,de_inputs_raw,de_labels_raw), shuffle_inds  = 
+<span class="fm-code-continuation-arrow">➥</span> shuffle_data(                                                           <span class="fm-combinumeral">❹</span>
+            data_dict['train']['encoder_inputs'],
+            data_dict['train']['decoder_inputs'],
+            data_dict['train']['decoder_labels'],
+            shuffle_inds
+        )
+        
+        n_train_batches = en_inputs_raw.shape[0]//batch_size               <span class="fm-combinumeral">❺</span>
+ 
+        for i in range(n_train_batches):                                   <span class="fm-combinumeral">❻</span>
+ 
+            print("Training batch {}/{}".format(i+1, n_train_batches), 
+<span class="fm-code-continuation-arrow">➥</span> end='\r')                                                               <span class="fm-combinumeral">❼</span>
+ 
+            
+            x = [                                                          <span class="fm-combinumeral">❽</span>
+                en_inputs_raw[i*batch_size:(i+1)*batch_size],  
+                de_inputs_raw[i*batch_size:(i+1)*batch_size]
+            ]
+            y = vectorizer(de_labels_raw[i*batch_size:(i+1)*batch_size])   <span class="fm-combinumeral">❾</span>
+ 
+            model.train_on_batch(x, y)                                     <span class="fm-combinumeral">❿</span>
+            loss, accuracy = model.evaluate(x, y, verbose=0)               <span class="fm-combinumeral">⓫</span>
+            pred_y = model.predict(x)                                      <span class="fm-combinumeral">⓬</span>
+            bleu = bleu_metric.calculate_bleu_from_predictions(y, pred_y)  <span class="fm-combinumeral">⓭</span>
+ 
+            loss_log.append(loss)                                          <span class="fm-combinumeral">⓮</span>
+            accuracy_log.append(accuracy)                                  <span class="fm-combinumeral">⓮</span>
+            bleu_log.append(bleu)                                          <span class="fm-combinumeral">⓮</span>
+    
+    
+        val_en_inputs = data_dict['valid']['encoder_inputs']               <span class="fm-combinumeral">⓯</span>
+        val_de_inputs = data_dict['valid']['decoder_inputs']               <span class="fm-combinumeral">⓯</span>
+        val_de_labels = data_dict['valid']['decoder_labels']               <span class="fm-combinumeral">⓯</span>
+            
+        val_loss, val_accuracy, val_bleu = evaluate_model(                 <span class="fm-combinumeral">⓰</span>
+            model, 
+            vectorizer, 
+            val_en_inputs, 
+            val_de_inputs, 
+            val_de_labels, 
+            epochs, 
+            batch_size
+        )
+                    
+        print("\nEpoch {}/{}".format(epoch+1, epochs))                     <span class="fm-combinumeral">⓱</span>
+        print(
+            "\t(train) loss: {} - accuracy: {} - bleu: {}".format(
+                np.mean(loss_log), np.mean(accuracy_log), np.mean(bleu_log)
+            )
+      )
+      print(
+          "\t(valid) loss: {} - accuracy: {} - bleu: {}".format(
+              val_loss, val_accuracy, val_bleu
+          )
+      )
+    
+ 
+    test_en_inputs = data_dict['test']['encoder_inputs']
+    test_de_inputs = data_dict['test']['decoder_inputs']
+    test_de_labels = data_dict['test']['decoder_labels']
+            
+    test_loss, test_accuracy, test_bleu = evaluate_model(
+            model, 
+            vectorizer, 
+            test_en_inputs, 
+            test_de_inputs, 
+            test_de_labels, 
+            epochs, 
+            batch_size
+    )
+    
+    print("\n(test) loss: {} - accuracy: {} - bleu: {}".format(
+        test_loss, test_accuracy, test_bleu)
+    )</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1300335"></a><span class="fm-combinumeral">❶</span> Define the metric.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1300356"></a><span class="fm-combinumeral">❷</span> Define the data.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1300373"></a><span class="fm-combinumeral">❸</span> Reset metric logs at the beginning of every epoch.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1300390"></a><span class="fm-combinumeral">❹</span> Shuffle data at the beginning of every epoch.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1300410"></a><span class="fm-combinumeral">❺</span> Get the number of training batches.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1300427"></a><span class="fm-combinumeral">❻</span> Train one batch at a time.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1300444"></a><span class="fm-combinumeral">❼</span> Status update</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1300461"></a><span class="fm-combinumeral">❽</span> Get a batch of inputs (English and German sequences).</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1300478"></a><span class="fm-combinumeral">❾</span> Get a batch of targets (German sequences offset by 1).</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1300495"></a><span class="fm-combinumeral">❿</span> Train for a single step.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1300512"></a><span class="fm-combinumeral">⓫</span> Evaluate the model to get the metrics.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1300529"></a><span class="fm-combinumeral">⓬</span> Get the final prediction to compute BLEU.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1300546"></a><span class="fm-combinumeral">⓭</span> Compute the BLEU metric.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1300563"></a><span class="fm-combinumeral">⓮</span> Update the epoch's log records of the metrics.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1300580"></a><span class="fm-combinumeral">⓯</span> Define validation data.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1300597"></a><span class="fm-combinumeral">⓰</span> Evaluate the model on validation data.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1300614"></a><span class="fm-combinumeral">⓱</span> Print the evaluation metrics of each epoch.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283478"></a>Let’s analyze the function in listing 11.10 to understand its behavior. If you take a step back, all it’s doing is calling the functions we defined earlier and displaying results. First it prepares the data (using the <span class="fm-code-in-text">prepare_data()</span> function) by presenting it as a dictionary that has <span class="fm-code-in-text">train</span>, <span class="fm-code-in-text">valid</span>, and <span class="fm-code-in-text">test</span> keys. Next, it goes through several epochs of training. In each epoch, it shuffles the training data and goes through the data batch by batch. For every training batch, the model is trained on the data and evaluated on the same batch. The train data evaluation logs are used to compute the training performance, just as we saw in the <span class="fm-code-in-text">evaluate_model()</span> function. Then, after the training loop finishes, the model is evaluated on the validation data. Finally, at the end of training the model, the model is evaluated on the test data. You can call the <span class="fm-code-in-text">train_ model()</span> function<a class="calibre8" id="marker-1283479"></a> as shown:</p>
+  <pre class="programlisting">epochs = 5
+batch_size = 128
+ 
+train_model(final_model, de_vectorizer, train_df, valid_df, test_df, 
+<span class="fm-code-continuation-arrow">➥</span> epochs, batch_size)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283485"></a>This will output a result similar to the following:</p>
+  <pre class="programlisting">Evaluating batch 39/39
+Epoch 1/5
+    (train) loss: 1.7741597780050375 - accuracy: 0.2443966139585544 - 
+<span class="fm-code-continuation-arrow">➥</span> bleu: 0.0014343267864378607
+    (valid) loss: 1.4453194752717629 - accuracy: 0.3318057709779495 - 
+<span class="fm-code-continuation-arrow">➥</span> bleu: 0.010740537197906803
+Evaluating batch 39/39
+...
+ 
+Epoch 5/5
+    (train) loss: 0.814081399104534 - accuracy: 0.5280381464041196 - 
+<span class="fm-code-continuation-arrow">➥</span> bleu: 0.1409178724874819
+    (valid) loss: 0.8876287539800009 - accuracy: 0.514901713683055 - 
+<span class="fm-code-continuation-arrow">➥</span> bleu: 0.1285171513954398
+Evaluating batch 39/39
+(test) loss: 0.9077589313189188 - accuracy: 0.5076315150811122 - bleu: 
+<span class="fm-code-continuation-arrow">➥</span> 0.12664703414801345</pre>
+
+  <p class="fm-callout"><a id="pgfId-1283504"></a><span class="fm-callout-head">NOTE</span> On an Intel Core i5 machine with an NVIDIA GeForce RTX 2070 8 GB, the training took approximately 4 minutes and 10 seconds to run five epochs.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283505"></a>The first observation we can make is that the training has progressed in the right direction. Both training and validation metrics have improved over time. The model has kicked off with a training accuracy of 24% and a BLEU score of 0.001, and ended up with an accuracy of 52% and a BLEU score of 0.14. During validation, the model has increased the accuracy from 33% to 51%, whereas the BLEU score has gone from 0.01 to 0.12. As we did before, let’s save the model so that it can later be used in the real world. We will save the model as well as the vocabulary:</p>
+  <pre class="programlisting">## Save the model
+os.makedirs('models', exist_ok=True)
+tf.keras.models.save_model(final_model, os.path.join('models', 'seq2seq'))
+ 
+import json
+os.makedirs(os.path.join('models', 'seq2seq_vocab'), exist_ok=True)
+ 
+# Save the vocabulary files
+with open(os.path.join('models', 'seq2seq_vocab', 'en_vocab.json'), 'w') as f:
+    json.dump(en_vocabulary, f)    
+with open(os.path.join('models', 'seq2seq_vocab', 'de_vocab.json'), 'w') as f:
+    json.dump(de_vocabulary, f)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283518"></a>When training the model, we used the target (i.e., target language tokens) to provide an input to the decoder. This is not possible when using the model to translate where the target is unknown. For this, in the following section, we modify our trained model while using the same model parameters.</p>
+
+  <p class="fm-head2"><a id="pgfId-1283519"></a>Exercise 3</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283520"></a>You have the following function for training a model. Here, <span class="fm-code-in-text">en_inputs_raw</span> represents the encoder inputs, <span class="fm-code-in-text">de_inputs_raw</span> represents decoder inputs, and <span class="fm-code-in-text">de_labels_raw</span> represents decoder labels:</p>
+  <pre class="programlisting">for epoch in range(epochs):
+        
+    bleu_log = []                            
+        
+    n_train_batches = en_inputs_raw.shape[0]//batch_size       
+    for i in range(n_train_batches):                        
+ 
+        print("Training batch {}/{}".format(i+1, n_train_batches), end='\r')    
+ 
+            
+        x = [                                                   
+            en_inputs_raw[i*batch_size:(i+1)*batch_size],  
+            de_inputs_raw[i*batch_size:(i+1)*batch_size]
+        ]
+        y = vectorizer(de_labels_raw[i*batch_size:(i+1)*batch_size])
+ 
+        model.train_on_batch(x, y)
+        pred_y = model.predict(x)
+ 
+        bleu_log.append(bleu_metric.calculate_bleu_from_predictions(y, pred_y)) 
+ 
+    mean_bleu = np.mean(bleu_log)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283545"></a>You want to change the code so that, if the mean training BLEU score of a given epoch is smaller than the last epoch, the training is stopped. How would you change the<a class="calibre8" id="marker-1283546"></a><a class="calibre8" id="marker-1283547"></a><a class="calibre8" id="marker-1283548"></a> code?</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_156"><a id="pgfId-1283549"></a>11.4 From training to inference: Defining the inference model</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283552"></a>You<a class="calibre8" id="marker-1283551"></a> have trained a sequence-to-sequence machine translation model and plan to use it to generate German translations for some unseen English phrases. It has been trained using teacher forcing, meaning that the words in the translation have been fed as inputs. You realize that this is not possible during inference, as the task itself is to generate the translation. Therefore, you are going to create a new encoder-decoder model using the trained weights of the original model. In this model, the decoder operates recursively, where it feeds its previous prediction as the input in the next time step. The decoder starts off with the SOS token and continues in this manner until it outputs the EOS token.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283553"></a>The ultimate objective of training a machine translator is to use it in the real world to translate unseen source language sentences (e.g., English) to a target language (e.g., German). However, unlike most of the other models we trained, we cannot take this off of the shelf and use it straight away for inference. There’s extra effort required to bridge the gap between using a trained model for inference. Before coming up with a solution, let’s first understand the underlying problem.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283554"></a>During model training, we used teacher forcing to improve the performance of the model. In teacher forcing, the decoder is provided target language inputs (e.g., German) and asked to predict the next word in the sequence at each time step. This means that the trained model relies on two inputs: English sequences and German sequences. However, during inference, we don’t have access to the German sequences. Our task is to generate those German sequences for given English sequences. Therefore, we need to repurpose our trained model to be able to generate German translations without relying on whole German sequences to be available.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283555"></a>The solution is to keep the encoder as it is and introduce several modifications to the decoder. We will make our decoder a recursive decoder. By that, we mean that the decoder will use its previous predicted word as an input to the next time step, until it reaches the end of the sequence (figure 11.4). Specifically, we do the following. For a given English sequence</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1283556"></a>Get the context vector by inputting the English sequence to the encoder.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1283557"></a>We first input the SOS token (<i class="fm-timesitalic1">x</i><sup class="fm-superscript">d</sup><sub class="fm-subscript">0</sub>) (denoted by <span class="fm-code-in-text">start_token</span> in the code) along with the context vector (si<sup class="fm-superscript">d</sup><sub class="fm-subscript">1</sub>) and get the decoder’s prediction (<i class="fm-timesitalic1">ŷ</i><sup class="fm-superscript">d</sup><sub class="fm-subscript">1</sub>) and the output state (so<sup class="fm-superscript">d</sup><sub class="fm-subscript">1</sub>).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1283570"></a>Until the decoder’s prediction (<i class="fm-timesitalic1">ŷ</i><sup class="fm-superscript">d</sup><sub class="fm-subscript">t</sub> <sub class="fm-subscript">+1</sub>) is EOS (denoted by <span class="fm-code-in-text">end_token</span> in the code)</p>
+
+      <ul class="calibre18">
+        <li class="fm-sidebar-bullet-sub">
+          <p class="list"><a class="calibre8" id="pgfId-1283577"></a>Feed the decoder’s prediction (<i class="fm-timesitalic1">ŷ</i><sup class="fm-superscript">d</sup><sub class="fm-subscript">t</sub>) and the output state (so<sup class="fm-superscript">d</sup><sub class="fm-subscript">t</sub>) at time t as the input (<i class="fm-timesitalic1">x</i><sup class="fm-superscript">d</sup><sub class="fm-subscript">t</sub> <sub class="fm-subscript">+1</sub>) and the initial state (si<sup class="fm-superscript">d</sup><sub class="fm-subscript">t</sub> <sub class="fm-subscript">+1</sub>) for the next time step (t + 1).</p>
+        </li>
+
+        <li class="fm-sidebar-bullet-sub">
+          <p class="list"><a class="calibre8" id="pgfId-1283584"></a>Get the decoder’s prediction (<i class="fm-timesitalic1">ŷ</i><sup class="fm-superscript">d</sup><sub class="fm-subscript">t</sub> <sub class="fm-subscript">+1</sub>) and the output state (so<sup class="fm-superscript">d</sup><sub class="fm-subscript">t</sub> <sub class="fm-subscript">+1</sub>) in the next time step.</p>
+        </li>
+      </ul>
+    </li>
+  </ul>
+
+  <p class="fm-figure"><img alt="11-04" class="calibre10" src="../../OEBPS/Images/11-04.png" width="869" height="1503"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1306428"></a>Figure 11.4 Using the sequence-to-sequence model for inference (i.e., generating translations from English inputs)</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283585"></a>To achieve this, we have to introduce two major changes to the trained model:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1283586"></a>Separate the encoder and the decoder as separate models.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1283587"></a>Change the decoder such that it takes an input token and an initial state as the input and outputs the predicted token and the next state as the output.</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283594"></a>Let’s see how we can do this in TensorFlow. First, we will load the model we just saved:</p>
+  <pre class="programlisting">model = tf.keras.models.load_model(save_path)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283596"></a>It’s very easy to get the encoder model because we have encapsulated the encoder as a nested model in the final model. It can be taken out by calling</p>
+  <pre class="programlisting">en_model = model.get_layer("encoder")</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283598"></a>After that, we define two inputs to represent the two inputs of the decoder:</p>
+  <pre class="programlisting">d_inp = tf.keras.Input(shape=(1,), dtype=tf.string, name='d_infer_input')
+d_state_inp = tf.keras.Input(shape=(256,), name='d_infer_state')</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283602"></a>As we discussed earlier, we define two inputs: one to represent the input to the decoder (<span class="fm-code-in-text">d_inp</span>) and another to represent the state input to the decoder’s GRU layer (<span class="fm-code-in-text">d_state_inp</span>). Analyzing the shapes, <span class="fm-code-in-text">d_inp</span> takes in an array of strings, just like before. <span class="fm-code-in-text">d_state_inp</span> represents the state vector of the GRU model and has 256 feature dimensionality.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283603"></a>After we define the inputs, we will retrace all the steps we followed during the decoder build in the trained model. However, instead of creating new randomly initialized layers, we will get layers from the trained model. Particularly, we will have the following layers to flow the inputs through:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1283604"></a>Decoder’s vectorization layer (produces <span class="fm-code-in-text">d_vectorized_out</span>)</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1283605"></a>Decoder’s embedding layer (produces <span class="fm-code-in-text">d_emb_out</span>)</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1283606"></a>Decoder’s GRU layer (produces <span class="fm-code-in-text">d_gru_out</span>)</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1283607"></a>Decoder’s fully connected hidden layer (produces <span class="fm-code-in-text">d_dense1_out</span>)</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1283608"></a>Final prediction layer (produces <span class="fm-code-in-text">d_final_out</span>)</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283609"></a>It is worth highlighting an important change we are introducing to the GRU model. Note that we are setting <span class="fm-code-in-text">return_sequences=False</span> to make sure the decoder GRU only returns the last output (i.e., not a sequence of outputs). In other words, the output of the GRU layer is a [<span class="fm-code-in-text">None</span>, 256]-sized tensor. This helps us match the shape of the output to the <span class="fm-code-in-text">d_state_inp</span> we defined earlier, making it easier to build a recursive model. Furthermore, the GRU layer takes <span class="fm-code-in-text">d_state_inp</span> as the <span class="fm-code-in-text">initial_state</span> in the model. This way, we can feed the output state vector as a recursive input to the decoder:</p>
+  <pre class="programlisting"># Generate the vectorized output of inp
+d_vectorizer = model.get_layer('d_vectorizer')    
+d_vectorized_out = d_vectorizer(d_inp)
+    
+# Generate the embeddings from the vectorized input
+d_emb_out = model.get_layer('d_embedding')(d_vectorized_out)
+    
+# Get the GRU layer
+d_gru_layer = model.get_layer("d_gru")
+# Since we generate one word at a time, we will not need the return_sequences
+d_gru_layer.return_sequences = False
+# Get the GRU out while using d_state_inp from earlier, as the initial state
+d_gru_out = d_gru_layer(d_emb_out, initial_state=d_state_inp) 
+    
+# Get the dense output
+d_dense1_out = model.get_layer("d_dense_1")(d_gru_out) 
+    
+# Get the final output
+d_final_out = model.get_layer("d_dense_final")(d_dense1_out) </pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283629"></a>It’s time to define the final decoder model:</p>
+  <pre class="programlisting">de_model = tf.keras.models.Model(
+    inputs=[d_inp, d_state_inp], outputs=[d_final_out, d_gru_out]
+)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283633"></a>The model takes the <span class="fm-code-in-text">d_inp</span> and <span class="fm-code-in-text">d_state_inp</span> as inputs and produces <span class="fm-code-in-text">d_final_out</span> (i.e., the final prediction) and <span class="fm-code-in-text">d_gru_out</span> (i.e., the GRU output state) as the output. Finally, let’s take a step back and encapsulate the work we did in a single function called <span class="fm-code-in-text">get_inference_model()</span>, as shown in the next listing.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1283636"></a><a id="aRef71445176"></a>Listing 11.11 Defining the recursive inference model for the machine translation model</p>
+  <pre class="programlisting">import tensorflow.keras.backend as K
+K.clear_session()
+ 
+def get_inference_model(save_path):
+    """ Load the saved model and create an inference model from that """
+        
+    model = tf.keras.models.load_model(save_path)                        <span class="fm-combinumeral">❶</span>
+        
+    en_model = model.get_layer("encoder")                                <span class="fm-combinumeral">❷</span>
+        
+    d_inp = tf.keras.Input(
+        shape=(1,), dtype=tf.string, name='d_infer_input'
+    )                                                                    <span class="fm-combinumeral">❸</span>
+    d_state_inp = tf.keras.Input(shape=(256,), name='d_infer_state')     <span class="fm-combinumeral">❹</span>
+        
+    d_vectorizer = model.get_layer('d_vectorizer')                       <span class="fm-combinumeral">❺</span>
+    d_vectorized_out = d_vectorizer(d_inp)                               <span class="fm-combinumeral">❺</span>
+        
+    d_emb_out = model.get_layer('d_embedding')(d_vectorized_out)         <span class="fm-combinumeral">❻</span>
+        
+    d_gru_layer = model.get_layer("d_gru")                               <span class="fm-combinumeral">❼</span>
+    d_gru_layer.return_sequences = False                                 <span class="fm-combinumeral">❽</span>
+    d_gru_out = d_gru_layer(d_emb_out, initial_state=d_state_inp)        <span class="fm-combinumeral">❾</span>
+    
+    d_dense1_out = model.get_layer("d_dense_1")(d_gru_out)               <span class="fm-combinumeral">❿</span>
+    
+    d_final_out = model.get_layer("d_dense_final")(d_dense1_out)         <span class="fm-combinumeral">⓫</span>
+    
+    de_model = tf.keras.models.Model(
+        inputs=[d_inp, d_state_inp], outputs=[d_final_out, d_gru_out]    <span class="fm-combinumeral">⓬</span>
+    )
+    
+    return en_model, de_model</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1299484"></a><span class="fm-combinumeral">❶</span> Load the saved trained model.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1299515"></a><span class="fm-combinumeral">❷</span> Get the encoder model from the loaded model by calling the get_layer() function.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1299532"></a><span class="fm-combinumeral">❸</span> Define the first input to the new inference decoder, an input layer that takes a batch of strings.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1299549"></a><span class="fm-combinumeral">❹</span> Define the second input to the new inference decoder, an input layer that takes an initial state to pass to the decoder GRU as the input state.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1299566"></a><span class="fm-combinumeral">❺</span> Generate the vectorized output of the string input to the decoder.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1299583"></a><span class="fm-combinumeral">❻</span> Generate the embeddings from the vectorized input.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1299600"></a><span class="fm-combinumeral">❼</span> Get the decoder’s GRU layer.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1299617"></a><span class="fm-combinumeral">❽</span> Since we generate one word at a time, we will not need the return_sequences.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1299634"></a><span class="fm-combinumeral">❾</span> Get the GRU out while using d_state_inp from earlier as the initial state.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1299651"></a><span class="fm-combinumeral">❿</span> Get the dense output.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1299668"></a><span class="fm-combinumeral">⓫</span> Get the final output.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1299685"></a><span class="fm-combinumeral">⓬</span> Define the final decoder.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283682"></a>We will then define a function to load back the vocabularies we just saved. We saved the vocabularies using the JSON format, and all we need to do to load the vocabularies is call <span class="fm-code-in-text">json.load()</span> with the opened vocabulary files:</p>
+  <pre class="programlisting">def get_vocabularies(save_dir):
+    """ Load the vocabulary files from a given path"""
+    
+    with open(os.path.join(save_dir, 'en_vocab.json'), 'r') as f:
+        en_vocabulary = json.load(f)
+        
+    with open(os.path.join(save_dir, 'de_vocab.json'), 'r') as f:
+        de_vocabulary = json.load(f)
+        
+    return en_vocabulary, de_vocabulary
+ 
+print("Loading vocabularies")
+en_vocabulary, de_vocabulary = get_vocabularies(
+    os.path.join('models', 'seq2seq_vocab')
+)
+ 
+print("Loading weights and generating the inference model")
+en_model, de_model = get_inference_model(os.path.join('models', 'seq2seq'))
+print("\tDone")</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283705"></a>Steaming ahead, we now have everything to generate new translations. As discussed, we are going to create a process/function where we input the English sentence (denoted by <span class="fm-code-in-text">sample_en_text</span>) to the encoder to produce the context vector. Next, make a prediction with the SOS token and the context vector to get the first German token prediction and the next state output. Finally, recursively feed the outputs of the decoder as inputs to the decoder until the predicted token is EOS. The following listing delineates this functionality using the inference model we just built.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1283707"></a><a id="aRef71459650"></a>Listing 11.12 Generating translations with the new inference model</p>
+  <pre class="programlisting">def generate_new_translation(en_model, de_model, de_vocabulary, sample_en_text):
+    """ Generate a new translation """
+        
+    start_token = 'sos'    
+ 
+    print("Input: {}".format(sample_en_text))                              <span class="fm-combinumeral">❶</span>
+    
+    d_state = en_model.predict(np.array([sample_en_text]))                 <span class="fm-combinumeral">❷</span>
+    
+    de_word = start_token                                                  <span class="fm-combinumeral">❸</span>
+    
+    de_translation = []                                                    <span class="fm-combinumeral">❹</span>
+    
+    while de_word != end_token:                                            <span class="fm-combinumeral">❺</span>
+        
+        de_pred, d_state = de_model.predict([np.array([de_word]), d_state])<span class="fm-combinumeral">❻</span>
+        de_word = de_vocabulary[np.argmax(de_pred[0])]                     <span class="fm-combinumeral">❼</span>
+        de_translation.append(de_word)                                     <span class="fm-combinumeral">❽</span>
+ 
+    print("Translation: {}\n".format(' '.join(de_translation)))</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1298889"></a><span class="fm-combinumeral">❶</span> Print the input.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1298925"></a><span class="fm-combinumeral">❷</span> Get the initial state for the decoder.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1298942"></a><span class="fm-combinumeral">❸</span> The first input word to the decoder will always be the start_token (i.e., it has the value sos).</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1298959"></a><span class="fm-combinumeral">❹</span> We collect the translation in this list.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1298976"></a><span class="fm-combinumeral">❺</span> Keep predicting until we get the end_token (i.e., it has the value eos).</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1298993"></a><span class="fm-combinumeral">❻</span> Override the previous state input with the new state.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1299010"></a><span class="fm-combinumeral">❼</span> Get the actual word from the token ID of the prediction.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1298890"></a><span class="fm-combinumeral">❽</span> Add that to the translation.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283737"></a>Let’s run this for several test inputs in our data set and see what we get:</p>
+  <pre class="programlisting">for i in range(5):
+    sample_en_text = test_df["EN"].iloc[i]
+    generate_new_translation(en_model, de_model, de_vocabulary, sample_en_text)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283742"></a>This will output</p>
+  <pre class="programlisting">Input: The pleasure's all mine.
+Translation: die [UNK] [UNK] mir eos
+ 
+Input: Tom was asking for it.
+Translation: tom sprach es zu tun eos
+ 
+Input: He denied having been involved in the affair.
+Translation: er [UNK] sich auf das [UNK] [UNK] eos
+ 
+Input: Is there something in particular that you want to drink?
+Translation: gibt es etwas [UNK] wenn du etwas [UNK] eos
+ 
+Input: Don't run. Walk slowly.
+Translation: [UNK] nicht zu fuß eos</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283757"></a>You can run these English phrases/sentences against Google Translate and see how closely our model is getting them. For a model trained on a relatively simple and small data set, our model is doing very well. The <span class="fm-code-in-text">[UNK]</span> token is present in the translation because all the less-frequent words are replaced with <span class="fm-code-in-text">[UNK]</span> in the corpus. Therefore, when the model is uncertain of the word that should be filled in a certain position, it is likely to output <span class="fm-code-in-text">[UNK]</span>.</p>
+
+  <p class="fm-head2"><a id="pgfId-1283758"></a>Exercise 4</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283759"></a>Instead of using the GRU model, you have decided to use an LSTM model. As you know, an LSTM model has two states: a cell state and an output state. You have built the encoder and are now building the decoder. You are planning to adapt the following code to use an LSTM model:</p>
+  <pre class="programlisting">d_inp = tf.keras.Input(shape=(1,), dtype=tf.string)       
+d_state_inp = tf.keras.Input(shape=(256,))                
+                                         
+d_vectorized_out = de_vectorizer(d_inp)
+d_emb_out = tf.keras.layers.Embedding(de_vocab+2, 128, mask_zero=True)(d_vectorized_out)
+                                                    
+d_gru_out = tf.keras.layers.GRU(256)(d_emb_out, initial_state=d_state_inp)
+    
+d_final_out = tf.keras.layers.Dense(
+    de_vocab+2, activation='softmax'
+)(d_gru_out)                    
+    
+de_model = tf.keras.models.Model(
+    inputs=[d_inp, d_state_inp], outputs=[d_final_out, d_gru_out]
+)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283776"></a>If you set <span class="fm-code-in-text">return_state=True</span> in an LSTM layer and call it on some compatible input <span class="fm-code-in-text">x</span>, the output is as follows</p>
+  <pre class="programlisting">lstm_out, state_h, state_c = tf.keras.layers.LSTM(256, return_state=True)(x)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283778"></a>where <span class="fm-code-in-text">state_h</span> and <span class="fm-code-in-text">state_c</span> represent the output state and the cell state respectively.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283779"></a>We have trained a machine translation model using the sequence-to-sequence architecture. In the next chapter, we will look at how we can improve this model further by using a technique known as<a class="calibre8" id="marker-1283781"></a> attention.</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_157"><a id="pgfId-1283782"></a>Summary</h2>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1283783"></a>The encoder-decoder pattern is common for sequence-to-sequence tasks such as machine translation.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1283784"></a>The encoder takes in source language inputs and produces a context vector.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1283785"></a>The context vector is used by the decoder to produce target language outputs (i.e., translation).</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1283786"></a>The <span class="fm-code-in-text">tf.keras.layers.experimental.preprocessing.TextVectorization</span> layer allows you to integrate tokenization (i.e., converting strings to list of tokens and then to token IDs) into your model. This enables the model to take in strings rather than numerical values.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1283787"></a>When training models on sequence-to-sequence tasks, you can employ teacher forcing:</p>
+
+      <ul class="calibre18">
+        <li class="fm-sidebar-bullet-sub">
+          <p class="list"><a class="calibre8" id="pgfId-1283788"></a>In teacher forcing, the encoder consumes the source language input and produces the context vector as usual. Then the decoder consumes and predicts the words in the translation. In other words, the decoder is trained in such a way that the decoder predicts the next word given the previous word(s) in the translation.</p>
+        </li>
+      </ul>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1283789"></a>The quality of translations produced by a machine translation model is measured using the BLEU score:</p>
+
+      <ul class="calibre18">
+        <li class="fm-sidebar-bullet-sub">
+          <p class="list"><a class="calibre8" id="pgfId-1283790"></a>The BLEU score uses a modified version of the precision metric along with measuring precision on different n-grams of the translation to come up with a score.</p>
+        </li>
+      </ul>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1283791"></a>Once a model is trained using teacher forcing, a separate inference model needs to be defined using the trained weights:</p>
+
+      <ul class="calibre18">
+        <li class="fm-sidebar-bullet-sub">
+          <p class="list"><a class="calibre8" id="pgfId-1283792"></a>This inference model has the same encoder, but the decoder takes in the previously predicted word as an input for the next step and recursively predicts words until a predefined ending criterion is met.</p>
+        </li>
+      </ul>
+    </li>
+  </ul>
+
+  <h2 class="fm-head" id="sigil_toc_id_158"><a id="pgfId-1283793"></a>Answers to exercises</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283794"></a><b class="fm-bold">Exercise 1</b></p>
+  <pre class="programlisting">def vocab_size(ser):
+    
+    cnt = Counter(ser.sum())
+    return len(cnt)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283800"></a><b class="fm-bold">Exercise 2</b></p>
+  <pre class="programlisting"># The decoder
+en_repeat_out = tf.keras.layers.RepeatVector(de_seq_length)(en_gru_out)
+d_gru_layer = tf.keras.layers.GRU(256, return_sequences=True, name='d_gru')
+d_gru_out = d_gru_layer(en_repeat_out, initial_state=gru_out)
+d_dense_layer_1 = tf.keras.layers.Dense(512, activation='relu', name='d_dense_1')
+d_dense1_out = d_dense_layer_1(d_gru_out)
+d_dense_layer_final = tf.keras.layers.Dense(
+    de_vocab+2, activation='softmax', name='d_dense_final'
+)
+d_final_out = d_dense_layer_final(d_dense1_out)
+ 
+# Define the full model
+model = tf.keras.models.Model(
+    inputs=inp, outputs=d_final_out, name='final_seq2seq'
+)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283817"></a><b class="fm-bold">Exercise 3</b></p>
+  <pre class="programlisting">prev_bleu = None
+ 
+for epoch in range(epochs):
+        
+    bleu_log = []  
+        
+    n_train_batches = en_inputs_raw.shape[0]//batch_size
+ 
+    for i in range(n_train_batches):
+ 
+        print("Training batch {}/{}".format(i+1, n_train_batches), end='\r')
+ 
+            
+        x = [         
+            en_inputs_raw[i*batch_size:(i+1)*batch_size],  
+            de_inputs_raw[i*batch_size:(i+1)*batch_size]
+        ]
+        y = vectorizer(de_labels_raw[i*batch_size:(i+1)*batch_size])
+        model.train_on_batch(x, y)
+        pred_y = model.predict(x)
+ 
+        bleu_log.append(bleu_metric.calculate_bleu_from_predictions(y, pred_y)) 
+    
+    mean_bleu = np.mean(bleu_log)
+    
+    # The termination criteria
+    if prev_bleu and prev_bleu &gt; mean_bleu:
+        break
+        
+    prev_bleu = mean_bleu</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1283850"></a><b class="fm-bold">Exercise 4</b><a class="calibre8" id="marker-1283849"></a></p>
+  <pre class="programlisting">d_inp = tf.keras.Input(shape=(1,), dtype=tf.string)       
+d_state_h_inp = tf.keras.Input(shape=(256,))                
+d_state_c_inp = tf.keras.Input(shape=(256,))                
+ 
+d_vectorized_out = de_vectorizer(d_inp)                                         
+        
+d_emb_out = tf.keras.layers.Embedding(
+    de_vocab+2, 128, mask_zero=True
+)(d_vectorized_out)                    
+                                                    
+<b class="fm-code-bold">d_lstm_out, d_state_h, d_state_c = tf.keras.layers.LSTM(</b>
+<b class="fm-code-bold">    256, return_state=True</b>
+<b class="fm-code-bold">)(d_emb_out, initial_state=[d_state_h_inp, d_state_c_inp])</b>
+<b class="fm-code-bold">    </b>
+<b class="fm-code-bold">d_final_out = tf.keras.layers.Dense(</b>
+<b class="fm-code-bold">    de_vocab+2, activation='softmax'</b>
+<b class="fm-code-bold">)(d_lstm_out)                    </b>
+    
+de_model = tf.keras.models.Model(
+    inputs=[d_inp, d_state_h_inp, d_state_c_inp], 
+    outputs=[d_final_out, d_state_h, d_state_c]              
+)
+de_model.summary()</pre>
+</div>
+</div>
+</body>
+</html>

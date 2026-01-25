@@ -1,0 +1,453 @@
+openapi: 3.0.0
+info:
+  title: Bookshelf API
+  description: API for managing the Bookshelf application
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Local server
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Book:
+      type: object
+      properties:
+        ID:
+          type: integer
+        book_title:
+          type: string
+        book_isbn:
+          type: string
+        book_summary:
+          type: string
+        book_cover_img:
+          type: string
+        book_date:
+          type: integer
+        language_id:
+          type: integer
+        book_format_id:
+          type: integer
+        book_publisher_id:
+          type: integer
+        book_create_date:
+          type: integer
+        book_update_date:
+          type: integer
+    Author:
+      type: object
+      properties:
+        ID:
+          type: integer
+        author_name:
+          type: string
+        author_lastname:
+          type: string
+        author_wiki:
+          type: string
+        author_create_date:
+          type: integer
+        author_update_date:
+          type: integer
+    user:
+      type: object
+      properties:
+        ID:
+          type: integer
+        user_username:
+          type: string
+        user_email:
+          type: string
+        user_name:
+          type: string
+        user_lastname:
+          type: string
+    Genere:
+      type: object
+      properties:
+        ID:
+          type: integer
+        genere_title:
+          type: string
+        genere_description:
+          type: string
+    Format:
+      type: object
+      properties:
+        ID:
+          type: integer
+        format_name:
+          type: string
+    Publisher:
+      type: object
+      properties:
+        ID:
+          type: integer
+        publisher_name:
+          type: string
+        publisher_website:
+          type: string
+    Language:
+      type: object
+      properties:
+        ID:
+          type: integer
+        language_name:
+          type: string
+    UserRole:
+      type: object
+      properties:
+        ID:
+          type: integer
+        userrole_name:
+          type: string
+        userrole_description:
+          type: string
+        userrole_manageusers:
+          type: integer
+        userrole_managebooks:
+          type: integer
+        userrole_readbooks:
+          type: integer
+        userrole_viewbooks:
+          type: integer
+        userrole_create_date:
+          type: integer
+        userrole_update_date:
+          type: integer
+security:
+  - bearerAuth: []
+paths:
+  /login:
+    post:
+      summary: Login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        200:
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  username:
+                    type: string
+                  token:
+                    type: string
+  /register:
+    post:
+      summary: Register
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        201:
+          description: User created
+  /api/books:
+    get:
+      summary: Get all books
+      responses:
+        200:
+          description: List of books
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Book'
+    post:
+      summary: Create a book
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Book'
+      responses:
+        201:
+          description: Created
+  /api/books/{id}:
+    get:
+      summary: Get book by ID
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+      responses:
+        200:
+          description: Book details
+          content:
+            application/json:
+              schema:
+                object:
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Book'
+    put:
+      summary: Update book
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Book'
+      responses:
+        200:
+          description: Updated
+    delete:
+      summary: Delete book
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+      responses:
+        200:
+          description: Deleted
+  /api/authors:
+    get:
+      summary: Get all authors
+      responses:
+        200:
+          description: List of authors
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Author'
+    post:
+      summary: Create an author
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Author'
+      responses:
+        201:
+          description: Created
+  /api/authors/{id}:
+    get:
+      summary: Get author by ID
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+      responses:
+        200:
+          description: Author details
+    put:
+      summary: Update author
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Author'
+      responses:
+        200:
+          description: Updated
+    delete:
+      summary: Delete author
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+      responses:
+        200:
+          description: Deleted
+  /api/users:
+    get:
+      summary: Get all users
+      responses:
+        200:
+          description: List of users
+    post:
+      summary: Create a user
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/user'
+      responses:
+        201:
+          description: Created
+  /api/users/{id}:
+    get:
+      summary: Get user by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: User details
+    put:
+      summary: Update user
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/user'
+      responses:
+        200:
+          description: Updated
+    delete:
+      summary: Delete user
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Deleted
+  /api/generes:
+    get:
+      summary: Get all generes
+      responses:
+        200:
+          description: List of generes
+    post:
+      summary: Create a genere
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Genere'
+      responses:
+        201:
+          description: Created
+  /api/generes/{id}:
+    get:
+      summary: Get genere by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Details
+    put:
+      summary: Update genere
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Genere'
+      responses:
+        200:
+          description: Updated
+    delete:
+      summary: Delete genere
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Deleted
+  /api/userroles:
+    get:
+      summary: Get all user roles
+      responses:
+        200:
+          description: List of user roles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserRole'
+  /api/userroles/{id}:
+    get:
+      summary: Get user role by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: User role details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/UserRole'
+  # Add other endpoints similarly...

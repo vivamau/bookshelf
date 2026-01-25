@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+ "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xml:lang="en" xmlns:epub="http://www.idpf.org/2007/ops" xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+  <title>Chapter 9: Software Development</title>
+  <link rel="stylesheet"
+        type="text/css"
+        href="css/style.css" />
+  <link rel="stylesheet"
+        type="text/css"
+        href="css/media.css" />
+</head>
+<body>
+  <div id="part-2-chapter-3" class="element element-bodymatter element-container-single element-type-chapter element-with-heading">
+    <div class="heading heading-container-single heading-size-full heading-format-full heading-alignment-flexible heading-without-image">
+      <div class="heading-contents">
+        <div class="title-subtitle-block title-block-with-element-number">
+          <div class="element-number-block">
+            <div class="element-number case-upper"><span class="element-number-term">CHAPTER</span> <span class="element-number-number">9</span></div>
+          </div>
+          <div class="title-block">
+            <h1 class="element-title case-upper">SOFTWARE DEVELOPMENT</h1>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="text" id="part-2-chapter-3-text">
+      <p class="first first-in-chapter first-full-width">How do you become a developer who’s seen as a competent, solid, and efficient professional, who “knows their stuff” about software development? In this chapter, we cover these topics:</p>
+      <ol>
+        <li><a class="content-external-link" href="part-002-chapter-009.xhtml#subhead-1">Become proficient in a language</a></li>
+        <li><a class="content-external-link" href="part-002-chapter-009.xhtml#subhead-2">Debugging</a></li>
+        <li><a class="content-external-link" href="part-002-chapter-009.xhtml#subhead-3">Refactoring</a></li>
+        <li><a class="content-external-link" href="part-002-chapter-009.xhtml#subhead-4">Testing</a></li>
+      </ol>
+      <h2 id="subhead-1" class="section-title subhead keep-with-next paragraph-follows case-upper">1. BECOME PROFICIENT IN A LANGUAGE</h2>
+      <p class="first first-after-subhead">Learn a language really well. You hit a new level of comprehension, understanding, and competence when you truly know a language inside out. What does “inside out” mean? It is knowing how to use the language: the syntax, the constructs and operators. It means knowing best practices and understanding why they are recommended. It means going deeper under the hood, and understanding how memory management and garbage collection work, how the code compiles, and what matters for performance.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Learn</span> the fundamentals of a language</b></p>
+      <p class="subsq">There are levels to learning a language in depth. First, it’s about mastering the things the language provides. These include built-in data types, variables and data structures, operators, control statements, classes and objects, and standard ways of error handling. Understand and try out some of the more advanced parts of a language, like generics, parallel execution/threading, more complex data types, and additional features the language supports.</p>
+      <p class="subsq">A good way to go through the basics of a language is to consult its documentation; find a good language reference, look at code examples, or study a book on its fundamentals. Video courses with coding examples work equally well – these are a better fit for some people. Find the format that works for you. Having reference material you can return to is handy, so I recommend investing in a book.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Go</span> a level deeper</b></p>
+      <p class="subsq">When you know how to use the language, try going a level deeper. Do this by asking questions, like:</p>
+      <ul>
+        <li>What really happens when you declare a variable, a function, or a class?</li>
+        <li>How will the code be compiled to machine code, and which optimizations might occur?</li>
+        <li>What is the memory footprint of the program? How can you observe the memory used?</li>
+        <li>How is memory freed up? Assuming the language uses garbage collection, how does this work?</li>
+        <li>If the language supports generics, are both covariance and contravariance supported?</li>
+        <li>How is generic code interpreted, and how is it optimized under the hood?</li>
+      </ul>
+      <p class="subsq">Seek out books, videos, online courses, and other resources on the advanced parts of a language. AI tools offer shortcuts to answering some questions, but they will likely not be as in-depth as more detailed books, or online resources. When trying to answer questions like the above, don’t forget these are complex and cover areas you might not know, or be able to tackle by yourself.</p>
+      <p class="subsq">The way I learn languages in depth is by working my way through books about them, doing advanced courses, reading articles which dive into the nitty-gritty details, and – recently – asking AI assistants to summarize concepts and verify the correctness of answers. There are always multiple experts in any cutting-edge technology, who delve into the very depths of languages and share their discoveries. Search for in-depth resources and devote time to studying them.</p>
+      <p class="subsq">Learn and use tooling to peek under the hood and get more information on how things work. Tools that help with this could be memory and CPU profilers, developer tools, and diagnostic tools. These not only help you understand more about the inner workings of a language but come in handy for more advanced debugging.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">The intern</span> who became our team’s Go expert</b></p>
+      <p class="subsq">At Uber, my team used Java, some Python, and some Node.JS on the backend. This mix of languages came about because our team needed to work with services written in those languages.</p>
+      <p class="subsq">Go was a language that started to gain popularity within the company, and lots of new services were being built with this language. Our team liked to explore, so we built a new service using Go because it provided an excuse to learn the language.</p>
+      <p class="subsq">An intern joined our team, who was really into Go. Even before his internship, he spent a lot of time doing tutorials, reading up on interesting parts, putting together pet projects, and experimenting with different language features. This intern immediately got involved in code reviews, and started to give tips to teammates on how to write things “the Go way.” Engineers on the team started to involve him more; asking him to leave reviews on Go code, and pairing with him as they built the service.</p>
+      <p class="subsq">This intern became the “Go expert” on our team. How did he do it? He put in a lot more time and effort than anyone else and kept going deeper into the language’s workings.</p>
+      <p class="subsq">This is a good reminder that even if you lack experience, you can still become an expert in a language, framework, or a specific area by putting in the time and effort to master it!</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Learn the “main”</span> framework you use with a language</b></p>
+      <p class="subsq">These days, using only one language is rare, although you will most likely use your “main” language with a framework. For example, if you use JavaScript or TypeScript on the frontend, you might also use React, Next.js, or another opinionated fronted framework. If you write Ruby code, you might use Rails. If it’s PHP, then this could be Laravel, and so on. When building products, opinionated frameworks allow faster progress and are popular.</p>
+      <p class="subsq">Follow the same approach in learning a framework as when learning a language. Learn the fundamentals of the framework, then peek under the hood to go deeper.</p>
+      <p class="subsq">An advantage of open-source frameworks is that you can look directly under the hood, even if its codebase initially seems overwhelming. This is an advantage you do not have with most programming languages.</p>
+      <p class="subsq">Many developers are content with being “good enough” at their main framework, and so don’t invest much time in diving deeper to understand how and why things work like they do.</p>
+      <p class="subsq">If you take that additional step and invest more time in digging deeper into the framework, the knowledge you gain should be an advantage when debugging tricky bugs, making architecture decisions, or migrating to new versions of the framework.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Learn</span> a second language</b></p>
+      <p class="subsq">Once you’re familiar enough with your first language, look for opportunities to pick up a second one. For example, if some team members are coding in a different language, it could be worth volunteering to join the effort, and being clear that you’re interested in getting started with this new language.</p>
+      <p class="subsq">Learning a second language has far more benefits than is often assumed:</p>
+      <ul>
+        <li><b>It’s easier to compare strengths and weaknesses. </b>When starting to use a second language, you’ll find some things are harder to do, while others are easier. Assuming you learned your “first” language in-depth, you can immediately see where the new language works better, and where not.</li>
+        <li><b>Go deeper into your first language. </b>This may seem counter-intuitive, but learning a second programming language tends to help you become more expert in your first language. This happens when you try to figure out how to do something in your “main” language which the second language supports. This is often how you learn the limitations of a “first” language, discover new capabilities, or better understand concepts like dynamic typing, generics, and other advanced language features.</li>
+        <li><b>Shake the habit of <i>only</i> using your “main” language.</b> If you’re proficient in only one programming language, you are likely to always reach for it. However, a single programming language is rarely the best fit for all projects and situations. You’ll have cases when using a new programming language brings benefits – like libraries you can use, or better performance characteristics. Get into the habit of being unafraid to learn new languages by doing precisely that.</li>
+        <li>It’s easier to learn more languages. Your first programming language tends to be the hardest to learn. The second is still tricky, but then things start to become easier. The more languages you learn, the more you appreciate their different features and capabilities.</li>
+      </ul>
+      <p class="subsq">AI tools can greatly help in learning the syntax of a new language. Many AI assistants can “translate” code from one language to another. They can also answer questions like, “show me the different ways to declare a function in [insert language being learned.”] Use these AI tools to speed up your learning. Just remember they can give wrong answers – so be sure to validate their output!</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">To go broad</span> or go deep?</b></p>
+      <p class="subsq">Competent software developers have a depth of knowledge to fall back on. This means they understand at least one language and framework really well. However, this language or framework might not be the first they learned.</p>
+      <p class="subsq"><b>I advise developers to “go deep” in at least one area, early in their careers. </b>Follow the approaches we’ve discussed, like studying in-depth resources. Another good approach is pairing with someone who’s an expert in an area and learning from them while asking for self-learning resources and completing them.</p>
+      <p class="subsq">Another way of going deep is to study the “boring” but necessary things you come across, day to day. Software engineer, Ben Kuhn<sup><a id="part-2-chapter-3-endnote-1" class="endnote-source" href="part-002-chapter-009.xhtml#part-2-chapter-3-endnote-1-text">1</a></sup>, calls this “blub studies.” The term “blub” comes from an essay<sup><a id="part-2-chapter-3-endnote-2" class="endnote-source" href="part-002-chapter-009.xhtml#part-2-chapter-3-endnote-2-text">2</a></sup> by Paul Graham, cofounder of Y Combinator, in which “blub” is the name of a hypothetical language. In Ben’s article, In defense of blub studies<sup><a id="part-2-chapter-3-endnote-3" class="endnote-source" href="part-002-chapter-009.xhtml#part-2-chapter-3-endnote-3-text">3</a></sup>, he describes why it is useful to go into the seemingly boring, pointless details of frameworks and languages:</p>
+      <p class="subsq">“Suppose your blub of choice is React. You might worry that learning the gory details will be useless if you ever move to a different part of the stack, or even a different web framework. And, yes, some of them will. But the core idea of React—writing pure render functions, using reconciliation to make updates fast—is extremely powerful and general. In fact, it’s now been copied by the next generation of UI frameworks on both iOS (SwiftUI) and Android (Jetpack Compose.) Learning the principles behind React makes it easier to learn those other frameworks. In fact, it can even be a useful source of ideas to “import” from one to the other.</p>
+      <p class="subsq">Blub studies are surprisingly broadly applicable because even if you’re learning about the details of some specific blubby system, that system’s design will contain a juicy, non-blubby core of extractible general principles.</p>
+      <p class="subsq">Blub studies also compound more than you’d naively expect, in two ways. First, knowing about one blub makes it easier to learn about alternative blubs that serve the same purpose—like the React/SwiftUI example above. Second, knowing more about one blub helps you learn blubs in adjacent parts of the stack more quickly.”</p>
+      <p class="subsq">It turns out you can go deep while also going broad, and blub studies – finding out how the tools and frameworks you use actually work – is a good example. As long as you spend time learning things outside of your comfort zone, then your depth and breadth of knowledge and skill will grow.</p>
+      <h2 id="subhead-2" class="section-title subhead keep-with-next paragraph-follows case-upper">2. DEBUGGING</h2>
+      <p class="first first-after-subhead">When you write code to solve a problem, it won’t always work as you expect. The less experienced you are, the more often this happens. So, how do you find out what went wrong? Inspect the code and try to go step by step through it, until the error is found. Basically, you debug.</p>
+      <p class="subsq">Engineers who can debug quickly and efficiently, fix errors quicker, and iterate faster. And while some people seem to have a natural talent for debugging, all of it can be learned. So, how do you get better at debugging?</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Know</span> your debugging tools</b></p>
+      <p class="subsq">Most integrated development environments (IDE,) such as VS Code, or JetBrains IntelliJ, come with powerful runtime debugging tools. But I’ve noticed less experienced engineers are often unaware of just how powerful these are. Inspecting the code while it is executing is one of the best ways to see what incorrect assumptions you made, and how the code actually behaves. A debugging tool can save hours, compared to a <i>“change and run and hope it works” </i>approach.</p>
+      <p class="subsq">Start by discovering the debugging tools which come with the IDE you use. Set breakpoints and inspect the local variables. Step in/out/over functions and inspect the call stack. Look up documentation and tutorials on how to use more advanced features. Some debuggers may support helpful features, including:</p>
+      <ul>
+        <li>Modifying variables on the fly</li>
+        <li>Evaluating expressions during debugging</li>
+        <li>Conditional breakpoints and exception breakpoints</li>
+        <li>Watchpoints (a breakpoint set on a variable, fired when it is changing)</li>
+        <li>Dropping to a frame (restarting debugging from another part of the call stack)</li>
+        <li>Skip between threads</li>
+        <li>Modify source code while the debugger is running</li>
+        <li>Modify environment variables</li>
+        <li>Simulate sensory inputs (for hardware-based environments like mobile)</li>
+      </ul>
+      <p class="subsq">Tools like Visual Studio, JetBrains IDEs, and Chrome DevTools support almost all of the above features – as do modern development environments built with developer productivity in mind. If you’ve not tried them yet, now is a great time to.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Observe</span> how experienced developers debug</b></p>
+      <p class="subsq">An underrated way to improve at debugging is to see how developers do it who are very good at debugging. When you hear a fellow developer mention a tricky bug, ask if you can shadow them or pair with them as they debug it. Mention that you’re interested to learn how they approach finding the root causes of bugs.</p>
+      <p class="subsq">On your team, aim to pair at least once with every developer on a debugging session. You are guaranteed to learn new debugging techniques, and perhaps discover new debugging tools.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Learn</span> how to debug without tools</b></p>
+      <p class="subsq">Sometimes, you may not have access to a debugging tool – for example, when working on the command line – or you decide against using one. There are ways to discover what’s gone wrong by debugging without tools. Such approaches usually require extra work, but you might learn more. Here are a few:</p>
+      <ul>
+        <li><b>Log to the console. </b>This is the simplest approach. Start dumping messages when a function is called; print the values of variables and anything else that could be helpful. Then, rerun the code and try to figure out what is happening by looking at the console log.</li>
+        <li><b>Paper debugging.</b> Take a pen and paper, or use a whiteboard. Write up key variables you care about and start to execute the code in your head, writing down how those variables change each time. More granular notes often help. If you get stuck, ask someone to follow along to ensure you’re executing the code correctly in your head. This approach is especially powerful if you have access to a debugger. First, do paper debugging, and then run the debugger to check if you ran the program correctly in your head.</li>
+        <li><b>Write (unit) tests.</b> This approach is similar to test-driven development (TDD) and is especially useful when debugging functions. Write tests that specify the expected input and the expected outputs. When running these, check which ones succeed and which don’t. Then, modify the code and quickly rerun the tests. This approach helps because once you have tests written, you can get rapid feedback on whether your modifications work or not. Besides, as we cover in <a class="content-external-link" href="part-003-chapter-014.xhtml">Part III: Testing</a>, tests are the basis of maintainable code, so you probably will need to write them, anyway.</li>
+      </ul>
+      <h2 id="subhead-3" class="section-title subhead keep-with-next paragraph-follows case-upper">3. REFACTORING</h2>
+      <p class="first first-after-subhead">Refactoring is an important, often overlooked part of coding. Getting good at refactoring is similar to learning to code. You can read all you like about a topic, but without doing it you’ll never truly master it. To be good at refactoring, you must do it – a lot.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Practice refactoring as often</span> as possible</b></p>
+      <p class="subsq"><b>Start by refactoring your own code after it’s written. </b>When you complete a task and your code works, read through all the changes with a critical eye. What could be done better, or more expressively? How could the code read more nicely?</p>
+      <p class="subsq">When you see something you can improve, make the change. These will often be small changes that might not feel like refactoring but are a good start.</p>
+      <p class="subsq"><b>Get ideas for refactoring via code reviews – and act on them. </b>When people review your code, or you check other code reviews, there will be comments pointing out things which could be improved at the codebase level. These comments might not be related to the code changed but to the surrounding code. Comments like this often highlight opportunities for refactoring other parts of the code.</p>
+      <p class="subsq">If you see a comment which could be an opportunity for a code change, take it up and volunteer to do a refactor. Pair with someone who can confirm it’s a good idea and review your refactor later. Do this refactor as a separate task or pull request to make it easy to review.</p>
+      <p class="subsq"><b>Read through the code. </b>While reading code, make notes of inconsistencies and hard-to-understand parts. Getting ideas for refactor opportunities via code reviews can be hit and miss. A more focused way is to read the code and try to understand what it does. This helps in two ways.</p>
+      <p class="subsq">First, you deepen your knowledge of the system. By reading the code, you’ll better understand what gets done and where. You’ll be able to debug better and reason about the code better. <i>See this chapter’s “Read as much code as you write” section.</i></p>
+      <p class="subsq">Second, you will spot many inconsistencies. Things will be named differently, or seem like duplications, and much else. Some parts will be hard to understand; you’ll scratch your head wondering what a method does, or why a certain class exists. And you’ll see unreadable code.</p>
+      <p class="subsq">Make notes of all these things. You could just put them into a private document, or you could use an extension for your IDE and record your own comments, with these comments stored in a local file and not committed or seen by anyone else.</p>
+      <p class="subsq"><b>Write up a list of things you’d like to refactor. </b>Then, get feedback from others. As tempting as it is to jump into fixing everything you’ve spotted, it’s not the best way to go. The team might already know some of your observations. In rare cases, they might have decided to trade off less readable code for other reasons, like performance or maintainability. Parts of the Kubernetes source code are a good example of this. You might also spot things to refactor that are actually conventions agreed by the team.</p>
+      <p class="subsq">Instead, get a second opinion and talk through your observations with someone experienced enough with the codebase. Get their feedback and decide which refactorings make sense and which don’t. With the new list, estimate the effort each one would take and put them together in a sequence of how to proceed. It’s a good idea to put simpler refactorings first.</p>
+      <p class="subsq">When you have a prioritized list, you can treat it as your “refactor backlog.” If you work on a team where people record their planned work, you can create tickets. Start with one refactoring on the side of your regular work. You could do it when you have some downtime while waiting on code reviews, or between tasks. Try to complete this first refactor; get it reviewed, merged, and then seek feedback from others. Rinse and repeat, slowly but surely going through the list. When it’s nearly finished, find new opportunities for improving the code.</p>
+      <p class="subsq">In a healthy team, people will cheer you for doing this kind of work; especially those who gave feedback that they think the refactorings were a good idea. You get multiple benefits: not only do you practice refactoring, but you learn a lot more about the codebase, and build up the goodwill of teammates for doing cleanup work. And if you regularly ask for feedback before starting refactoring, you learn what colleagues think is important or unimportant, and why.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Know</span> your IDE’s refactor functionality – and use it</b></p>
+      <p class="subsq">Many IDEs have built-in support for simple refactor operations, such as renaming variables, changing function signatures, extracting logic into its own function, and much more. Whichever IDE you use, invest time in learning the refactoring support it offers.</p>
+      <p class="subsq">Simple refactoring tasks can be time-consuming and error-prone if you work by hand. Using a tool will mean you’ll be faster and won’t need to be concerned about whether it’s worth the time it takes to refactor. It will only take the blink of an eye to do.</p>
+      <p class="subsq">Refactoring is multifaceted. Start with simple refactors, slowly moving to more complex ones. A simple thing to refactor is the parts of a function; starting with renaming variables and then extracting functionality to other methods. The next level is refactoring multiple functions, for example, by removing duplication. Then, there’s similar work at the class level. And finally, at the services/libraries/frameworks level.</p>
+      <p class="subsq">The smaller the scope of a refactor, the easier it is to get it right and test that nothing broke. While any refactoring is good career experience, be careful not to bite off more than you can chew. If you’ve started a refactoring that is growing out of control, and you’re finding it hard to keep track of all the changes, reduce the scope. Can you cut the refactor into smaller pieces, doing them one by one? If things get overly complex, it’s a great opportunity to ask for help from people more experienced in the codebase, to understand how they approach the same problem.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Refactor</span> the tests</b></p>
+      <p class="subsq">One under-appreciated refactor opportunity is refactoring unit tests of a project. Often, this is code with lots of duplication and poor structure, which does not follow many best practices. People adding tests usually follow the established style and rarely improve it.</p>
+      <p class="subsq">Refactoring tests can start with just one test, making it more readable, and then getting feedback via code reviews. From here, you can move to cleaning up a whole class. Extracting common functionality into their own methods, simplifying tests, and making them more readable is usually an easy win. You might also be able to facilitate a discussion on which style and practices to follow.</p>
+      <p class="subsq">With some practices and conventions agreed at the team level, you can go on to refactor other classes. Refactoring tests are often seen as a thankless task, but I believe they’re important. Also, you can practice being efficient at refactoring using IDE shortcuts. These tests have long-term effects: improvements you make will be followed by many other developers who write new tests, in accordance with your refined conventions.</p>
+      <p class="subsq">Be very careful when refactoring poorly tested production code. It’s key to have a safety net when refactoring frequently. This safety net is unit tests for the code. If you attempt to refactor code without automated tests, you will expend much more effort verifying that things work correctly.</p>
+      <p class="subsq">There are exceptions when it’s practical to refactor untested code. These are usually limited to parts of the codebase that the team deliberately did not test, such as the user interface (UI) layer. However, efficiency gains from quick refactoring are lost if you must manually verify every use case touched by the refactor.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Make refactoring</span> an everyday habit</b></p>
+      <p class="subsq">Strengthen your refactoring muscle. The ability to refactor without fear and with little effort is one you can only learn by exercising it frequently, making mistakes, and learning from them. For every few tasks you complete, make a point to do an important refactoring task, too.</p>
+      <h2 id="subhead-4" class="section-title subhead keep-with-next paragraph-follows case-upper">4. TESTING</h2>
+      <p class="first first-after-subhead">Competent software developers are seen as reliable, which partly derives from being able to give good enough time estimates for work of reasonable complexity. The other, even more important thing is that reliable developers’ code works as it should. How do these developers ensure this of their code?</p>
+      <p class="subsq"><b>They test code before requesting a code review or committing it.</b> I’m not necessarily talking about automated testing. Reliable developers first and foremost manually test their code when the work is done, and before they request a code review, or push it to production.</p>
+      <p class="subsq">They think about possible edge cases the code might encounter, and execute simple tests. If they build an API endpoint, they spin it up locally and make various requests to the endpoint to exercise the functionality. If they write a function which performs some logic, they make sure the function works as expected, even when invoking it with boundary conditions.</p>
+      <p class="subsq"><b>Reliable developers care deeply about edge cases. </b>They go through potential edge cases, and confirm with stakeholders what should happen in such scenarios. For example, when building user input fields, a reliable developer confirms they need to validate the user’s input, and what should happen if the user enters something different. Or, in an app for topping up a cash account, they’ll consider edge cases like negative amounts, or non-numeric values.</p>
+      <p class="subsq">Test cases, even manual ones, are things which reliable developers write down, even before starting development. They tend to extend this list as they go and find new, previously unconsidered edge cases. When the code is ready, they test for all cases and only commit the code when confident it works as it should.</p>
+      <p class="subsq">Developers tend to introduce bugs by skipping consideration of edge cases and test cases, and when they check in code on the assumption it will work. Bugs that emerge will almost certainly be overlooked edge cases. A developer may think: “no big deal, it happens to the best of us.” And yes, it does happen. But curiously enough, it doesn’t happen nearly as often to reliable developers who spend time thinking about edge cases, and don’t push their code until they’ve confirmed all assumptions.</p>
+      <p class="subsq"><b>Automated testing is a tool commonly used by competent developers. </b>They have already defined the edge cases and test cases. Earlier in their careers, they probably manually tested all these cases. However, once familiarized with unit and integration testing tools, they won’t go back to the slow, painful manual testing process.</p>
+      <p class="subsq">Some give test-driven development a go. This is a method of creating unit tests upfront, and then writing code which passes these tests. However, most developers stick with writing code and doing meaningful automated tests simultaneously. We dive into the different types of automated tests in <a class="content-external-link" href="part-003-chapter-014.xhtml">Part III: ”Testing.”</a></p>
+    </div>
+    <div class="fewer-than-100-notes">
+      <div class="endnotes">
+        <div class="endnotes-separator">
+        </div>
+        <div>
+          <div id="part-2-chapter-3-endnote-1-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-002-chapter-009.xhtml#part-2-chapter-3-endnote-1">1</a> </span>https://www.benkuhn.net</p>
+          </div>
+          <div id="part-2-chapter-3-endnote-2-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-002-chapter-009.xhtml#part-2-chapter-3-endnote-2">2</a> </span>http://www.paulgraham.com/avg.html</p>
+          </div>
+          <div id="part-2-chapter-3-endnote-3-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-002-chapter-009.xhtml#part-2-chapter-3-endnote-3">3</a> </span>https://www.benkuhn.net/blub</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,1346 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xml:lang="en"
+      lang="en"
+      xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:epub="http://www.idpf.org/2007/ops">
+<head>
+<title>TensorFlow in Action</title>
+<link rel="stylesheet" type="text/css" href="../../override_v1.css"/>
+<link rel="stylesheet" type="text/css" href="../../stylesheet.css"/><link rel="stylesheet" type="text/css" href="../../page_styles.css"/>
+</head>
+<body>
+<div id="book-content">
+<div id="sbo-rt-content" class="calibre"><h1 class="tochead"><a id="pgfId-1073345"></a>3 Keras and data retrieval in TensorFlow 2</h1>
+
+  <p class="co-summary-head"><a id="pgfId-1073346"></a>This chapter covers</p>
+
+  <ul class="calibre9">
+    <li class="co-summary-bullet"><a class="calibre8" id="pgfId-1073348"></a>Different APIs for<a class="calibre8" id="marker-1077649"></a> building models in Keras</li>
+
+    <li class="co-summary-bullet"><a class="calibre8" id="pgfId-1073349"></a>Retrieving and manipulating persisted data</li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073350"></a>We have explored the details of the low-level TensorFlow API, such as defining <span class="fm-code-in-text">tf.Variable</span> objects and <span class="fm-code-in-text">tf.Tensor</span> objects, which can be used to store things like numbers and strings. We also looked at some of the commonly used functionality provided in TensorFlow in the form of <span class="fm-code-in-text">tf.Operation</span>. Finally, we looked at some complex operations, such as matrix multiplication and convolution, in detail. If you analyze any standard deep neural network, you will see that it is made from standard mathematical operations such as matrix multiplication and convolution.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073351"></a>However, if you were to implement these networks using the low-level TensorFlow API, you’d find yourself replicating these operations in code many times, costing you valuable hours and making the code unmaintainable. But the good news is that you don’t have to. TensorFlow provides a submodule called Keras that takes care of this problem, and this is the focus of this chapter. Keras is a sub-library in TensorFlow that hides building blocks and provides a high-level API for developing machine learning models. In this chapter, we will see that Keras has several different APIs to choose from, depending on the complexity of your solution.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073352"></a>We will conclude this chapter by discussing another important aspect of machine learning: feeding data to models. Typically, we need to retrieve data from the disk (or web) and clean and process the data before feeding it to the model. We will discuss several different data retrieval facilities in TensorFlow such as the <span class="fm-code-in-text">tf.data</span> and <span class="fm-code-in-text">tensorflow-datasets</span> APIs<a class="calibre8" id="marker-1073354"></a> and how they simplify reading and manipulating data that eventually feeds into models.</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_36"><a id="pgfId-1073355"></a>3.1 Keras model-building APIs</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073358"></a>You<a class="calibre8" id="marker-1073356"></a><a class="calibre8" id="marker-1073357"></a> are developing a flower species classifier as part of a hackathon. Your team is going to create several different variations of multilayer perceptron to compare their performance against a flower species identification data set. The goal is to train the models that can output the flower species given several measurements of the flowers. The models you have to develop are as follows:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1073359"></a><i class="fm-italics">Model A</i>—A model that learns only from the provided features (baseline)</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1073360"></a><i class="fm-italics">Model B</i>—A model that uses the principal components of the features in addition to the features themselves (details discussed in section 3.1.3)</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1073361"></a><i class="fm-italics">Model C</i>—A model that uses an unorthodox hidden layer computation, which uses a multiplicative bias, in addition to the additive bias, not typically found in neural networks (details discussed in section 3.1.4)</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073362"></a>You are planning to use Keras, and you know it offers multiple model-building APIs. In order to provide the results quickly, you need to know which Keras API to use for which model.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073364"></a>Keras (<span class="fm-hyperlink"><a class="url" href="https://keras.io/">https://keras.io/</a></span>) initially started as a high-level API that can use multiple low-level backends (e.g., TensorFlow, Theano) and allow developers to build machine learning models easily. In other words, Keras hides the gory details of low-level operations and provides an intuitive API with which you can build models with a few lines of code. Since TensorFlow 1.4, Keras has been integrated into TensorFlow (<span class="fm-hyperlink"><a class="url" href="https://www.tensorflow.org/guide/keras/overview">https://www.tensorflow.org/guide/keras/overview</a></span>). You can import Keras using <span class="fm-code-in-text">import tensorflow.keras</span>. Keras has three main APIs:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1073366"></a>Sequential</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1073367"></a>Functional</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1073368"></a>Sub-classing</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073369"></a>The Sequential API is the easiest to use. However, it is a very constrictive API that only allows you to create a network that starts with one input, go through a sequence of layers, and end with one input. Next, the functional API requires more work to use. But it also provides more flexibility, such as having multiple inputs, parallel layers, and multiple outputs. Finally, the sub-classing API can be identified as the most difficult to wield. The idea is to create a Python object that represents your model or a layer in your model while using the low-level functionality provided by TensorFlow to achieve what’s needed. Let’s briefly go over how you can use these APIs. But we won’t stop there; we will look at these APIs in more detail in the coming chapters. Figure 3.1 highlights the main differences between the APIs.</p>
+
+  <p class="fm-figure"><img alt="03-01" class="calibre10" src="../../OEBPS/Images/03-01.png" width="1075" height="625"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1088168"></a>Figure 3.1 Sequential, functional, and sub-classing APIs in comparison.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073375"></a>Here, for model A we will use the Sequential API, as it is the simplest. To implement model B, which will have two input layers, we will use the functional API. Finally, to implement model C, for which we will need to implement a custom layer, we will use the sub-classing API.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_37"><a id="pgfId-1073376"></a>3.1.1 Introducing the data set</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073379"></a>Say<a class="calibre8" id="marker-1073377"></a> you decided to use a popular machine learning data set known as the Iris data set (<span class="fm-hyperlink"><a class="url" href="https://archive.ics.uci.edu/ml/datasets/Iris">https://archive.ics.uci.edu/ml/datasets/Iris</a></span>). This data set records sepal length, sepal width, petal length, and petal width for several different species of Iris flowers: <span class="fm-code-in-text">Iris-setosa</span>, <span class="fm-code-in-text">Iris-versicolor</span>, and <span class="fm-code-in-text">Iris-virginica</span>. For each flower, we have the sepal length/width and the petal length/width. As you can see, each input has four features, and each input can belong to one of three classes. To start, let’s download the data, do some quick analysis on it, and put it in a format that we can readily use for model training.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073381"></a>Initially, you need to make sure the environment is set up and the libraries are installed, as outlined in appendix A. Next, open the Jupyter notebook found at <span class="fm-code-in-text">Ch03-Keras-and-Data-Retrieval/3.1.Keras_APIs.ipynb</span>. Now, as shown in the code found in the notebook, we need to import the requests library for downloading data, pandas for manipulating that data, and, of course, TensorFlow:</p>
+  <pre class="programlisting">import requests
+import pandas as pd
+import tensorflow as tf</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073385"></a>Now we will download the data and save the data to a file:</p>
+  <pre class="programlisting">url = "https:/ /archive.ics.uci.edu/ml/machine-learning-databases/iris/iris.data"
+r = requests.get(url)
+ 
+# Writing data to a file
+with open('iris.data', 'wb') as f:
+  f.write(r.content)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073394"></a>We then read the data using pandas library’s <span class="fm-code-in-text">read_csv()</span> function<a class="calibre8" id="marker-1073392"></a> (<span class="fm-hyperlink"><a class="url" href="https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_csv.html">http://mng.bz/j2Op</a></span>):</p>
+  <pre class="programlisting">iris_df = pd.read_csv('iris.data', header=None)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073397"></a>Here, <span class="fm-code-in-text">iris_df</span> is a pandas DataFrame (<span class="fm-hyperlink"><a class="url" href="https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.html">http://mng.bz/Wxaw</a></span>). In its simplest form, a data frame can be thought as an informative matrix organized into rows and columns. You can inspect the first few rows of the data using the <span class="fm-code-in-text">iris_df.head()</span> command, which produces the following result:</p>
+  <pre class="programlisting">0     1       2       3       4
+0     5.1     3.5     1.4     0.2     Iris-setosa
+1     4.9     3.0     1.4     0.2     Iris-setosa
+2     4.7     3.2     1.3     0.2     Iris-setosa</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073403"></a>Then, we will make some cosmetic changes to the data to make it look better. We will provide appropriate column names (available from the data set’s webpage)</p>
+  <pre class="programlisting">iris_df.columns = ['sepal_length', 'sepal_width', 'petal_width', 'petal_length', 'label']</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073405"></a>and mapping the string label to an integer:</p>
+  <pre class="programlisting">iris_df["label"] = iris_df["label"].map({'Iris-setosa':0, 'Iris-versicolor':1, 'Iris-virginica':2})</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073407"></a>We end up with the following improved pandas DataFrame in our possession:</p>
+  <pre class="programlisting">      sepal_length   sepal_width   petal_width   petal_length   label
+0     5.1             3.5           1.4           0.2            0
+1     4.9             3.0           1.4           0.2            0
+2     4.7             3.2           1.3           0.2            0</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073412"></a>As the last step, we will shuffle the data by and separate the data features as <span class="fm-code-in-text">x</span> and data labels as <span class="fm-code-in-text">y</span>. We will also center the data by subtracting the mean from each column, as this usually leads to better performance:</p>
+  <pre class="programlisting">iris_df = iris_df.sample(frac=1.0, random_state=4321)
+x = iris_df[["sepal_length", "sepal_width", "petal_width", "petal_length"]]
+x = x - x.mean(axis=0)
+y = tf.one_hot(iris_df["label"], depth=3)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073417"></a>Here, <span class="fm-code-in-text">print(x)</span> will print out</p>
+  <pre class="programlisting">        sepal_length  sepal_width  petal_width  petal_length
+31      -0.443333        0.346    -2.258667     -0.798667
+23      -0.743333        0.246    -2.058667     -0.698667
+70       0.056667        0.146     1.041333      0.601333
+100      0.456667        0.246     2.241333      1.301333
+44      -0.743333        0.746    -1.858667     -0.798667
+..            ...          ...          ...           ...</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073425"></a>Note how the indices are not in order after shuffling the data. <span class="fm-code-in-text">print(y)</span> will output</p>
+  <pre class="programlisting">tf.Tensor(
+    [[1. 0. 0.]
+     [1. 0. 0.]
+     [0. 1. 0.]
+     ...
+     [0. 0. 1.]
+     [0. 0. 1.]
+     [0. 1. 0.]], 
+shape=(150, 3), dtype=float32)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073435"></a>Shuffling the data is an important step: the data is in a very specific order, with each class appearing one after another. But you achieve the best results when data has been shuffled so that each batch presented to the network has a good mix of all classes found in the full data set. You can also see that we used a transformation on <span class="fm-code-in-text">y</span> (or labels), known as <i class="fm-italics">one-hot encoding</i><a class="calibre8" id="marker-1081354"></a>. One-hot encoding converts each label to a unique vector of zeros, where a single element is one. For example, the labels 0, 1, and 2 are converted to the following one-hot encoded<a class="calibre8" id="marker-1081355"></a> vectors:</p>
+
+  <p class="fm-equation"><a id="pgfId-1073439"></a>0 <span class="fm-symbol1">→</span> [1, 0, 0]</p>
+
+  <p class="fm-equation"><a id="pgfId-1073440"></a>1 <span class="fm-symbol1">→</span> [0, 1, 0]</p>
+
+  <p class="fm-equation"><a id="pgfId-1073441"></a>2 <span class="fm-symbol1">→</span> [0, 0, 1]</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_38"><a id="pgfId-1073442"></a>3.1.2 The Sequential API</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073446"></a>With<a class="calibre8" id="marker-1081361"></a><a class="calibre8" id="marker-1081362"></a><a class="calibre8" id="marker-1081363"></a> the data ready to be fed in, it’s time to implement model A, the first neural network. The first model is quite straightforward and only needs to take the provided features and predict the flower species. You can use the Keras Sequential API, as it is the simplest, and all we need to do is stack several layers on top of each other sequentially. Figure 3.2 depicts the Sequential API compared to other APIs.</p>
+
+  <p class="fm-figure"><img alt="03-02" class="calibre10" src="../../OEBPS/Images/03-02.png" width="1075" height="639"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1088202"></a>Figure 3.2 The Sequential API compared to other APIs (grayed out)</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073452"></a>Let’s create a network that has the following:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1073453"></a>An input layer of 4 nodes</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1073454"></a>A 32-node hidden layer</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1073455"></a>A 16-node hidden layer</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1073456"></a>A 3-node output layer</p>
+    </li>
+  </ul>
+
+  <p class="fm-callout"><a id="pgfId-1073457"></a><span class="fm-callout-head">Note</span> The number of nodes for each layer is a hyperparameter of the model. In this case, we chose these values arbitrarily. But to obtain the best results, we should use a hyperparameter optimization algorithm (<span class="fm-hyperlink"><a class="url" href="http://mng.bz/8MJB">http://mng.bz/8MJB</a></span>) to find the best hyperparameters for a given problem.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073459"></a>Before we define the model, we need to import certain layers and the sequential model from TensorFlow. Then you can implement this model using just a single line of code (see the next listing).</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1078075"></a>Listing 3.1 Model A implemented with the Sequential API</p>
+  <pre class="programlisting">from tensorflow.keras.layers import Dense            <span class="fm-combinumeral">❶</span>
+from tensorflow.keras.models import Sequential       <span class="fm-combinumeral">❶</span>
+import tensorflow.keras.backend as K                 <span class="fm-combinumeral">❶</span>
+ 
+K.clear_session()                                    <span class="fm-combinumeral">❷</span>
+model = Sequential([                                 <span class="fm-combinumeral">❸</span>
+    Dense(32, activation='relu', input_shape=(4,)),  <span class="fm-combinumeral">❸</span>
+    Dense(16, activation='relu'),                    <span class="fm-combinumeral">❸</span>
+    Dense(3, activation='softmax')                   <span class="fm-combinumeral">❸</span>
+])</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1087635"></a><span class="fm-combinumeral">❶</span> Import necessary modules and classes.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1087663"></a><span class="fm-combinumeral">❷</span> Clear the TensorFlow computational graph before creating the model.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1087680"></a><span class="fm-combinumeral">❸</span> Define the model with the Sequential API.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073475"></a>Let’s analyze what we just did. You can create a sequential model using the <span class="fm-code-in-text">Sequential</span> object<a class="calibre8" id="marker-1073476"></a> and then pass a sequence of layers, such as the <span class="fm-code-in-text">Dense</span> layer<a class="calibre8" id="marker-1073477"></a>. A layer encapsulates typical reusable computations you can find in a neural network (e.g., hidden layer computation, convolution operations).</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073479"></a>The <span class="fm-code-in-text">Dense</span> layer<a class="calibre8" id="marker-1073478"></a> offers the core computation that happens in a fully connected network (i.e., going from an input (x) to a hidden output (h) using <i class="fm-italics">h</i> <i class="fm-italics">=</i> <i class="fm-italics">activation</i>(<i class="fm-italics">xW</i> <i class="fm-italics">+</i> <i class="fm-italics">b</i>)). The <span class="fm-code-in-text">Dense</span> layer<a class="calibre8" id="marker-1073480"></a> has two important parameters: the number of hidden units and the nonlinear activation. By stacking a set of <span class="fm-code-in-text">Dense</span> layers<a class="calibre8" id="marker-1073481"></a>, you have a multilayer, fully connected network. We are building the network using the following layers:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1073482"></a><span class="fm-code-in-text">Dense(32, activation='relu', input_shape=(4,))</span></p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1073483"></a><span class="fm-code-in-text">Dense(16, activation='relu')</span></p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1073484"></a><span class="fm-code-in-text">Dense(3, activation='softmax')</span></p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073487"></a>In the first <span class="fm-code-in-text">Dense</span> layer<a class="calibre8" id="marker-1073485"></a> you can see that an additional parameter called <span class="fm-code-in-text">input_shape</span><a class="calibre8" id="marker-1073486"></a> has been passed. <span class="fm-code-in-text">input_shape</span> is a key attribute in any model you create with TensorFlow. It is imperative that you know the exact shape of the input you want to pass to a model because the output of all the layers that follow depends on the shape of the input. In fact, certain layers can only process certain input shapes.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073488"></a>In this example, we are saying the input will be of shape <span class="fm-code-in-text">[None, 4]</span>. Though we have only specified 4 in the shape, Keras automatically adds an unspecified (i.e., <span class="fm-code-in-text">None</span>) dimension to the <span class="fm-code-in-text">input_shape</span>, which represents the batch dimension of the input. As you probably already know, deep neural networks process data in batches (i.e., more than a single example at once). The other dimension (of size 4) is the feature dimension, meaning that the network can accept an input that has four features in it. Having the batch dimension as <span class="fm-code-in-text">None</span> leaves the batch dimension unspecified, allowing you to pass any arbitrary number of examples at model training/ inference time.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073489"></a>Another important aspect of a layer is the nonlinear activation used in the layer. Here, we can see that the first two layers use ReLU (rectified linear units<a class="calibre8" id="marker-1073490"></a>) activation. It is a very simple yet powerful activation that’s prevalent in feed-forward models. ReLU does the following:</p>
+
+  <p class="fm-equation"><a id="pgfId-1073491"></a><i class="fm-italics">y</i> = max (0, <i class="fm-italics">x</i>)</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073492"></a>The final layer has a softmax activation. As previously discussed, softmax activation normalizes the final scores of the last layer (i.e., logits) to a valid probability distribution. Specifically,</p>
+
+  <p class="fm-equation"><img alt="03_02a" class="calibre10" src="../../OEBPS/Images/03_02a.png" width="148" height="86"/><br class="calibre2"/>
+  <a id="pgfId-1077878"></a></p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073497"></a>As an example, assume the final layer without the softmax activation produced</p>
+  <pre class="programlisting">[15, 30, 5]</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073499"></a>Applying the softmax normalization converts these values to</p>
+  <pre class="programlisting">[15/(15+30+5), 30/(15+30+5), 5/(15+30+5)]
+= [0.3, 0.6, 0.1]</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073502"></a>Now that the model is defined, we need to perform a crucial step, known as <i class="fm-italics">model compilation</i><a class="calibre8" id="marker-1073503"></a>, if we are to successfully use it. For our model we will use</p>
+  <pre class="programlisting">model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['acc'])</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073505"></a>Here, we are setting the model up with a loss function, optimizer, and metric. The loss function says how good or bad the model is doing on the given data (e.g., categorical cross-entropy). The lower the loss, the better. Along with that loss function, we use an optimizer, which knows how to change the weights and biases of the model in such a way that the loss is reduced. Here, we chose the loss <span class="fm-code-in-text">categorical_crossentropy</span><a class="calibre8" id="marker-1081638"></a> (<span class="fm-hyperlink"><a class="url" href="http://mng.bz/EWej">http://mng.bz/EWej</a></span>), which typically works well for multiclass classification problems and the optimizer <span class="fm-code-in-text">adam</span><a class="calibre8" id="marker-1081640"></a> (<span class="fm-hyperlink"><a class="url" href="https://arxiv.org/pdf/1412.6980.pdf">https://arxiv.org/pdf/1412.6980.pdf</a></span>), which is a common choice due to its remarkable performance in a variety of problems. We can also optionally define metrics to keep an eye on the model (e.g., model accuracy). Finally, we can inspect the model you just created using</p>
+  <pre class="programlisting">model.summary()</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073511"></a>which outputs</p>
+  <pre class="programlisting">Model: "sequential"
+_________________________________________________________________
+Layer (type)                 Output Shape              Param #   
+=================================================================
+dense_3 (Dense)              (None, 32)                160       
+_________________________________________________________________
+dense_4 (Dense)              (None, 16)                528       
+_________________________________________________________________
+dense_5 (Dense)              (None, 3)                 51        
+=================================================================
+Total params: 739
+Trainable params: 739
+Non-trainable params: 0
+_________________________________________________________________</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073526"></a>The model summary clearly shows the number of layers, type of layers, output shape of each layer, and number of parameters in each layer. Let’s train this model to classify various iris flowers using the data set we prepared earlier. We train a Keras model using the convenient <span class="fm-code-in-text">fit()</span> function<a class="calibre8" id="marker-1073527"></a>:</p>
+  <pre class="programlisting">model.fit(x, y, batch_size=64, epochs=25)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073530"></a>The <span class="fm-code-in-text">fit()</span> function<a class="calibre8" id="marker-1073529"></a> accepts many different arguments:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1073531"></a><span class="fm-code-in-text">X</span>—Data features</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1073533"></a><span class="fm-code-in-text">Y</span>—Data labels (one-hot encoded)</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1073534"></a><span class="fm-code-in-text">batch size</span> (optional)—Number of data points in a single batch</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1073535"></a><span class="fm-code-in-text">epochs</span> (optional)—Number of times repeating the data set during model training</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073536"></a>The values, such as <span class="fm-code-in-text">batch_size</span> and <span class="fm-code-in-text">epochs</span>, have been chosen empirically. If you run the previous code, you will get the following result:</p>
+  <pre class="programlisting">Train on 150 samples
+Epoch 1/25
+150/150 [==============================] - 0s 2ms/sample - loss: 1.1773 - acc: 0.2667
+Epoch 2/25
+150/150 [==============================] - 0s 148us/sample - loss: 1.1388 - acc: 0.2933
+...
+Epoch 24/25
+150/150 [==============================] - 0s 104us/sample - loss: 0.6254 - acc: 0.7400
+Epoch 25/25
+150/150 [==============================] - 0s 208us/sample - loss: 0.6078 - acc: 0.7400</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073547"></a>It looks like our mini project was reasonably successful, as we observe a steady increase of the training accuracy (“<span class="fm-code-in-text">acc</span>”) up to 74% in just 25 epochs. However, it is not advisable to rely only on the training accuracy to decide if a model has performed better. There are various techniques to do so, which we will review in the coming<a class="calibre8" id="marker-1073548"></a><a class="calibre8" id="marker-1073549"></a><a class="calibre8" id="marker-1073550"></a> chapters.</p>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1073551"></a>Reproducibility in machine learning</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1073552"></a>Reproducibility is an important concept in machine learning. Reproducibility means that you can run an experiment, publish the results, and ensure that someone interested in your research can reproduce the results. It also means that you will get the same result across multiple trials. If you look at the notebook <span class="fm-code-in-text1">ch02/1.Tensorflow_ Fundamentals.ipynb</span>, you will see one such measure we have taken to make sure the results are consistent across multiple trials. You will see the following code in the “Library imports and some setups” section:</p>
+    <pre class="programlisting">def fix_random_seed(seed):
+    try:
+        np.random.seed(seed)
+    except NameError:
+        print("Warning: Numpy is not imported. Setting the seed for Numpy failed.")
+    try:
+        tf.random.set_seed(seed)
+    except NameError:
+        print("Warning: TensorFlow is not imported. Setting the seed for TensorFlow failed.")
+    try:
+        random.seed(seed)
+    except NameError:
+        print("Warning: random module is not imported. Setting the seed for random failed.")
+ 
+# Fixing the random seed
+fix_random_seed(4321)</pre>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1073569"></a>The random seed is a common element that affects the reproducibility of the research as neural networks ubiquitously use random initializations. By fixing the seed, you make sure you will get the same random number sequence every time you run your code. This means that the weight and bias initializations of your model will be the same across multiple trials. This results in the same accuracy values given the other conditions are not changed.</p>
+
+    <p class="fm-sidebar-text"><br class="calibre2"/></p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1081648"></a>To make sure that your code is producing consistent results, make sure you call the <span class="fm-code-in-text1">fix_random_seed</span> function<a id="marker-1081689"></a> (by running the first code cell) when you are trying out the code exercises.</p>
+  </div>
+
+  <h3 class="fm-head1" id="sigil_toc_id_39"><a id="pgfId-1073573"></a>3.1.3 The functional API</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073577"></a>Now<a class="calibre8" id="marker-1073574"></a><a class="calibre8" id="marker-1073575"></a><a class="calibre8" id="marker-1073576"></a> it’s time to implement the second model (i.e., Model B) that uses principal components as an extra set of inputs. The hope is that this additional input (the principal components) will provide additional features to the model, which will improve model performance. Principal components are extracted using an algorithm known as <i class="fm-italics">principal component analysis</i> (PCA<a class="calibre8" id="marker-1073578"></a><a class="calibre8" id="marker-1073579"></a>). PCA is a dimensionality reduction technique that will project high-dimensional data to a lower-dimensional space while trying to preserve the variance present in the data. Now you need to create a model that takes two different input feature sets.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073580"></a>You no longer can use the Sequential API as it is only designed to handle sequential models (i.e., single input layer going through a sequence of layers to produce a single output). Here, we have two different inputs: the raw features of flowers and the PCA features. That means two layers work in parallel to produce two different hidden representations, concatenate that, and finally produce the class probabilities for the inputs, as highlighted in figure 3.3. The functional API is a great choice for these kind of models, as it can be used to define models with multiple inputs or multiple outputs.</p>
+
+  <p class="fm-figure"><img alt="03-03" class="calibre10" src="../../OEBPS/Images/03-03.png" width="1089" height="639"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1088236"></a>Figure 3.3 The functional API compared to other APIs (grayed out)</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073587"></a>Let’s get started. First, we need to import the following <span class="fm-code-in-text">layer</span><a class="calibre8" id="marker-1073586"></a> and <span class="fm-code-in-text">model</span> objects, as these will make the core of our model:</p>
+  <pre class="programlisting">from tensorflow.keras.layers import Input, Dense, Concatenate
+from tensorflow.keras.models import Model</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073592"></a>Next, we need to create two <span class="fm-code-in-text">Input</span> layers<a class="calibre8" id="marker-1073591"></a> (for the raw input features and the PCA features):</p>
+  <pre class="programlisting">inp1 = Input(shape=(4,))
+inp2 = Input(shape=(2,))</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073596"></a>The <span class="fm-code-in-text">Input</span> layer<a class="calibre8" id="marker-1073595"></a> for the raw input features will have four feature columns, whereas the <span class="fm-code-in-text">Input</span> layer<a class="calibre8" id="marker-1073597"></a> for the PCA features will have two feature columns (as we are only keeping the first two principal components). If you look back at how we defined the model using the Sequential API, you will notice we didn’t use an <span class="fm-code-in-text">Input</span> layer<a class="calibre8" id="marker-1073598"></a>. This is automatically added when using the Sequential API. However, when using the functional API, we need to explicitly specify the <span class="fm-code-in-text">Input</span> layers<a class="calibre8" id="marker-1073599"></a> we need to include in our model.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073601"></a>With the two <span class="fm-code-in-text">Input</span> layers<a class="calibre8" id="marker-1073600"></a> defined, we can now compute individual hidden representations for those layers:</p>
+  <pre class="programlisting">out1 = Dense(16, activation='relu')(inp1)
+out2 = Dense(16, activation='relu')(inp2)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073605"></a>Here, <span class="fm-code-in-text">out1</span> represents the hidden representation of <span class="fm-code-in-text">inp1</span> (i.e., raw features) and <span class="fm-code-in-text">out2</span> is the hidden representation of <span class="fm-code-in-text">inp2</span> (i.e., PCA features). We then concatenate the two hidden representations:</p>
+  <pre class="programlisting">out = Concatenate(axis=1)([out1,out2])</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073608"></a>Let’s delve into what happens when you use the <span class="fm-code-in-text">Concatenate</span> layer<a class="calibre8" id="marker-1073607"></a> in more detail. The <span class="fm-code-in-text">Concatenate</span> layer<a class="calibre8" id="marker-1073609"></a> simply concatenates two or more inputs along a given axis. In this example, we have two inputs to the <span class="fm-code-in-text">Concatenate</span> layer<a class="calibre8" id="marker-1073610"></a> (i.e., <span class="fm-code-in-text">[None, 16]</span> and <span class="fm-code-in-text">[None, 16]</span>) and want to concatenate them along the second axis (i.e., <span class="fm-code-in-text">axis=1</span>). Remember that Keras adds an additional batch dimension to the input/output tensors when you specify the <span class="fm-code-in-text">shape</span> argument. This operation results in a <span class="fm-code-in-text">[None, 32]</span>-sized tensor. From this point on, you only have a single sequence of layers. We will define a 16-node <span class="fm-code-in-text">Dense</span> layer<a class="calibre8" id="marker-1073611"></a> with <span class="fm-code-in-text">relu</span> activation<a class="calibre8" id="marker-1073612"></a> and finally an output layer that has three nodes with <span class="fm-code-in-text">softmax</span> normalization<a class="calibre8" id="marker-1073613"></a>:</p>
+  <pre class="programlisting">out = Dense(16, activation='relu')(out)
+out = Dense(3, activation='softmax')(out)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073617"></a>We need to do one extra step: create a <span class="fm-code-in-text">Model</span> object<a class="calibre8" id="marker-1073616"></a> that says what the inputs and outputs are. As of now, we have a bunch of layers and no <span class="fm-code-in-text">Model</span> object<a class="calibre8" id="marker-1073618"></a>. Finally, we compile the model as we did before. We will choose <span class="fm-code-in-text">categorical_crossentropy</span><a class="calibre8" id="marker-1073619"></a> as the loss and <span class="fm-code-in-text">adam</span><a class="calibre8" id="marker-1073620"></a> as the optimizer, as we did before. We will also monitor the training accuracy:</p>
+  <pre class="programlisting">model = Model(inputs=[inp1, inp2], outputs=out)
+model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['acc'])</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073623"></a>The full code for this model is provided in the following listing.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1073625"></a>Listing 3.2 Model B implemented with the Keras functional API</p>
+  <pre class="programlisting">from tensorflow.keras.layers import Input, Dense, Concatenate
+from tensorflow.keras.models import Model
+import tensorflow.keras.backend as K
+ 
+K.clear_session()                                                                <span class="fm-combinumeral">❶</span>
+ 
+inp1 = Input(shape=(4,))                                                         <span class="fm-combinumeral">❷</span>
+inp2 = Input(shape=(2,))                                                         <span class="fm-combinumeral">❷</span>
+ 
+out1 = Dense(16, activation='relu')(inp1)                                        <span class="fm-combinumeral">❸</span>
+out2 = Dense(16, activation='relu')(inp2)                                        <span class="fm-combinumeral">❸</span>
+ 
+out = Concatenate(axis=1)([out1,out2])                                           <span class="fm-combinumeral">❹</span>
+ 
+out = Dense(16, activation='relu')(out)
+out = Dense(3, activation='softmax')(out) 
+ 
+model = Model(inputs=[inp1, inp2], outputs=out)                                  <span class="fm-combinumeral">❺</span>
+model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['acc'])<span class="fm-combinumeral">❻</span></pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1086984"></a><span class="fm-combinumeral">❶</span> Making sure we are clearing out the TensorFlow graph</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1087005"></a><span class="fm-combinumeral">❷</span> The two input layers. One input layer has four features; the other has two.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1087022"></a><span class="fm-combinumeral">❸</span> The two parallel hidden layers</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1087049"></a><span class="fm-combinumeral">❹</span> The concatenation layer that combines two parallel outputs: out1 and out2</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1087066"></a><span class="fm-combinumeral">❺</span> The model definition</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1087083"></a><span class="fm-combinumeral">❻</span> Compiling the model with a loss, an optimizer, and a metric</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073651"></a>Now you can print the model summary</p>
+  <pre class="programlisting">model.summary()</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073653"></a>which gives</p>
+  <pre class="programlisting">Model: "model"
+_____________________________________________________________________________________
+Layer (type)                    Output Shape         Param #     Connected to 
+=====================================================================================
+input_1 (InputLayer)            [(None, 4)]          0 
+_____________________________________________________________________________________
+input_2 (InputLayer)            [(None, 2)]          0 
+_____________________________________________________________________________________
+dense (Dense)                   (None, 16)           80          input_1[0][0]  
+_____________________________________________________________________________________
+dense_1 (Dense)                 (None, 16)           48          input_2[0][0]  
+_____________________________________________________________________________________
+concatenate (Concatenate)       (None, 32)           0           dense[0][0]        
+                                                                 dense_1[0][0]      
+_____________________________________________________________________________________
+dense_2 (Dense)                 (None, 16)           528         concatenate[0][0]  
+_____________________________________________________________________________________
+dense_3 (Dense)                 (None, 3)            51          dense_2[0][0] 
+=====================================================================================
+Total params: 707
+Trainable params: 707
+Non-trainable params: 0
+_____________________________________________________________________________________</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073677"></a>What do you think about this summary representation? Can you tell what kind of a model it is by looking at it? Unfortunately, no. Though we have parallel layers in our model, the summary looks like we have a sequence of layer-processing inputs and outputs one after another. Can we obtain a better representation than this? Yes, we can!</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073678"></a>Keras also offers the ability to visualize the model as a network diagram. You can easily do this with</p>
+  <pre class="programlisting">tf.keras.utils.plot_model(model)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073680"></a>If you run this command on a Jupyter notebook, you will have the inline output of the following graph (figure 3.4). It is now much clearer to see what’s going on in our model.</p>
+
+  <p class="fm-figure"><img alt="03-04" class="calibre10" src="../../OEBPS/Images/03-04.png" width="614" height="531"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1088270"></a>Figure 3.4 An illustration of the model we created with the functional API. You can see the parallel input layers and hidden layers at the top. The final output layer is at the bottom.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073686"></a>If you need to save this diagram to a file, simply do</p>
+  <pre class="programlisting">tf.keras.utils.plot_model(model, to_file='model.png’)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073688"></a>If you need to see input/output sizes in addition to the layer names and types, you can do that by setting the <span class="fm-code-in-text">show_shapes</span> parameter to <span class="fm-code-in-text">True</span></p>
+  <pre class="programlisting">tf.keras.utils.plot_model(model, show_shapes=True)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073691"></a>which will return figure 3.5.</p>
+
+  <p class="fm-figure"><img alt="03-05" class="calibre10" src="../../OEBPS/Images/03-05.png" width="1064" height="578"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1088304"></a>Figure 3.5 Keras model plot with <span class="fm-code-in-figurecaption">show_shapes=True</span></p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073697"></a>Remember that we have two inputs, original features (<span class="fm-code-in-text">x</span>) and the first two principal components of x (let’s call it <span class="fm-code-in-text">x_pca</span>). You can compute the first two principal components as follows (using the scikit-learn library):</p>
+  <pre class="programlisting">from sklearn.decomposition import PCA
+ 
+pca_model = PCA(n_components=2, random_state=4321)
+ 
+x_pca = pca_model.fit_transform(x)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073703"></a>PCA is already implemented in scikit-learn. You define a PCA object and pass the value 2 to the <span class="fm-code-in-text">n_components</span> argument. You also fix the random seed to ensure consistency across trials. Then you can call the method <span class="fm-code-in-text">fit_transform(x)</span> to get the final PCA features. You can train this model as you did before by calling</p>
+  <pre class="programlisting">model.fit([x, x_pca], y, batch_size=64, epochs=10)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073705"></a>Sadly, you will not see much of an accuracy improvement. The results will be on par with what you achieved earlier. In the given code example, you would have around 6% accuracy improvement when using this model. However, you will see that this gap will become smaller and smaller if you increase the number of epochs. This is mostly because adding PCA features doesn’t really add much value. We are reducing four dimensions to two, which is unlikely to result in better features than what we already have. Let’s try our luck in the next<a class="calibre8" id="marker-1073706"></a><a class="calibre8" id="marker-1073707"></a><a class="calibre8" id="marker-1073708"></a> exercise.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_40"><a id="pgfId-1073709"></a>3.1.4 The sub-classing API</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073713"></a>Back<a class="calibre8" id="marker-1079810"></a><a class="calibre8" id="marker-1079811"></a><a class="calibre8" id="marker-1079812"></a> in the research lab, it is a bit disheartening to see that adding principal components did not improve the results. However, the team is impressed with your knowledge of exactly which API to use for a given model. A team member suggested a final model. Currently a dense layer computes its output using</p>
+
+  <p class="fm-equation"><a id="pgfId-1073714"></a><i class="fm-italics">h</i> = <span class="fm-symbol1">α</span>(<i class="fm-italics">xW + b</i>)</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073715"></a>where <span class="fm-symbol1">α</span> is some nonlinearity. You want to see if results can be improved by adding another bias (i.e., in addition to the additive bias, we add a multiplicative bias) so that the equation becomes</p>
+
+  <p class="fm-equation"><a id="pgfId-1073716"></a><i class="fm-italics">h</i> = <span class="fm-symbol1">α</span>([<i class="fm-italics">xW + b</i>] × <i class="fm-italics">b</i><sub class="fm-subscript">mul</sub>)</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073722"></a>This is where layer sub-classing will save the day, as there is no prebuilt layer in Keras that readily offers this functionality. The final API offered by Keras is the sub-classing API (figure 3.6), which will allow us to define the required computations as a unit of computation (i.e., a layer) and reuse it with ease when defining a model. Sub-classing comes from the software engineering concept of <i class="fm-italics">inheritance</i><a class="calibre8" id="marker-1073723"></a>. The idea is that you have a super class that provides general functionality for a type of object (e.g., a <span class="fm-code-in-text">Layer</span> class<a class="calibre8" id="marker-1073724"></a>), and you sub-class (or inherit) from that layer to create a more specific layer that achieves a specific functionality.</p>
+
+  <p class="fm-figure"><img alt="03-06" class="calibre10" src="../../OEBPS/Images/03-06.png" width="1089" height="633"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1088345"></a>Figure 3.6 Sub-classing API compared to other APIs (grayed out)</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073725"></a>The sub-classing API is drastically different from the sequential and functional APIs. Here, you are creating a Python class that defines the underlying operations of a layer or a model. In this book we will focus on sub-classing layers (i.e., not models). In my opinion, there will be more instances where you subclass a layer than a model because layer sub-classing is more commodious and can be needed in cases where you have a single model or multiple models. However, model sub-classing is only required if you are creating larger composite models that consist of many smaller models. It is also worthwhile to note that once you learn layer sub-classing, it’s relatively easy to extend to model sub-classing.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073726"></a>When sub-classing a layer, there are three important functions that you need to override from the <span class="fm-code-in-text">Layer</span> base class<a class="calibre8" id="marker-1073727"></a> you inherit from:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1073729"></a><span class="fm-code-in-text">__init__()</span>—Initializes the layer with any parameters it accepts</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1073731"></a><span class="fm-code-in-text">build</span><a class="calibre8" id="marker-1073730"></a><span class="fm-code-in-text">()</span>—Where the parameters of the model will be created</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1073733"></a><span class="fm-code-in-text">call</span><a class="calibre8" id="marker-1073732"></a><span class="fm-code-in-text">()</span>—Defines the computations that need to happen during the forward pass</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073735"></a>Here’s how you would write our new layer. We will call our custom layer <span class="fm-code-in-text">MulBiasDense</span><a class="calibre8" id="marker-1073734"></a> appropriately. Notice how this layer inherits from the base layer <span class="fm-code-in-text">Layer</span><a class="calibre8" id="marker-1073736"></a> found in the <span class="fm-code-in-text">tensorflow.keras.layers</span> submodule<a class="calibre8" id="marker-1073737"></a>.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1073739"></a>Listing 3.3 Sub-classing a new layer with Keras</p>
+  <pre class="programlisting">from tensorflow.keras import layers
+ 
+class MulBiasDense(layers.Layer):
+ 
+    def __init__(self, units=32, input_dim=32, activation=None):              <span class="fm-combinumeral">❶</span>
+        super(MulBiasDense, self).__init__()                                  <span class="fm-combinumeral">❶</span>
+        self.units = units                                                    <span class="fm-combinumeral">❶</span>
+        self.activation = activation                                          <span class="fm-combinumeral">❶</span>
+    
+    def build(self, input_shape):                                             <span class="fm-combinumeral">❷</span>
+        self.w = self.add_weight(shape=(input_shape[-1], self.units),         <span class="fm-combinumeral">❷</span>
+                                 initializer='glorot_uniform', trainable=True)<span class="fm-combinumeral">❷</span>
+        self.b = self.add_weight(shape=(self.units,),                         <span class="fm-combinumeral">❷</span>
+                                 initializer='glorot_uniform', trainable=True)<span class="fm-combinumeral">❷</span>
+        self.b_mul = self.add_weight(shape=(self.units,),                     <span class="fm-combinumeral">❷</span>
+                                 initializer='glorot_uniform', trainable=True)<span class="fm-combinumeral">❷</span>
+ 
+    def call(self, inputs):                                                   <span class="fm-combinumeral">❸</span>
+        out = (tf.matmul(inputs, self.w) + self.b) * self.b_mul               <span class="fm-combinumeral">❸</span>
+        return layers.Activation(self.activation)(out)                        <span class="fm-combinumeral">❸</span></pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1086633"></a><span class="fm-combinumeral">❶</span> Defines various hyperparameters required to define the layer</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1086654"></a><span class="fm-combinumeral">❷</span> Defines all the parameters in the layer as tf.Variable objects. self.b_mul represents the multiplicative bias.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1086671"></a><span class="fm-combinumeral">❸</span> Defines the computation that needs to happen when data is fed to the layer</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073764"></a>First, we have the <span class="fm-code-in-text">__init__()</span> function. There are two parameters for the layer: the number of hidden units and the type of activation. The activation defaults to <span class="fm-code-in-text">None</span>, meaning that if unspecified, there will be no nonlinear activation (i.e., only a linear transformation):</p>
+  <pre class="programlisting">def __init__(self, units=32, activation=None):
+    super(MulBiasDense, self).__init__()
+    self.units = units
+    self.activation = activation</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073770"></a>Next, we implement the <span class="fm-code-in-text">build()</span> function<a class="calibre8" id="marker-1073769"></a>, a significant puzzle piece of sub-classing. All the parameters (e.g., weights and biases) are created within this function:</p>
+  <pre class="programlisting">def build(self, input_shape):
+    self.w = self.add_weight(shape=(input_shape[-1], self.units),
+                             initializer='glorot_uniform', trainable=True)
+    self.b = self.add_weight(shape=(self.units,),
+                             initializer='glorot_uniform', trainable=True)
+    self.b_mul = self.add_weight(shape=(self.units,),
+                                 initializer='glorot_uniform', trainable=True)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073778"></a>Here, the parameters <span class="fm-code-in-text">w</span>, <span class="fm-code-in-text">b</span>, and <span class="fm-code-in-text">b_mul</span> refer to <i class="fm-italics">W</i>, <i class="fm-italics">b</i>, and <i class="fm-italics">b</i><sub class="fm-subscript">mul</sub> in the equation. For each parameter, we provide the shape, an initializer, and a Boolean to indicate trainability. The initializer <span class="fm-code-in-text">'glorot_uniform'</span><a class="calibre8" id="marker-1073779"></a> (<span class="fm-hyperlink"><a class="url" href="http://mng.bz/N6A7">http://mng.bz/N6A7</a></span>) used here is a popular neural network initializer. Finally, we need to write the <span class="fm-code-in-text">call()</span> function<a class="calibre8" id="marker-1073781"></a>, which defines how the inputs are going to be transformed to produce an output:</p>
+  <pre class="programlisting">def call(self, inputs):
+    out = (tf.matmul(inputs, self.w) + self.b) * self.b_mul
+    return layers.Activation(self.activation)(out)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073785"></a>There it is: our first subclassed layer. It is worth noting that there are several other functions you need to be aware of when it comes to subclassing layers:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1073787"></a><span class="fm-code-in-text">compute_output_shape()</span>—Typically, Keras will automatically infer the shape of the output of the layer. But, if you do too many complex transformations, Keras might lose track, and you will need to explicitly define what the output shape is using this function.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1073789"></a><span class="fm-code-in-text">get_config()</span>—If you plan to save your model to disk after training, you need to implement this function, which returns a dictionary of the parameters taken in by the layer.</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073790"></a>With the new layer defined, you can use the functional API as before to create a model, as the following listing shows.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1073792"></a>Listing 3.4 Model C implemented with the Keras sub-classed API</p>
+  <pre class="programlisting">from tensorflow.keras.layers import Input, Dense, Concatenate                    <span class="fm-combinumeral">❶</span>
+from tensorflow.keras.models import Model                                        <span class="fm-combinumeral">❶</span>
+import tensorflow.keras.backend as K                                             <span class="fm-combinumeral">❶</span>
+import tensorflow as tf                                                          <span class="fm-combinumeral">❶</span>
+ 
+K.clear_session()                                                                <span class="fm-combinumeral">❷</span>
+ 
+inp = Input(shape=(4,))                                                          <span class="fm-combinumeral">❸</span>
+out = MulBiasDense(units=32, activation='relu')(inp)                             <span class="fm-combinumeral">❹</span>
+out = MulBiasDense(units=16, activation='relu')(out)                             <span class="fm-combinumeral">❹</span>
+out = Dense(3, activation='softmax')(out)                                        <span class="fm-combinumeral">❺</span>
+ 
+model = Model(inputs=inp, outputs=out)                                           <span class="fm-combinumeral">❻</span>
+model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['acc'])<span class="fm-combinumeral">❼</span></pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1085921"></a><span class="fm-combinumeral">❶</span> Importing necessary modules and classes</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1085942"></a><span class="fm-combinumeral">❷</span> Making sure we are clearing out the TensorFlow graph</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1085959"></a><span class="fm-combinumeral">❸</span> Defining the input layer</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1085979"></a><span class="fm-combinumeral">❹</span> Defining two layers with the new sub-classed layer MulBiasDense</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1085996"></a><span class="fm-combinumeral">❺</span> Defining the softmax output layer</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1086013"></a><span class="fm-combinumeral">❻</span> Defining the final model</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1086030"></a><span class="fm-combinumeral">❼</span> Compiling the model with a loss function, an optimizer, and accuracy as metrics</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073814"></a>Unfortunately, in our experiments, none of the architectural improvements we tried delivered a significantly better result. But you have managed to impress your colleagues by knowing which API to use for which model, enabling the group to have the results ready for the paper deadline. Table 3.1 further summarizes main advantages and disadvantages of the APIs we discussed.</p>
+
+  <p class="fm-table-caption"><a id="pgfId-1078853"></a>Table 3.1 Pros and cons of using various Keras APIs</p>
+
+  <table border="1" class="contenttable" width="100%">
+    <colgroup class="calibre12">
+      <col class="calibre13" span="1" width="15%"/>
+      <col class="calibre13" span="1" width="15%"/>
+      <col class="calibre13" span="1" width="70%"/>
+    </colgroup>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="2">
+        <p class="fm-table-body"><a id="pgfId-1078912"></a>Sequential API</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1078914"></a>Pros</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1078916"></a>Models implemented with the Sequential API are easy to understand and are concise.</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1078867"></a>Cons</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1078869"></a>Cannot implement models having complex architectural characteristics such as multiple inputs/outputs.</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="2">
+        <p class="fm-table-body"><a id="pgfId-1078871"></a>Functional API<a id="marker-1078900"></a></p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1078873"></a>Pros</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1078875"></a>Can be used to implement models with complex architectural elements such as multiple inputs/outputs.</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1078879"></a>Cons</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1078881"></a>The developer needs to manually connect various layers correctly and create a model.</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="3">
+        <p class="fm-table-body"><a id="pgfId-1078883"></a>Sub-classing API</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1078885"></a>Pros</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1078887"></a>Can create custom layers and models that are not provided as standard layers.</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="2">
+        <p class="fm-table-body"><a id="pgfId-1078891"></a>Cons</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1078893"></a>Requires thorough understanding of low-level functionality provided by TensorFlow.</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1078899"></a>Due to the user-defined nature, it can lead to instabilities and difficulties in debugging.</p>
+      </td>
+    </tr>
+  </table>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073857"></a>In the next section, we will discuss different ways you can import and ingest data in TensorFlow.</p>
+
+  <p class="fm-head2"><a id="pgfId-1073858"></a>Exercise 1</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073859"></a>Say you need to create a fully connected neural network that has a single input layer and two output layers. Which API you think is the most suitable for<a class="calibre8" id="marker-1073860"></a><a class="calibre8" id="marker-1073861"></a><a class="calibre8" id="marker-1073862"></a> this<a class="calibre8" id="marker-1073863"></a><a class="calibre8" id="marker-1073864"></a> task?</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_41"><a id="pgfId-1073866"></a>3.2 Retrieving data for TensorFlow/Keras models</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073869"></a>So<a class="calibre8" id="marker-1073868"></a> far, we have looked at how to implement various models with different Keras APIs. At this point, you should be comfortable with knowing which API to use (or sometimes which API <i class="fm-italics">not</i> to use) when you see the architecture of a model. Moving forward, we will learn about reading data to train these models using TensorFlow/Keras.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073870"></a>Let’s assume that you recently joined a startup as a data scientist who is experimenting with software encompassing a machine learning model to identify flower species (using images). They already have a custom-written data pipeline that can take a batch of images and a batch of labels and train a model. However, this data pipeline is quite obscure and difficult to maintain. You’re tasked with implementing a replacement data pipeline that is easy to understand and maintain. This is a golden opportunity to impress your boss by quickly prototyping a data pipeline using TensorFlow.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073871"></a>A model doesn’t have any value unless it has been trained with data. As more (quality) data means better performance, it is important to feed data to the model in a scalable and efficient manner. It’s time to explore features of TensorFlow that allow you to create input pipelines that achieve this. There are two popular alternatives to retrieving data:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1073872"></a>The <span class="fm-code-in-text">tf.data</span> API</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1073873"></a>Keras data generators</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073874"></a>The data set you’ll be working with (downloaded from <span class="fm-hyperlink"><a class="url" href="http://mng.bz/DgVa">http://mng.bz/DgVa</a></span>) contains a collection of 210 flower images (in .png format) and a CSV (comma-separated value) file that contains the filename and label.</p>
+
+  <p class="fm-callout"><a id="pgfId-1073875"></a><span class="fm-callout-head">Note</span> There is also a third method, which is to use a Python package to access popular machine learning data sets. This package is known as the <span class="fm-code-in-text1">tensorflow-datasets</span>. This means that this method works only if you want to use a data set that is already supported by the package.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073876"></a>It’s time to crack some knuckles and get to implementing the data pipeline.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_42"><a id="pgfId-1073877"></a>3.2.1 tf.data API</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073881"></a>Let’s<a class="calibre8" id="marker-1073879"></a><a class="calibre8" id="marker-1073880"></a> see what an input pipeline might look like. For example, an input pipeline for your image classification task might look like figure 3.7. Initially, the integer labels are read from a text file (stored as [filename, label] records). Next, the images corresponding to the filenames are read and resized to a constant height and width. The labels are then converted to a one-hot encoded representation. One-hot encoded representation converts an integer to a vector of zeros and ones. Then the images and one-hot encoded labels are zipped together to keep the correct correspondence between images and their respective labels. This data now can be fed directly to a Keras model.</p>
+
+  <p class="fm-figure"><img alt="03-07" class="calibre10" src="../../OEBPS/Images/03-07.png" width="1025" height="883"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1088379"></a>Figure 3.7 The input pipeline that you’ll be developing using the <span class="fm-code-in-figurecaption">tf.data</span> API</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073887"></a>In our data set, we have a collection of flower images and a CSV file that contains the filename and the corresponding label. We will perform the following steps in order to create the data pipeline:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1073888"></a>Read CSV file as a <span class="fm-code-in-text">tf.data.Dataset</span>.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1073889"></a>Extract filenames and labels as separate data sets.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1073890"></a>Read the image files corresponding to the filenames in the filename data set.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1073891"></a>Decode the image data and convert it to a float32 tensor.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1073892"></a>Resize the images to 64 × 64 pixels.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1073893"></a>Convert labels to one-hot encoded vectors.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1073894"></a>Zip the image data set and the one-hot vector data sets.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1073895"></a>Batch the data set in batches of five samples.</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073896"></a>In order to read the CSV file as a data set entity, we will use the convenient <span class="fm-code-in-text">tf.data .experimental.CsvDataset</span> object<a class="calibre8" id="marker-1073897"></a>. You might see that this is, in fact, an experimental object. This means it has not been tested as extensively as other functionality in the <span class="fm-code-in-text">tf.data</span> API and might break in certain instances. But for our small and simple example there won’t be any issues:</p>
+  <pre class="programlisting">import os # Provides various os related functions
+ 
+data_dir = os.path.join('data','flower_images') + os.path.sep
+csv_ds = tf.data.experimental.CsvDataset(
+    os.path.join(data_dir,'flower_labels.csv') , record_defaults=("",-1), header=True
+)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073905"></a>The <span class="fm-code-in-text">tf.data.experimental.CsvDataset</span> object<a class="calibre8" id="marker-1073904"></a> expects two mandatory arguments: one or more filenames and a default record, which will be used as the default if a record is corrupted or unreadable. In our case, the default record is an empty filename (“”) and the label -1. You can print some of the records from <span class="fm-code-in-text">tf.data.Dataset</span> by calling</p>
+  <pre class="programlisting">for item in csv_ds.take(5):
+    print(item)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073909"></a>Here, <span class="fm-code-in-text">take</span><a class="calibre8" id="marker-1073908"></a><span class="fm-code-in-text">()</span> is a function that takes a number as the argument and returns that many records from the data set. This will output the following:</p>
+  <pre class="programlisting">(&lt;tf.Tensor: shape=(), dtype=string, numpy=b'0001.png'&gt;, &lt;tf.Tensor: shape=(), dtype=int32, numpy=0&gt;)
+(&lt;tf.Tensor: shape=(), dtype=string, numpy=b'0002.png'&gt;, &lt;tf.Tensor: shape=(), dtype=int32, numpy=0&gt;)
+(&lt;tf.Tensor: shape=(), dtype=string, numpy=b'0003.png'&gt;, &lt;tf.Tensor: shape=(), dtype=int32, numpy=2&gt;)
+(&lt;tf.Tensor: shape=(), dtype=string, numpy=b'0004.png'&gt;, &lt;tf.Tensor: shape=(), dtype=int32, numpy=0&gt;)
+(&lt;tf.Tensor: shape=(), dtype=string, numpy=b'0005.png'&gt;, &lt;tf.Tensor: shape=(), dtype=int32, numpy=0&gt;)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073915"></a>If you remember, the <span class="fm-code-in-text">flower_labels.csv</span> file contains two columns: filenames and the corresponding labels. You can see in the data set output that each tuple carries two elements: the filename and the label. Next, we will split these two columns as two separate data sets. This can easily be done using the <span class="fm-code-in-text">map()</span> function<a class="calibre8" id="marker-1073916"></a>, which applies a given function across all the records in a data set:</p>
+  <pre class="programlisting">fname_ds = csv_ds.map(lambda a,b: a)
+label_ds = csv_ds.map(lambda a,b: b)</pre>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1073919"></a>Lambda expressions</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1073920"></a>Lambda expressions are a great tool that enables you to have anonymous functions in the code. Just like normal functions, they take in arguments and return some output. For example, the following function will add two given values (x and y):</p>
+    <pre class="programlisting">lambda x, y : x + y</pre>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1073924"></a>Lambda expressions are a great way to write functions if they are used only once and thus require no name. Learning to use lambda expressions effectively will keep your code clean and succinct.</p>
+  </div>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073926"></a>Here, we use a succinct lambda expression to tell the <span class="fm-code-in-text">map()</span> function<a class="calibre8" id="marker-1073925"></a> what we want to achieve. We can now focus on fetching the image data. In order to do that, we will again use the <span class="fm-code-in-text">map()</span> function<a class="calibre8" id="marker-1073927"></a>. But this time, we will write a separate function defining what needs to happen:</p>
+  <pre class="programlisting">import tensorflow as tf
+ 
+def get_image(file_path):
+  
+    # loading the image from disk as a byte string
+    img = tf.io.read_file(data_dir + file_path)
+    # convert the compressed string to a 3D uint8 tensor
+    img = tf.image.decode_png(img, channels=3)
+    # Use `convert_image_dtype` to convert to floats in the [0,1] range.
+    img = tf.image.convert_image_dtype(img, tf.float32)
+    # resize the image to the desired size.
+    return tf.image.resize(img, [64, 64])</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073940"></a>To get the image tensors from the filename, all we need to do is apply this function to all filenames in the <span class="fm-code-in-text">fname_ds</span>:</p>
+  <pre class="programlisting">image_ds = fname_ds.map(get_image)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073942"></a>With the image data set read, let’s convert the label data to one-hot encoded vectors:</p>
+  <pre class="programlisting">label_ds = label_ds.map(lambda x: tf.one_hot(x, depth=10))</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073944"></a>In order to train an image classifier, we need two items: an image and a label. We do have both of these as two separate data sets. However, we need to combine them into one data set in order to ensure consistency. For example, if we need to shuffle data, it is immensely important to have the data sets combined into one to avoid different randomly shuffled states, which will destroy the image-to-label correspondence in the data. The <span class="fm-code-in-text">tf.data.Dataset.zip()</span> function<a class="calibre8" id="marker-1073945"></a> lets you do this easily:</p>
+  <pre class="programlisting">data_ds = tf.data.Dataset.zip((image_ds, label_ds))</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073947"></a>We’ve done lots of work. Let’s recap:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1073948"></a>Read a CSV file as a <span class="fm-code-in-text">tf.data.Dataset</span>, which contains filenames and labels</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1073949"></a>Separated file names (<span class="fm-code-in-text">fname_ds</span>) and labels (<span class="fm-code-in-text">label_ds</span>) into two separate data sets</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1073950"></a>Loaded images from file names as a data set (<span class="fm-code-in-text">images_ds</span>) while doing some preprocessing</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1073951"></a>Converted labels to one-hot encoded vectors</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1073953"></a>Created a combined data set using the <span class="fm-code-in-text">zip()</span> function<a class="calibre8" id="marker-1073952"></a></p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073954"></a>Let’s take a moment to see what we have created. A <span class="fm-code-in-text">tf.data.Dataset</span> behaves like a normal python iterator. This means that you can iterate through items easily using a loop (e.g., for/while) and also use functions such as <span class="fm-code-in-text">next()</span> to get items. Let’s see how we can iterate data in a <span class="fm-code-in-text">for</span> loop:</p>
+  <pre class="programlisting">for item in data_ds:
+    print(item)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073958"></a>This will return the following:</p>
+  <pre class="programlisting">&gt;&gt;&gt; (&lt;tf.Tensor: shape=(64, 64, 3), dtype=float32, numpy=
+array([[[0.05490196, 0.0872549 , 0.0372549 ],
+        [0.06764706, 0.09705883, 0.04411765],
+        [0.06862745, 0.09901962, 0.04509804],
+        ...,
+        [0.3362745 , 0.25686276, 0.21274512],
+        [0.26568627, 0.18823531, 0.16176471],
+        [0.2627451 , 0.18627453, 0.16960786]]], dtype=float32)&gt;, &lt;tf.Tensor: shape=(10,), dtype=float32, numpy=array([1., 0., 0., 0., 0., 0., 0., 0., 0., 0.], dtype=float32)&gt;)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073968"></a>As you can see, <span class="fm-code-in-text">item</span> is a tuple, the first element being the image tensor (of size 64 × 64 × 3) and the second being a one-hot encoded vector (of size 10). There’s some more work to be done. First, let’s shuffle the data set to make sure we are not introducing any consistent ordering of data when feeding to the model:</p>
+  <pre class="programlisting">data_ds = data_ds.shuffle(buffer_size= 20)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073970"></a>The <span class="fm-code-in-text">buffer_size</span> argument serves an important purpose. It specifies, at run time, how many elements are loaded to memory for the shuffling. In this case, the input pipeline will load 20 records to memory and randomly sample from that when you iterate the data. A larger <span class="fm-code-in-text">buffer_size</span> will provide better randomization but will increase the memory requirement. Next, we will look at how to create a batch of data from the data set.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073971"></a>Remember that we said Keras adds a batch dimension automatically when you specify either <span class="fm-code-in-text">input_shape</span> (Sequential API<a class="calibre8" id="marker-1073972"></a>) or the <span class="fm-code-in-text">shape</span> (functional API) when creating a model. That’s how deep networks process data: as batches of data (i.e., not individual samples). Therefore, it is important to batch data before you feed it to the model. For example, if you use a batch size of 5, you will get a 5 × 64 × 64 × 3 image tensor and a 5 × 10 labels tensor if you iterate the previous data set. With <span class="fm-code-in-text">tf.data.Dataset</span>, API batching data is quite straightforward:</p>
+  <pre class="programlisting">data_ds = data_ds.batch(5)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073974"></a>You can print one element of this using</p>
+  <pre class="programlisting">for item in data_ds:
+    print(item)
+    break</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1073978"></a>which will show</p>
+  <pre class="programlisting">(
+    &lt;tf.Tensor: shape=(5, 64, 64, 3), dtype=float32, numpy=
+    array(
+        [
+            [
+                [
+                    [0.5852941 , 0.5088236 , 0.39411768],
+                    [0.5852941 , 0.50980395, 0.4009804 ],
+                    [0.5862745 , 0.51176476, 0.40490198],
+                    ...,
+                    [0.82156867, 0.7294118 , 0.62352943],
+                    [0.82745105, 0.74509805, 0.6392157 ],
+                    [0.8284314 , 0.75098044, 0.64509803]
+                ],  
+            
+                [
+                    [0.07647059, 0.10784315, 0.05882353],
+                    [0.07843138, 0.11078432, 0.05882353],
+                    [0.11862746, 0.16078432, 0.0892157 ],
+                    ...,
+                    [0.17745098, 0.23529413, 0.12450981],
+                    [0.2019608 , 0.27549022, 0.14509805],
+                    [0.22450982, 0.28921568, 0.16470589]
+                ]
+            ]
+        ], 
+        dtype=float32
+    )&gt;, 
+    &lt;tf.Tensor: shape=(5, 10), dtype=float32, numpy=
+    array(
+        [
+            [0., 1., 0., 0., 0., 0., 0., 0., 0., 0.],
+            [1., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+            [1., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+            [0., 0., 1., 0., 0., 0., 0., 0., 0., 0.],
+            [0., 0., 1., 0., 0., 0., 0., 0., 0., 0.]
+        ], 
+        dtype=float32
+    )&gt;
+)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074019"></a>That’s the end of this exercise. The next listing shows what the final code looks like.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1074021"></a>Listing 3.5 <span class="fm-code-in-listingcaption">tf.data</span> Input pipeline for the flower images data set</p>
+  <pre class="programlisting">import tensorflow as tf
+import os
+ 
+data_dir = os.path.join('data','flower_images', 'flower_images') + os.path.sep 
+csv_ds = tf.data.experimental.CsvDataset(                               <span class="fm-combinumeral">❶</span>
+    os.path.join(data_dir,'flower_labels.csv') , ("",-1), header=True   <span class="fm-combinumeral">❶</span>
+)                                                                       <span class="fm-combinumeral">❶</span>
+fname_ds = csv_ds.map(lambda a,b: a)                                    <span class="fm-combinumeral">❷</span>
+label_ds = csv_ds.map(lambda a,b: b)                                    <span class="fm-combinumeral">❷</span>
+ 
+def get_image(file_path):
+    
+    img = tf.io.read_file(data_dir + file_path)
+    # convert the compressed string to a 3D uint8 tensor
+    img = tf.image.decode_png(img, channels=3)
+    # Use `convert_image_dtype` to convert to floats in the [0,1] range.
+    img = tf.image.convert_image_dtype(img, tf.float32)
+    # resize the image to the desired size.
+    return tf.image.resize(img, [64, 64])
+ 
+image_ds = fname_ds.map(get_image)                                      <span class="fm-combinumeral">❸</span>
+label_ds = label_ds.map(lambda x: tf.one_hot(x, depth=10))              <span class="fm-combinumeral">❹</span>
+data_ds = tf.data.Dataset.zip((image_ds, label_ds))                     <span class="fm-combinumeral">❺</span>
+ 
+data_ds = data_ds.shuffle(buffer_size= 20)                              <span class="fm-combinumeral">❻</span>
+data_ds = data_ds.batch(5)                                              <span class="fm-combinumeral">❻</span></pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1085392"></a><span class="fm-combinumeral">❶</span> Reading the data from the CSV file using TensorFlow</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1085413"></a><span class="fm-combinumeral">❷</span> Separating out the filenames and integer labels to two data set objects</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1085433"></a><span class="fm-combinumeral">❸</span> Reading in the images from filenames</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1085450"></a><span class="fm-combinumeral">❹</span> Converting the integer labels to one-hot encoded labels</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1085467"></a><span class="fm-combinumeral">❺</span> Combining the images and labels into a single data set</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1085484"></a><span class="fm-combinumeral">❻</span> Shuffling and batching data, preparing it for the model</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074055"></a>Note that you won’t be able to use the models we created during the Iris data set exercise, as those are fully connected networks. We need convolutional neural networks for processing image data. To get your hands dirty, there is a very simple convolutional neural network model provided in the exercise notebook <span class="fm-code-in-text">3.2.Creating_Input_ Pipelines.ipynb</span> in the Ch03-Keras-and-Data-Retrieval folder. Don’t worry about the various layers and their parameters used here. We will discuss convolutional neural networks in detail in the next chapter.</p>
+  <pre class="programlisting">model = Sequential([
+    Conv2D(64,(5,5), activation='relu', input_shape=(64,64,3)),
+    Flatten(),
+    Dense(10, activation='softmax')
+])
+ 
+model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['acc'])</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074064"></a>Using this input pipeline, you can conveniently feed data to an appropriate model using</p>
+  <pre class="programlisting">model.fit(data_ds, epochs=10)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074066"></a>Once you run this command, you’ll get the following:</p>
+  <pre class="programlisting">Epoch 1/10
+42/42 [==============================] - 1s 24ms/step - loss: 3.1604 - acc: 0.2571
+Epoch 2/10
+42/42 [==============================] - 1s 14ms/step - loss: 1.4359 - acc: 0.5190
+...
+Epoch 9/10
+42/42 [==============================] - 1s 14ms/step - loss: 0.0126 - acc: 1.0000
+Epoch 10/10
+42/42 [==============================] - 1s 15ms/step - loss: 0.0019 - acc: 1.0000</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074076"></a>With some great results achieved quickly in your very first week on the job, you walk proudly up to your boss and demonstrate the work you have done. He is quite impressed with the clarity and efficiency of the pipeline you have built. However, you begin to wonder, can I do a better job with Keras data generators?</p>
+
+  <p class="fm-head2"><a id="pgfId-1074077"></a>Exercise 2</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074079"></a>Imagine you have a labels data set called <span class="fm-code-in-text">labels_ds</span> (i.e., a sequence of integer labels), and there are corrupted labels with the value -1. Can you write a lambda function and use that with the <span class="fm-code-in-text">tf.Dataset.map()</span> function<a class="calibre8" id="marker-1074080"></a> to remove these<a class="calibre8" id="marker-1074082"></a><a class="calibre8" id="marker-1074083"></a> labels?</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_43"><a id="pgfId-1074084"></a>3.2.2 Keras DataGenerators</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074088"></a>Another<a class="calibre8" id="marker-1074086"></a><a class="calibre8" id="marker-1074087"></a> avenue for fetching image data is to use a data generator provided in Keras. Currently, Keras provides two data generators:</p>
+  <pre class="programlisting">tf.keras.preprocessing.image.ImageDataGenerator
+tf.keras.preprocessing.sequence.TimeSeriesDataGenerator</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074091"></a>Though not as customizable as the <span class="fm-code-in-text">tf.data</span> API, these generators still provide a quick and easy way to feed data into a model. Let’s see how we can use the <span class="fm-code-in-text">ImageDataGenerator</span> to feed this data to the model. The <span class="fm-code-in-text">ImageDataGenerator</span> (<span class="fm-hyperlink"><a class="url" href="http://mng.bz/lxpB">http://mng.bz/lxpB</a></span>) has a very long list of allowed parameters. Here, we will only focus on how we can adapt <span class="fm-code-in-text">ImageDataGenerator</span> to read the data we have.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074092"></a>Then, to fetch data, Keras <span class="fm-code-in-text">ImageDataGenerator</span> offers the <span class="fm-code-in-text">flow_from_dataframe()</span> function<a class="calibre8" id="marker-1074093"></a>. This function is ideal for us, as we have a CSV file that contains filenames and their associated labels, which can be represented as a pandas DataFrame. Let’s start with some variable definitions:</p>
+  <pre class="programlisting">data_dir = os.path.join('data','flower_images', 'flower_images')</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074095"></a>Next, we’ll define an <span class="fm-code-in-text">ImageDataGenerator</span> with default parameters:</p>
+  <pre class="programlisting">img_gen = ImageDataGenerator()</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074098"></a>Now we can use the <span class="fm-code-in-text">flow_from_dataframe()</span> function<a class="calibre8" id="marker-1074097"></a>:</p>
+  <pre class="programlisting">labels_df = pd.read_csv(os.path.join(data_dir, 'flower_labels.csv'), header=0)
+gen_iter = img_gen.flow_from_dataframe(
+    dataframe=labels_df, 
+    directory=data_dir, 
+    x_col='file', 
+    y_col='label', 
+    class_mode='raw', 
+    batch_size=5, 
+    target_size=(64,64)
+)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074109"></a>We first load the CSV file, which contains two columns: file (filenames) and label (integer label). With that, we call the <span class="fm-code-in-text">flow_from_dataframe()</span> function<a class="calibre8" id="marker-1074110"></a>, along with the following important parameters:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1074112"></a><span class="fm-code-in-text">dataframe</span>—The data frame that contains label information</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1074114"></a><span class="fm-code-in-text">directory</span>—The directory to locate images</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1074116"></a><span class="fm-code-in-text">x_col</span>—The name of the column in the data frame that contains filenames</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1074118"></a><span class="fm-code-in-text">y_col</span>—The name of the column containing the labels</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1074121"></a><span class="fm-code-in-text">class_mode</span>—The nature of the labels (since we have the raw label, <span class="fm-code-in-text">class_mode</span> is set to raw)</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074122"></a>You can see what the first sample looks like by running</p>
+  <pre class="programlisting">for item in gen_iter:
+    print(item)
+    break</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074126"></a>which will output</p>
+  <pre class="programlisting">(
+    array([[[[ 10.,  11.,  11.],
+             [ 51.,  74.,  46.],
+             [ 36.,  56.,  32.],
+             ...,
+             [  4.,   4.,   3.],
+             [ 16.,  25.,  11.],
+             [ 17.,  18.,  13.]],
+            ...
+ 
+            [[197., 199., 174.],
+             [162., 160., 137.],
+             [227., 222., 207.],
+             ...,
+             [ 57.,  58.,  50.],
+             [ 33.,  34.,  27.],
+             [ 55.,  54.,  43.]]]], dtype=float32
+    ), 
+    array([5, 6], dtype=int64)
+)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074148"></a>Again, with a batch size of 5, you see a batch of images (i.e., of size 5 × 64 × 64 × 3) and a one-hot encoded batch of labels (of size 5 × 6) generated as a tuple. The full code looks like the following listing.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1074150"></a>Listing 3.6 Keras <span class="fm-code-in-listingcaption">ImageDataGenerator</span> for the flower image data set</p>
+  <pre class="programlisting">from tensorflow.keras.preprocessing.image import ImageDataGenerator           <span class="fm-combinumeral">❶</span>
+import os                                                                     <span class="fm-combinumeral">❶</span>
+import pandas as pd                                                           <span class="fm-combinumeral">❶</span>
+ 
+data_dir = os.path.join('data','flower_images', 'flower_images')              <span class="fm-combinumeral">❷</span>
+ 
+img_gen = ImageDataGenerator()                                                <span class="fm-combinumeral">❸</span>
+ 
+print(os.path.join(data_dir, 'flower_labels.csv'))
+labels_df = pd.read_csv(os.path.join(data_dir, 'flower_labels.csv'), header=0)<span class="fm-combinumeral">❹</span>
+ 
+gen_iter = img_gen.flow_from_dataframe(                                       <span class="fm-combinumeral">❺</span>
+    dataframe=labels_df, directory=data_dir, x_col='file', y_col='label',     <span class="fm-combinumeral">❺</span>
+    class_mode='raw', batch_size=2, target_size=(64,64))                      <span class="fm-combinumeral">❺</span></pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1085006"></a><span class="fm-combinumeral">❶</span> Importing necessary modules</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1085046"></a><span class="fm-combinumeral">❷</span> Defining the data directory</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1085063"></a><span class="fm-combinumeral">❸</span> Defining the ImageDataGenerator to process the images and labels</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1085080"></a><span class="fm-combinumeral">❹</span> Defining the labels by reading the CSV as a data frame</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1085007"></a><span class="fm-combinumeral">❺</span> Reading the images and labels from the filenames and labels in the data frame</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074169"></a>This looks even better than the previous pipeline. In just three lines of code, you have created a data pipeline. You have definitely impressed your boss with your knowledge, and you are on track for a quick promotion.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074170"></a>We will discuss the parameters of the <span class="fm-code-in-text">ImageDataGenerator</span>, as well as some of the other data retrieval functions this supports, in detail in a later chapter.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074171"></a>However, it is important to keep in mind that concise is not always better. Usually, concise means that what you can achieve with that method is limited. And that is true for the <span class="fm-code-in-text">tf.data</span> API<a class="calibre8" id="marker-1074172"></a> and Keras data generators. The <span class="fm-code-in-text">tf.data</span> API<a class="calibre8" id="marker-1074173"></a>, despite requiring a bit more work than the Keras data generator, is much more flexible (and can be made efficient) than Keras data<a class="calibre8" id="marker-1074175"></a><a class="calibre8" id="marker-1074176"></a> generators.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_44"><a id="pgfId-1074177"></a>3.2.3 tensorflow-datasets package</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074182"></a>The<a class="calibre8" id="marker-1074179"></a><a class="calibre8" id="marker-1074180"></a> easiest way to retrieve data in TensorFlow is to use the <span class="fm-code-in-text">tensorflow-datasets</span><a class="calibre8" id="marker-1074181"></a> (<span class="fm-hyperlink"><a class="url" href="https://www.tensorflow.org/datasets/overview">https://www.tensorflow.org/datasets/overview</a></span>) package. However, a key limitation is that <span class="fm-code-in-text">tensorflow-datasets</span> only supports a set of defined data sets, unlike the <span class="fm-code-in-text">tf.data</span> API<a class="calibre8" id="marker-1074183"></a> or Keras data generators, which can be used to feed data from a custom data set. This is a separate package and is not a part of the official TensorFlow package. And if you have set up the Python environment as instructed, you already have this package installed in your environment. If not, you can easily install this by executing</p>
+  <pre class="programlisting">pip install tensorflow-datasets</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074185"></a>in your virtual Python environment’s terminal (e.g., Anaconda command prompt). To make sure the package is installed correctly, run the following line in your Jupyter notebook and make sure you don’t get any errors:</p>
+  <pre class="programlisting">import tensorflow_datasets as tfds</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074187"></a><span class="fm-code-in-text">tensorflow-datasets</span> provides a plethora of data sets under many different categories. You can find a comprehensive list of what’s available at <span class="fm-hyperlink"><a class="url" href="https://www.tensorflow.org/datasets/catalog">https://www.tensorflow.org/datasets/catalog</a></span>. Table 3.2 also outlines some popular data sets available in <span class="fm-code-in-text">tensorflow-datasets</span>.</p>
+
+  <p class="fm-table-caption"><a id="pgfId-1080272"></a>Table 3.2 Several data sets available in <span class="fm-code-in-figurecaption">tensorflow-datasets</span></p>
+
+  <table border="1" class="contenttable" width="100%">
+    <colgroup class="calibre12">
+      <col class="calibre13" span="1" width="33.33%"/>
+      <col class="calibre13" span="1" width="33.33%"/>
+      <col class="calibre13" span="1" width="33.33%"/>
+    </colgroup>
+
+    <tr class="calibre14">
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1080278"></a><b class="fm-bold">Data type</b></p>
+      </th>
+
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1080280"></a><b class="fm-bold">Dataset name</b></p>
+      </th>
+
+      <th class="fm-contenttable1" colspan="1" rowspan="1">
+        <p class="fm-table-head"><a id="pgfId-1080282"></a><b class="fm-bold">Task</b></p>
+      </th>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="2">
+        <p class="fm-table-body"><a id="pgfId-1080284"></a>Audio</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1080286"></a>librispeech</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1080288"></a>Speech recognition</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1080292"></a>ljspeech</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1080294"></a>Speech recognition</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="3">
+        <p class="fm-table-body"><a id="pgfId-1080296"></a>Images</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1080298"></a>caltech101</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1080300"></a>Image classification</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1080304"></a>cifar10 and cifar100</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1080306"></a>Image classification</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1080310"></a>imagenet2012</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1080312"></a>Image classification</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="3">
+        <p class="fm-table-body"><a id="pgfId-1080314"></a>Text</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1080316"></a>imdb_reviews</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1080318"></a>Sentiment analysis</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1080322"></a>tiny_shakespeare</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1080324"></a>Language modelling</p>
+      </td>
+    </tr>
+
+    <tr class="calibre14">
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1080328"></a>wmt14_translate</p>
+      </td>
+
+      <td class="fm-contenttable2" colspan="1" rowspan="1">
+        <p class="fm-table-body"><a id="pgfId-1080330"></a>Machine translation</p>
+      </td>
+    </tr>
+  </table>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074249"></a>Let’s use <span class="fm-code-in-text">tensorflow-datasets</span> to retrieve the cifar10 data set, a widely used image classification data set that has images (RGB images of size 32 × 32) belonging to 10 categories (e.g., automobile, ship, cat, horse, etc.). First, let’s make sure it’s available as a data set. Execute the following on your Jupyter notebook:</p>
+  <pre class="programlisting">tfds.list_builders()</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074251"></a>We can see that cifar10 is one of those data sets, as expected. Let’s load the data set using the <span class="fm-code-in-text">tfds.load()</span> function<a class="calibre8" id="marker-1074252"></a>. When you initially call this method, TensorFlow will first download the data set and then load it for you:</p>
+  <pre class="programlisting">data, info = tfds.load("cifar10", with_info=True)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074254"></a>When it is successfully downloaded, look at what information is available in the <span class="fm-code-in-text">(info)</span> variable:</p>
+  <pre class="programlisting">print(info)
+ 
+&gt;&gt;&gt; tfds.core.DatasetInfo(
+    name='cifar10',
+    version=3.0.0,
+    description='The CIFAR-10 dataset consists of 60000 32x32 colour images in 10 classes, with 6000 images per class. There are 50000 training images and 10000 test images.',
+    homepage='https:/ /www.cs.toronto.edu/~kriz/cifar.html',
+    features=FeaturesDict({
+        'image': Image(shape=(32, 32, 3), dtype=tf.uint8),
+        'label': ClassLabel(shape=(), dtype=tf.int64, num_classes=10),
+    }),
+    total_num_examples=60000,
+    splits={
+        'test': 10000,
+        'train': 50000,
+    },
+    supervised_keys=('image', 'label'),
+    citation="""@TECHREPORT{Krizhevsky09learningmultiple,
+        author = {Alex Krizhevsky},
+        title = {Learning multiple layers of features from tiny images},
+        institution = {},
+        year = {2009}
+    }""",
+    redistribution_info=,
+)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074280"></a>It’s quite informative. We now know that there are 60,000 32 × 32 color images that belong to 10 classes. The data set is split into 50,000 (training) and 10,000 (testing). Let’s now look at the data variable:</p>
+  <pre class="programlisting">print(data)
+ 
+&gt;&gt;&gt; {'test': &lt;DatasetV1Adapter 
+        shapes: {image: (32, 32, 3), label: ()}, 
+        types: {image: tf.uint8, label: tf.int64}&gt;, 
+     'train': &lt;DatasetV1Adapter 
+        shapes: {image: (32, 32, 3), label: ()}, 
+        types: {image: tf.uint8, label: tf.int64}&gt;
+    }</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074292"></a>We can see that it is a dictionary with keys <span class="fm-code-in-text">'train'</span> and <span class="fm-code-in-text">'test'</span>, and each key has a <span class="fm-code-in-text">tf.data.Dataset</span>. Luckily, we have studied how <span class="fm-code-in-text">tf.data.Dataset</span> works, so we can race forward to understand how to prepare data. Let’s look at the training data. You can access this training data set using</p>
+  <pre class="programlisting">train_ds = data["train"]</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074294"></a>However, if you try to iterate this data set, you will notice that the data has not been batched. In other words, data is retrieved a single sample at a time. But, as we have said many times, we need data in batches. And the fix is simple:</p>
+  <pre class="programlisting">train_ds = data["train"].batch(16)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074296"></a>Now, to see what a batch of data looks like in <span class="fm-code-in-text">train_ds</span>, you can execute the following:</p>
+  <pre class="programlisting">for item in train_ds:
+    print(item)
+    break</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074300"></a>This will output</p>
+  <pre class="programlisting">{
+    'id': &lt;tf.Tensor: shape=(16,), dtype=string, numpy=
+          array(
+              [
+                  b'train_16399', b'train_01680', b'train_47917', b'train_17307',
+                  b'train_27051', b'train_48736', b'train_26263', b'train_01456',
+                  b'train_19135', b'train_31598', b'train_12970', b'train_04223',
+                  b'train_27152', b'train_49635', b'train_04093', b'train_17537'
+              ], 
+              dtype=object
+          )&gt;, 
+    'image': &lt;tf.Tensor: shape=(16, 32, 32, 3), dtype=uint8, numpy=
+          array(
+              [
+                  [
+                      [
+                          [143,  96,  70],
+                          [141,  96,  72],
+                          [135,  93,  72],
+                          ...,         
+                          [128,  93,  60],
+                          [129,  94,  61],
+                          [123,  91,  58]
+                      ]
+                  ]
+              ], 
+              dtype=uint8
+          )&gt;, 
+    'label': &lt;tf.Tensor: shape=(16,), dtype=int64, numpy=
+          array(
+              [7, 8, 4, 4, 6, 5, 2, 9, 6, 6, 9, 9, 3, 0, 8, 7], 
+              dtype=int64
+          )&gt;
+}</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074339"></a>It will be a dictionary with three keys: <span class="fm-code-in-text">id, image</span>, and <span class="fm-code-in-text">label</span>. <span class="fm-code-in-text">id</span> is a unique ID for each training record. <span class="fm-code-in-text">image</span> will have a tensor of size 16 × 32 × 32 × 3, whereas <span class="fm-code-in-text">label</span> will have a tensor of size 16 (i.e., integer labels). When passing a <span class="fm-code-in-text">tf.data.Dataset</span> to a Keras model, the model expects the data set object to produce a tuple <span class="fm-code-in-text">(x,y)</span>, where <span class="fm-code-in-text">x</span> would be a batch of images and <span class="fm-code-in-text">y</span> would be the labels (e.g., one-hot encoded). Therefore, we need to write one additional function that will put data into the correct format:</p>
+  <pre class="programlisting">def format_data(x):
+    return (x["image"], tf.one_hot(x["label"], depth=10))
+ 
+train_ds = train_ds.map(format_data)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074346"></a>With that simple transformation, you can feed this data set to a model as follows:</p>
+  <pre class="programlisting">model.fit(train_ds, epochs=25)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074348"></a>This is amazing work. Now you know three different ways to retrieve data for your models: the <span class="fm-code-in-text">tf.data</span> API, Keras data generators, and the <span class="fm-code-in-text">tensorflow-datasets</span> package. We will conclude our discussion about Keras APIs and different data import APIs here.</p>
+
+  <p class="fm-head2"><a id="pgfId-1074349"></a>Exercise 3</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074350"></a>Can you write a line of code to import the caltech101 data set? After you do that, explore this<a class="calibre8" id="marker-1074352"></a><a class="calibre8" id="marker-1074353"></a> data<a class="calibre8" id="marker-1074355"></a> set.</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_45"><a id="pgfId-1074356"></a>Summary</h2>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1074357"></a>Keras, now integrated into TensorFlow, provides several high-level model-building APIs: the Sequential API, functional API and sub-classing API. These APIs have different pros and cons.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1074358"></a>The Sequential API is the easiest to use but can only be used to implement simple models.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1074359"></a>The functional and sub-classing APIs can be difficult to use but enable developers to implement complex models.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1074360"></a>TensorFlow encompasses several methods for retrieving data: the <span class="fm-code-in-text">tf.data</span> API, Keras data generators, and <span class="fm-code-in-text">tensorflow-datasets</span>. <span class="fm-code-in-text">tf.data</span>.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1074361"></a>An API provides the most customizable way to feed data to a model but requires more work to fetch data.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1074362"></a><span class="fm-code-in-text">tensorflow-datasets</span> is the easiest to use but is limited as it only supports a limited set of data sets.</p>
+    </li>
+  </ul>
+
+  <h2 class="fm-head" id="sigil_toc_id_46"><a id="pgfId-1074363"></a>Answers to exercises</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074364"></a><b class="fm-bold">Exercise 1:</b> The functional API. As there are two output layers, we cannot use the Sequential API. There is no need to use the sub-classing API, as everything we need can be done using Keras <a class="calibre8" id="marker-1074365"></a>layers.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074366"></a><b class="fm-bold">Exercise 2:</b> <span class="fm-code-in-text">labels_ds.map(lambda x: x if x != -1)</span>. You can also use the <span class="fm-code-in-text">tf.Dataset .filter()</span> method<a class="calibre8" id="marker-1074367"></a> (i.e., <span class="fm-code-in-text">labels_ds.filter(lambda x: x != -1)</span>).</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1074368"></a><b class="fm-bold">Exercise 3:</b> <span class="fm-code-in-text">tfds.load("caltech101", with_info=True)</span></p>
+</div>
+</div>
+</body>
+</html>

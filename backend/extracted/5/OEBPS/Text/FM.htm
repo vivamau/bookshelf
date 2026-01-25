@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xml:lang="en"
+      lang="en"
+      xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:epub="http://www.idpf.org/2007/ops">
+<head>
+<title>TensorFlow in Action</title>
+<link rel="stylesheet" type="text/css" href="../../override_v1.css"/>
+<link rel="stylesheet" type="text/css" href="../../stylesheet.css"/><link rel="stylesheet" type="text/css" href="../../page_styles.css"/>
+</head>
+<body>
+<div id="book-content">
+<div id="sbo-rt-content" class="calibre"><h1 class="tochead"><a id="pgfId-1000000"></a>front matter</h1>
+
+  <h2 class="fm-head" id="sigil_toc_id_1"><a id="pgfId-1108907"></a>preface</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1108908"></a>These days it is hard to find a real-world system or a product that is not driven or at least impacted by machine learning. Machine learning plays a paramount role in terms of boosting user experience as well as cutting costs and increasing savings for a company. TensorFlow is a machine learning framework that enables developers to develop machine learning solutions quickly for various bespoke use cases that can benefit from machine learning. If you are a machine learning practitioner or even a software engineer who touches on machine learning systems, it pays to have a well-grounded understanding of TensorFlow, as it’s used by millions of developers to build ML solutions.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1108909"></a>This book takes you through an informative journey covering most popular machine learning tasks as well as state-of-the-art models. You will learn about image classification and segmentation, and various natural language processing tasks, such as language modeling and sentiment analysis. While doing so, we will try to maintain our code production quality. This means we will explore ways in which we can standardize our code and models, such as building robust end-to-end data pipelines that can wrangle common data types such as images and text. We will also pay attention to other important dimensions, such as model explainability, current state-of-the-art performance on similar tasks, and so forth. We conclude the book with how TensorFlow can be used to build production-level machine learning pipelines to deliver a smooth operational experience for developers.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1108910"></a>TensorFlow has good documentation coverage (although certain topics can be better documented) that is available for free. You might be wondering why, then, you need this book. TensorFlow has evolved to become a complex ecosystem with many moving parts. For someone initially learning the technology, it is quite easy to get lost in the documentation and waste hours (if not days). The rapid pace at which new features and new releases come out exacerbates this problem. Therefore, it helps to have a resource that collates all the most up-to-date and important information and best practices of TensorFlow into a digestible, well-explained text.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1108911"></a>After reading this book, you will know how to build most of the common machine learning models, such as convolutional neural networks, recurrent neural networks, and Transformers. You will learn about the general machine learning life cycle and how it can be applied across many different tasks. Furthermore, you will become familiar with building data pipelines that can perform complex transformations in just a few lines of code.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1108912"></a>I wish readers all the success in their machine learning careers and sincerely hope they will immensely benefit from the wide variety of topics covered in this book.</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_2"><a id="pgfId-1108917"></a>acknowledgments</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1108918"></a>First and foremost, I would like to thank my parents and my wife, Thushani, for supporting me throughout the journey and always standing by my side. I would also like to thank my editors at Manning for all the support and encouragement. Thanks also to the Manning production staff for the valuable guidance they provided.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1108919"></a>To all the reviewers who took the time to read my manuscript and provide feedback: Alessandro Buggin, Amaresh Rajasekharan, Biswanath Chowdhury, Brian Griner, David Cronkite, Dhinakaran Venkat, Eduardo Paluzo Hidalgo, Francisco Rivas, Ganesh Swaminathan, Geoff Clark, Gherghe Georgios, Giri S, Jason Hales, José Antonio Quiles, Joshua A McAdams, Kaniskha Tyagi, Kelvin D. Meeks, Kim Falk Jørgensen, Krzysztof Je˛drzejewski, Lawrence Nderu, Levi McClenny, Nguyen Cao, Nikos Kanakaris, Peter Morgan, Ryan Markoff, Sergio Govoni, Sriram Macharla, Tiklu Ganguly, Todd Cook, Tony Holdroyd, Vidhya Vinay, Vincent Ngo, Vipul Gupta, Vishwesh Ravi Shrimali, and Wei Luo, your suggestions are appreciated and helped make this a better book.</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_3"><a id="pgfId-1108920"></a>about this book</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1108921"></a>In this section, we will discuss who this book is for, the different chapters and their contents, and where you can find the code.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_4"><a id="pgfId-1108922"></a>Who should read this book?</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1108923"></a>It is imperative that you are certain this book is for you. This book is written for a broad audience in the machine learning community to provide a low barrier for entry, so novices as well as machine learning practitioners with basic to medium knowledge and experience can push their TensorFlow skills further. To get the most out of this book, you need the following:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1108924"></a>Experience in the model development life cycle (through a research/industry project)</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1108925"></a>Moderate knowledge in Python and object-oriented programming (OOP) (e.g., classes, generators, list comprehension)</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1108926"></a>Basic knowledge of NumPy/pandas libraries (e.g., computing summary statistics, what pandas series DataFrame objects are)</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1108927"></a>Basic knowledge of linear algebra (e.g., basic mathematics, vectors, matrices, n-dimensional tensors, tensor operations, etc.)</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1108928"></a>Basic familiarity with the different deep neural networks available</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1108929"></a>However, if you have any of the following experience, you should also benefit greatly from this book:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1108930"></a>At least several months of experience as a machine learning researcher, data scientist, or machine learning engineer, or even a student who used ML for a university or school project</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1108931"></a>Experience working closely with other machine learning libraries (e.g., scikit-learn), having heard of amazing feats of deep learning, and being keen to learn more about how to implement them</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1108932"></a>Experience with basic TensorFlow functionality but wanting to improve yourself to write better TensorFlow code</p>
+    </li>
+  </ul>
+
+  <h3 class="fm-head1" id="sigil_toc_id_5"><a id="pgfId-1108935"></a>How this book is organized: A roadmap</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1108936"></a><i class="fm-italics">TensorFlow in Action</i> is organized into three parts and 15 chapters that start with the basics in part 1, then move into moderately complex topics that ML practitioners should be comfortable with in part 2, and finish with coverage of advanced ML models, libraries, and tools in part 3.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1108937"></a>Part 1 focuses on the basics, such as how TensorFlow works and how to implement simple, stripped-down machine learning models such as convolutional neural networks, recurrent neural networks, and Transformers:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1108938"></a>Chapter 1 introduces TensorFlow, the different types of hardware used in ML and their trade-offs, and when and when <i class="fm-italics">not</i> to use TensorFlow.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1108939"></a>Chapter 2 goes into detail about how TensorFlow works under the hood, the different building blocks found in TensorFlow, and how to implement some of the common operations, such as convolution, used in TensorFlow.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1108940"></a>Chapter 3 discusses Keras, a sub-library in TensorFlow for building ML models easily, and how to load data into TensorFlow.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1108941"></a>Chapter 4 takes a first look at building models. In this chapter, we build a fully connected network, a convolutional neural network, and a recurrent neural network.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1108942"></a>Chapter 5 moves us on to the crown jewel of deep learning: Transformer models and what makes them tick.</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1108944"></a>Part 2 goes through several popular machine learning tasks and some of the best performing models on those tasks:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1108943"></a>Chapter 6 looks at the first use case: image classification. In this chapter, we work with a complex CNN model and train it on an image classification data set.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1108945"></a>In chapter 7, we dive into more advanced topics such as regularization, even more complex models, and model interpretation techniques.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1108946"></a>Chapter 8 introduces us to image segmentation, an important technique that empowers self-driving cars. We will train a model to segment image pixels according to the object class to which they belong.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1108947"></a>Chapter 9 is our first look at an NLP task in depth. Here, we will train a model to classify the sentiments expressed in movie reviews.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1108948"></a>In chapter 10, we take a closer look at the language modeling task, which is at the heart of the successful Transformer models we see today. Here, we leverage the language modeling task to build a model that can generate stories.</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1108951"></a>Part 3 delves into more advanced topics such as using Transformer models and TensorBoard for monitoring and productionizing ML workflows in TensorFlow:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1108949"></a>Chapter 11 discusses the sequence-to-sequence model, a predecessor of Transformer models that enjoyed success in tasks like machine translation. Here we train a sequence-to-sequence model to translate English to German.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1108950"></a>In chapter 12, we continue our discussion of sequence-to-sequence models and introduce the reader to a very important concept: the attention mechanism. We learn how we can incorporate attention into our model, which will help boost performance as well as produce insightful visualizations.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1108952"></a>Chapter 13 extends our discussion from chapter 5 on Transformers. In this chapter, we use the Transformer model to solve two NLP tasks: spam classification and question answering. You will be also introduced to the Hugging Face’s Transformers library.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1108953"></a>Chapter 14 focuses on a handy tool shipped with TensorFlow: the TensorBoard. The TensorBoard is vital for monitoring and tracking model performance. It can also be used to visualize data and for performance profiling.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1108954"></a>Chapter 15, the final chapter, focuses on building production-quality machine learning pipelines. TensorFlow provides a library called TFX that provides an API to standardize complex machine learning workflows as a series of steps.</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1108955"></a>You can take different approaches to getting the most out of this book depending on your skill level. For example, if you’re a practitioner who has been in the field using TensorFlow for several years (e.g., 1-3 years), you will probably find part 3 more useful than the earlier sections. If you are a beginner, it makes the most sense to go through all of the chapters in chronological order.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_6"><a id="pgfId-1108957"></a>About the code</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1108958"></a>This book contains many examples of source code, both in numbered listings and in line with normal text. In both cases, source code is formatted in a <span class="fm-code-in-text">fixed-width font like this</span> to separate it from ordinary text. Sometimes code is also <span class="fm-code-in-text"><b class="fm-bold">in bold</b></span> to highlight code that has changed from previous steps in the chapter, such as when a new feature adds to an existing line of code.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1108959"></a>In many cases, the original source code has been reformatted; we’ve added line breaks and reworked indentation to accommodate the available page space in the book. In rare cases, even this was not enough, and listings include line-continuation markers (<span class="fm-code-continuation-arrow">➥</span>). Additionally, comments in the source code have often been removed from the listings when the code is described in the text. Code annotations accompany many of the listings, highlighting important concepts.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1108960"></a>You can get executable snippets of code from the liveBook (online) version of this book at <span class="fm-hyperlink"><a class="url" href="https://livebook.manning.com/book/tensorflow-in-action/">https://livebook.manning.com/book/tensorflow-in-action/</a></span>. All chapters in this book, except chapter 1, are accompanied by code. The full code is available on the Manning website (<span class="fm-hyperlink"><a class="url" href="http://www.manning.com">www.manning.com</a></span>) and on GitHub at <span class="fm-hyperlink"><a class="url" href="https://github.com/thushv89/manning_tf2_in_action">https://github.com/thushv89/manning_tf2_in_action</a></span>.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_7"><a id="pgfId-1108963"></a>liveBook discussion forum</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1108964"></a>Purchase of <i class="fm-italics">TensorFlow in Action</i> includes free access to liveBook, Manning’s online reading platform. Using liveBook’s exclusive discussion features, you can attach comments to the book globally or to specific sections or paragraphs. It’s a snap to make notes for yourself, ask and answer technical questions, and receive help from the author and other users. <a class="calibre8" id="Hlk6318184"></a>To access the forum, go to <span class="fm-hyperlink"><a class="url" href="https://livebook.manning.com/book/tensorflow-in-action/discussion">https://livebook.manning.com/book/tensorflow-in-action/discussion</a></span>. You can also learn more about Manning’s forums and the rules of conduct at <span class="fm-hyperlink"><a class="url" href="https://livebook.manning.com/discussion">https://livebook.manning.com/discussion</a></span>.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1108966"></a>Manning’s commitment to our readers is to provide a venue where a meaningful dialogue between individual readers and between readers and the author can take place. It is not a commitment to any specific amount of participation on the part of the author, whose contribution to the forum remains voluntary (and unpaid). We suggest you try asking the author some challenging questions lest his interest stray! The forum and the archives of previous discussions will be accessible from the publisher’s website for as long as the book is in print.</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_8"><a id="pgfId-1108967"></a>about the author</h2>
+
+  <p class="fm-figure"><img alt="Author_Ganegedara" class="calibre10" src="../../OEBPS/Images/Author_Ganegedara.png" width="233" height="265"/><br class="calibre2"/></p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1108968"></a>Thushan Ganegedara is a seasoned ML practitioner with more than four years of experience in the industry. Currently, he is a senior machine learning engineer at Canva, an Australian start-up that founded the online visual design software Canva, serving millions of customers. His efforts are particularly concentrated in the search and recommendations group. Prior to Canva, Thushan was a senior data scientist at QBE Insurance, an Australian insurance company, where he developed ML solutions for use cases related to insurance claims. He also led efforts to develop a Speech2Text pipeline. Thushan obtained his PhD with a specialization in machine learning from the University of Sydney.</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_9"><a id="pgfId-1108970"></a>about the cover illustration</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1108971"></a>The figure on the cover of <i class="fm-italics">TensorFlow in Action</i> is captioned “Laitiere des Environs de Berne,” or “Milkmaid from the surroundings of Berne,” taken from a collection by Jacques Grasset de Saint-Sauveur, published in 1797. Each illustration is finely drawn and colored by hand.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1108972"></a>In those days, it was easy to identify where people lived and what their trade or station in life was just by their dress. Manning celebrates the inventiveness and initiative of the computer business with book covers based on the rich diversity of regional culture centuries ago, brought back to life by pictures from collections such as this one.</p>
+</div>
+</div>
+</body>
+</html>

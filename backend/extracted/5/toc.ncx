@@ -1,0 +1,1556 @@
+<?xml version="1.0" encoding="UTF-8"?><ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1" xml:lang="eng">
+  <head>
+    <meta content="1dc46b01-1bd1-4bea-b385-0d371791830a" name="dtb:uid"/>
+    <meta content="4" name="dtb:depth"/>
+    <meta content="calibre (4.7.0)" name="dtb:generator"/>
+    <meta content="0" name="dtb:totalPageCount"/>
+    <meta content="0" name="dtb:maxPageNumber"/>
+  </head>
+  <docTitle>
+    <text>TensorFlow in Action</text>
+  </docTitle>
+  <navMap>
+    <navPoint class="chapter" id="navPoint-1" playOrder="1">
+      <navLabel>
+        <text>TensorFlow in Action</text>
+      </navLabel>
+      <content src="OEBPS/Text/title.htm"/>
+    </navPoint>
+    <navPoint class="chapter" id="navPoint-2" playOrder="2">
+      <navLabel>
+        <text>Copyright</text>
+      </navLabel>
+      <content src="OEBPS/Text/copyright.htm"/>
+    </navPoint>
+    <navPoint class="chapter" id="navPoint-3" playOrder="3">
+      <navLabel>
+        <text>dedication</text>
+      </navLabel>
+      <content src="OEBPS/Text/dedication.htm"/>
+    </navPoint>
+    <navPoint class="chapter" id="navPoint-4" playOrder="4">
+      <navLabel>
+        <text>contents</text>
+      </navLabel>
+      <content src="OEBPS/Text/TOC.htm"/>
+    </navPoint>
+    <navPoint class="chapter" id="navPoint-5" playOrder="5">
+      <navLabel>
+        <text>front matter</text>
+      </navLabel>
+      <content src="OEBPS/Text/FM.htm"/>
+      <navPoint class="chapter" id="navPoint-6" playOrder="6">
+        <navLabel>
+          <text>preface</text>
+        </navLabel>
+        <content src="OEBPS/Text/FM.htm#sigil_toc_id_1"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-7" playOrder="7">
+        <navLabel>
+          <text>acknowledgments</text>
+        </navLabel>
+        <content src="OEBPS/Text/FM.htm#sigil_toc_id_2"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-8" playOrder="8">
+        <navLabel>
+          <text>about this book</text>
+        </navLabel>
+        <content src="OEBPS/Text/FM.htm#sigil_toc_id_3"/>
+        <navPoint class="chapter" id="navPoint-9" playOrder="9">
+          <navLabel>
+            <text>Who should read this book?</text>
+          </navLabel>
+          <content src="OEBPS/Text/FM.htm#sigil_toc_id_4"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-10" playOrder="10">
+          <navLabel>
+            <text>How this book is organized: A roadmap</text>
+          </navLabel>
+          <content src="OEBPS/Text/FM.htm#sigil_toc_id_5"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-11" playOrder="11">
+          <navLabel>
+            <text>About the code</text>
+          </navLabel>
+          <content src="OEBPS/Text/FM.htm#sigil_toc_id_6"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-12" playOrder="12">
+          <navLabel>
+            <text>liveBook discussion forum</text>
+          </navLabel>
+          <content src="OEBPS/Text/FM.htm#sigil_toc_id_7"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-13" playOrder="13">
+        <navLabel>
+          <text>about the author</text>
+        </navLabel>
+        <content src="OEBPS/Text/FM.htm#sigil_toc_id_8"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-14" playOrder="14">
+        <navLabel>
+          <text>about the cover illustration</text>
+        </navLabel>
+        <content src="OEBPS/Text/FM.htm#sigil_toc_id_9"/>
+      </navPoint>
+    </navPoint>
+    <navPoint class="chapter" id="navPoint-15" playOrder="15">
+      <navLabel>
+        <text>Part 1 Foundations of TensorFlow 2 and deep learning</text>
+      </navLabel>
+      <content src="OEBPS/Text/P1.htm"/>
+    </navPoint>
+    <navPoint class="chapter" id="navPoint-16" playOrder="16">
+      <navLabel>
+        <text>1 The amazing world of TensorFlow</text>
+      </navLabel>
+      <content src="OEBPS/Text/ch01.htm"/>
+      <navPoint class="chapter" id="navPoint-17" playOrder="17">
+        <navLabel>
+          <text>1.1 What is TensorFlow?</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch01.htm#sigil_toc_id_10"/>
+        <navPoint class="chapter" id="navPoint-18" playOrder="18">
+          <navLabel>
+            <text>1.1.1 An overview of popular components of TensorFlow</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch01.htm#sigil_toc_id_11"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-19" playOrder="19">
+          <navLabel>
+            <text>1.1.2 Building and deploying a machine learning model</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch01.htm#sigil_toc_id_12"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-20" playOrder="20">
+        <navLabel>
+          <text>1.2 GPU vs. CPU</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch01.htm#sigil_toc_id_13"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-21" playOrder="21">
+        <navLabel>
+          <text>1.3 When and when not to use TensorFlow</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch01.htm#sigil_toc_id_14"/>
+        <navPoint class="chapter" id="navPoint-22" playOrder="22">
+          <navLabel>
+            <text>1.3.1 When to use TensorFlow</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch01.htm#sigil_toc_id_15"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-23" playOrder="23">
+          <navLabel>
+            <text>1.3.2 When not to use TensorFlow</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch01.htm#sigil_toc_id_16"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-24" playOrder="24">
+        <navLabel>
+          <text>1.4 What will this book teach you?</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch01.htm#calibre_pb_0_1"/>
+        <navPoint class="chapter" id="navPoint-25" playOrder="25">
+          <navLabel>
+            <text>1.4.1 TensorFlow fundamentals</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch01.htm#sigil_toc_id_18"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-26" playOrder="26">
+          <navLabel>
+            <text>1.4.2 Deep learning algorithms</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch01.htm#sigil_toc_id_19"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-27" playOrder="27">
+          <navLabel>
+            <text>1.4.3 Monitoring and optimization</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch01.htm#sigil_toc_id_20"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-28" playOrder="28">
+        <navLabel>
+          <text>1.5 Who is this book for?</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch01.htm#calibre_pb_1_1"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-29" playOrder="29">
+        <navLabel>
+          <text>1.6 Should we really care about Python and TensorFlow 2?</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch01.htm#sigil_toc_id_22"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-30" playOrder="30">
+        <navLabel>
+          <text>Summary</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch01.htm#sigil_toc_id_23"/>
+      </navPoint>
+    </navPoint>
+    <navPoint class="chapter" id="navPoint-31" playOrder="31">
+      <navLabel>
+        <text>2 TensorFlow 2</text>
+      </navLabel>
+      <content src="OEBPS/Text/ch02.htm"/>
+      <navPoint class="chapter" id="navPoint-32" playOrder="32">
+        <navLabel>
+          <text>2.1 First steps with TensorFlow 2</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch02.htm#sigil_toc_id_24"/>
+        <navPoint class="chapter" id="navPoint-33" playOrder="33">
+          <navLabel>
+            <text>2.1.1 How does TensorFlow operate under the hood?</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch02.htm#sigil_toc_id_25"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-34" playOrder="34">
+        <navLabel>
+          <text>2.2 TensorFlow building blocks</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch02.htm#sigil_toc_id_26"/>
+        <navPoint class="chapter" id="navPoint-35" playOrder="35">
+          <navLabel>
+            <text>2.2.1 Understanding tf.Variable</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch02.htm#sigil_toc_id_27"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-36" playOrder="36">
+          <navLabel>
+            <text>2.2.2 Understanding tf.Tensor</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch02.htm#sigil_toc_id_28"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-37" playOrder="37">
+          <navLabel>
+            <text>2.2.3 Understanding tf.Operation</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch02.htm#sigil_toc_id_29"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-38" playOrder="38">
+        <navLabel>
+          <text>2.3 Neural network-related computations in TensorFlow</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch02.htm#sigil_toc_id_30"/>
+        <navPoint class="chapter" id="navPoint-39" playOrder="39">
+          <navLabel>
+            <text>2.3.1 Matrix multiplication</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch02.htm#sigil_toc_id_31"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-40" playOrder="40">
+          <navLabel>
+            <text>2.3.2 Convolution operation</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch02.htm#sigil_toc_id_32"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-41" playOrder="41">
+          <navLabel>
+            <text>2.3.3 Pooling operation</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch02.htm#sigil_toc_id_33"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-42" playOrder="42">
+        <navLabel>
+          <text>Summary</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch02.htm#sigil_toc_id_34"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-43" playOrder="43">
+        <navLabel>
+          <text>Answers to exercises</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch02.htm#sigil_toc_id_35"/>
+      </navPoint>
+    </navPoint>
+    <navPoint class="chapter" id="navPoint-44" playOrder="44">
+      <navLabel>
+        <text>3 Keras and data retrieval in TensorFlow 2</text>
+      </navLabel>
+      <content src="OEBPS/Text/ch03.htm"/>
+      <navPoint class="chapter" id="navPoint-45" playOrder="45">
+        <navLabel>
+          <text>3.1 Keras model-building APIs</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch03.htm#sigil_toc_id_36"/>
+        <navPoint class="chapter" id="navPoint-46" playOrder="46">
+          <navLabel>
+            <text>3.1.1 Introducing the data set</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch03.htm#sigil_toc_id_37"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-47" playOrder="47">
+          <navLabel>
+            <text>3.1.2 The Sequential API</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch03.htm#sigil_toc_id_38"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-48" playOrder="48">
+          <navLabel>
+            <text>3.1.3 The functional API</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch03.htm#sigil_toc_id_39"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-49" playOrder="49">
+          <navLabel>
+            <text>3.1.4 The sub-classing API</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch03.htm#sigil_toc_id_40"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-50" playOrder="50">
+        <navLabel>
+          <text>3.2 Retrieving data for TensorFlow/Keras models</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch03.htm#sigil_toc_id_41"/>
+        <navPoint class="chapter" id="navPoint-51" playOrder="51">
+          <navLabel>
+            <text>3.2.1 tf.data API</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch03.htm#sigil_toc_id_42"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-52" playOrder="52">
+          <navLabel>
+            <text>3.2.2 Keras DataGenerators</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch03.htm#sigil_toc_id_43"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-53" playOrder="53">
+          <navLabel>
+            <text>3.2.3 tensorflow-datasets package</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch03.htm#sigil_toc_id_44"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-54" playOrder="54">
+        <navLabel>
+          <text>Summary</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch03.htm#sigil_toc_id_45"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-55" playOrder="55">
+        <navLabel>
+          <text>Answers to exercises</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch03.htm#sigil_toc_id_46"/>
+      </navPoint>
+    </navPoint>
+    <navPoint class="chapter" id="navPoint-56" playOrder="56">
+      <navLabel>
+        <text>4 Dipping toes in deep learning</text>
+      </navLabel>
+      <content src="OEBPS/Text/ch04.htm"/>
+      <navPoint class="chapter" id="navPoint-57" playOrder="57">
+        <navLabel>
+          <text>4.1 Fully connected networks</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch04.htm#sigil_toc_id_47"/>
+        <navPoint class="chapter" id="navPoint-58" playOrder="58">
+          <navLabel>
+            <text>4.1.1 Understanding the data</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch04.htm#sigil_toc_id_48"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-59" playOrder="59">
+          <navLabel>
+            <text>4.1.2 Autoencoder model</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch04.htm#sigil_toc_id_49"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-60" playOrder="60">
+        <navLabel>
+          <text>4.2 Convolutional neural networks</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch04.htm#sigil_toc_id_50"/>
+        <navPoint class="chapter" id="navPoint-61" playOrder="61">
+          <navLabel>
+            <text>4.2.1 Understanding the data</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch04.htm#sigil_toc_id_51"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-62" playOrder="62">
+          <navLabel>
+            <text>4.2.2 Implementing the network</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch04.htm#sigil_toc_id_52"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-63" playOrder="63">
+        <navLabel>
+          <text>4.3 One step at a time: Recurrent neural networks (RNNs)</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch04.htm#sigil_toc_id_53"/>
+        <navPoint class="chapter" id="navPoint-64" playOrder="64">
+          <navLabel>
+            <text>4.3.1 Understanding the data</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch04.htm#sigil_toc_id_54"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-65" playOrder="65">
+          <navLabel>
+            <text>4.3.2 Implementing the model</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch04.htm#sigil_toc_id_55"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-66" playOrder="66">
+          <navLabel>
+            <text>4.3.3 Predicting future CO2 values with the trained model</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch04.htm#sigil_toc_id_56"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-67" playOrder="67">
+        <navLabel>
+          <text>Summary</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch04.htm#sigil_toc_id_57"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-68" playOrder="68">
+        <navLabel>
+          <text>Answers to exercises</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch04.htm#sigil_toc_id_58"/>
+      </navPoint>
+    </navPoint>
+    <navPoint class="chapter" id="navPoint-69" playOrder="69">
+      <navLabel>
+        <text>5 State-of-the-art in deep learning: Transformers</text>
+      </navLabel>
+      <content src="OEBPS/Text/ch05.htm"/>
+      <navPoint class="chapter" id="navPoint-70" playOrder="70">
+        <navLabel>
+          <text>5.1 Representing text as numbers</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch05.htm#sigil_toc_id_59"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-71" playOrder="71">
+        <navLabel>
+          <text>5.2 Understanding the Transformer model</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch05.htm#sigil_toc_id_60"/>
+        <navPoint class="chapter" id="navPoint-72" playOrder="72">
+          <navLabel>
+            <text>5.2.1 The encoder-decoder view of the Transformer</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch05.htm#sigil_toc_id_61"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-73" playOrder="73">
+          <navLabel>
+            <text>5.2.2 Diving deeper</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch05.htm#sigil_toc_id_62"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-74" playOrder="74">
+          <navLabel>
+            <text>5.2.3 Self-attention layer</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch05.htm#sigil_toc_id_63"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-75" playOrder="75">
+          <navLabel>
+            <text>5.2.4 Understanding self-attention using scalars</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch05.htm#sigil_toc_id_64"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-76" playOrder="76">
+          <navLabel>
+            <text>5.2.5 Self-attention as a cooking competition</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch05.htm#sigil_toc_id_65"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-77" playOrder="77">
+          <navLabel>
+            <text>5.2.6 Masked self-attention layers</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch05.htm#sigil_toc_id_66"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-78" playOrder="78">
+          <navLabel>
+            <text>5.2.7 Multi-head attention</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch05.htm#sigil_toc_id_67"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-79" playOrder="79">
+          <navLabel>
+            <text>5.2.8 Fully connected layer</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch05.htm#sigil_toc_id_68"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-80" playOrder="80">
+          <navLabel>
+            <text>5.2.9 Putting everything together</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch05.htm#sigil_toc_id_69"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-81" playOrder="81">
+        <navLabel>
+          <text>Summary</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch05.htm#sigil_toc_id_70"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-82" playOrder="82">
+        <navLabel>
+          <text>Answers to exercises</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch05.htm#sigil_toc_id_71"/>
+      </navPoint>
+    </navPoint>
+    <navPoint class="chapter" id="navPoint-83" playOrder="83">
+      <navLabel>
+        <text>Part 2 Look ma, no hands! Deep networks in the real world</text>
+      </navLabel>
+      <content src="OEBPS/Text/P2.htm"/>
+    </navPoint>
+    <navPoint class="chapter" id="navPoint-84" playOrder="84">
+      <navLabel>
+        <text>6 Teaching machines to see: Image classification with CNNs</text>
+      </navLabel>
+      <content src="OEBPS/Text/ch06.htm"/>
+      <navPoint class="chapter" id="navPoint-85" playOrder="85">
+        <navLabel>
+          <text>6.1 Putting the data under the microscope: Exploratory data analysis</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch06.htm#sigil_toc_id_72"/>
+        <navPoint class="chapter" id="navPoint-86" playOrder="86">
+          <navLabel>
+            <text>6.1.1 The folder/file structure</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch06.htm#sigil_toc_id_73"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-87" playOrder="87">
+          <navLabel>
+            <text>6.1.2 Understanding the classes in the data set</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch06.htm#sigil_toc_id_74"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-88" playOrder="88">
+          <navLabel>
+            <text>6.1.3 Computing simple statistics on the data set</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch06.htm#sigil_toc_id_75"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-89" playOrder="89">
+        <navLabel>
+          <text>6.2 Creating data pipelines using the Keras ImageDataGenerator</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch06.htm#sigil_toc_id_76"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-90" playOrder="90">
+        <navLabel>
+          <text>6.3 Inception net: Implementing a state-of-the-art image classifier</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch06.htm#sigil_toc_id_77"/>
+        <navPoint class="chapter" id="navPoint-91" playOrder="91">
+          <navLabel>
+            <text>6.3.1 Recap on CNNs</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch06.htm#sigil_toc_id_78"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-92" playOrder="92">
+          <navLabel>
+            <text>6.3.2 Inception net v1</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch06.htm#sigil_toc_id_79"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-93" playOrder="93">
+          <navLabel>
+            <text>6.3.3 Putting everything together</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch06.htm#sigil_toc_id_80"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-94" playOrder="94">
+          <navLabel>
+            <text>6.3.4 Other Inception models</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch06.htm#sigil_toc_id_81"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-95" playOrder="95">
+        <navLabel>
+          <text>6.4 Training the model and evaluating performance</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch06.htm#sigil_toc_id_82"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-96" playOrder="96">
+        <navLabel>
+          <text>Summary</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch06.htm#sigil_toc_id_83"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-97" playOrder="97">
+        <navLabel>
+          <text>Answers to exercises</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch06.htm#sigil_toc_id_84"/>
+      </navPoint>
+    </navPoint>
+    <navPoint class="chapter" id="navPoint-98" playOrder="98">
+      <navLabel>
+        <text>7 Teaching machines to see better: Improving CNNs and making them confess</text>
+      </navLabel>
+      <content src="OEBPS/Text/ch07.htm"/>
+      <navPoint class="chapter" id="navPoint-99" playOrder="99">
+        <navLabel>
+          <text>7.1 Techniques for reducing overfitting</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch07.htm#sigil_toc_id_85"/>
+        <navPoint class="chapter" id="navPoint-100" playOrder="100">
+          <navLabel>
+            <text>7.1.1 Image data augmentation with Keras</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch07.htm#sigil_toc_id_86"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-101" playOrder="101">
+          <navLabel>
+            <text>7.1.2 Dropout: Randomly switching off parts of your network to improve generalizability</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch07.htm#sigil_toc_id_87"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-102" playOrder="102">
+          <navLabel>
+            <text>7.1.3 Early stopping: Halting the training process if the network starts to underperform</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch07.htm#sigil_toc_id_88"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-103" playOrder="103">
+        <navLabel>
+          <text>7.2 Toward minimalism: Minception instead of Inception</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch07.htm#sigil_toc_id_89"/>
+        <navPoint class="chapter" id="navPoint-104" playOrder="104">
+          <navLabel>
+            <text>7.2.1 Implementing the stem</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch07.htm#sigil_toc_id_90"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-105" playOrder="105">
+          <navLabel>
+            <text>7.2.2 Implementing Inception-ResNet type A block</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch07.htm#sigil_toc_id_91"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-106" playOrder="106">
+          <navLabel>
+            <text>7.2.3 Implementing the Inception-ResNet type B block</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch07.htm#sigil_toc_id_92"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-107" playOrder="107">
+          <navLabel>
+            <text>7.2.4 Implementing the reduction block</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch07.htm#sigil_toc_id_93"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-108" playOrder="108">
+          <navLabel>
+            <text>7.2.5 Putting everything together</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch07.htm#sigil_toc_id_94"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-109" playOrder="109">
+          <navLabel>
+            <text>7.2.6 Training Minception</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch07.htm#sigil_toc_id_95"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-110" playOrder="110">
+        <navLabel>
+          <text>7.3 If you can't beat them, join ‘em: Using pretrained networks for enhancing performance</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch07.htm#sigil_toc_id_96"/>
+        <navPoint class="chapter" id="navPoint-111" playOrder="111">
+          <navLabel>
+            <text>7.3.1 Transfer learning: Reusing existing knowledge in deep neural networks</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch07.htm#sigil_toc_id_97"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-112" playOrder="112">
+        <navLabel>
+          <text>7.4 Grad-CAM: Making CNNs confess</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch07.htm#sigil_toc_id_98"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-113" playOrder="113">
+        <navLabel>
+          <text>Summary</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch07.htm#sigil_toc_id_99"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-114" playOrder="114">
+        <navLabel>
+          <text>Answers to exercises</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch07.htm#sigil_toc_id_100"/>
+      </navPoint>
+    </navPoint>
+    <navPoint class="chapter" id="navPoint-115" playOrder="115">
+      <navLabel>
+        <text>8 Telling things apart: Image segmentation</text>
+      </navLabel>
+      <content src="OEBPS/Text/ch08.htm"/>
+      <navPoint class="chapter" id="navPoint-116" playOrder="116">
+        <navLabel>
+          <text>8.1 Understanding the data</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch08.htm#sigil_toc_id_101"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-117" playOrder="117">
+        <navLabel>
+          <text>8.2 Getting serious: Defining a TensorFlow data pipeline</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch08.htm#sigil_toc_id_102"/>
+        <navPoint class="chapter" id="navPoint-118" playOrder="118">
+          <navLabel>
+            <text>8.2.1 Optimizing tf.data pipelines</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch08.htm#sigil_toc_id_103"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-119" playOrder="119">
+          <navLabel>
+            <text>8.2.2 The final tf.data pipeline</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch08.htm#sigil_toc_id_104"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-120" playOrder="120">
+        <navLabel>
+          <text>8.3 DeepLabv3: Using pretrained networks to segment images</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch08.htm#sigil_toc_id_105"/>
+        <navPoint class="chapter" id="navPoint-121" playOrder="121">
+          <navLabel>
+            <text>8.3.1 A quick overview of the ResNet-50 model</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch08.htm#sigil_toc_id_106"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-122" playOrder="122">
+          <navLabel>
+            <text>8.3.2 Atrous convolution: Increasing the receptive field of convolution layers with holes</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch08.htm#sigil_toc_id_107"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-123" playOrder="123">
+          <navLabel>
+            <text>8.3.3 Implementing DeepLab v3 using the Keras functional API</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch08.htm#sigil_toc_id_108"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-124" playOrder="124">
+          <navLabel>
+            <text>8.3.4 Implementing the atrous spatial pyramid pooling module</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch08.htm#sigil_toc_id_109"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-125" playOrder="125">
+          <navLabel>
+            <text>8.3.5 Putting everything together</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch08.htm#sigil_toc_id_110"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-126" playOrder="126">
+        <navLabel>
+          <text>8.4 Compiling the model: Loss functions and evaluation metrics in image segmentation</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch08.htm#sigil_toc_id_111"/>
+        <navPoint class="chapter" id="navPoint-127" playOrder="127">
+          <navLabel>
+            <text>8.4.1 Loss functions</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch08.htm#sigil_toc_id_112"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-128" playOrder="128">
+          <navLabel>
+            <text>8.4.2 Evaluation metrics</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch08.htm#sigil_toc_id_113"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-129" playOrder="129">
+        <navLabel>
+          <text>8.5 Training the model</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch08.htm#sigil_toc_id_114"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-130" playOrder="130">
+        <navLabel>
+          <text>8.6 Evaluating the model</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch08.htm#sigil_toc_id_115"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-131" playOrder="131">
+        <navLabel>
+          <text>Summary</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch08.htm#sigil_toc_id_116"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-132" playOrder="132">
+        <navLabel>
+          <text>Answers to exercises</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch08.htm#sigil_toc_id_117"/>
+      </navPoint>
+    </navPoint>
+    <navPoint class="chapter" id="navPoint-133" playOrder="133">
+      <navLabel>
+        <text>9 Natural language processing with TensorFlow: Sentiment analysis</text>
+      </navLabel>
+      <content src="OEBPS/Text/ch09.htm"/>
+      <navPoint class="chapter" id="navPoint-134" playOrder="134">
+        <navLabel>
+          <text>9.1 What the text? Exploring and processing text</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch09.htm#sigil_toc_id_118"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-135" playOrder="135">
+        <navLabel>
+          <text>9.2 Getting text ready for the model</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch09.htm#sigil_toc_id_119"/>
+        <navPoint class="chapter" id="navPoint-136" playOrder="136">
+          <navLabel>
+            <text>9.2.1 Splitting training/validation and testing data</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch09.htm#sigil_toc_id_120"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-137" playOrder="137">
+          <navLabel>
+            <text>9.2.2 Analyze the vocabulary</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch09.htm#sigil_toc_id_121"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-138" playOrder="138">
+          <navLabel>
+            <text>9.2.3 Analyzing the sequence length</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch09.htm#sigil_toc_id_122"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-139" playOrder="139">
+          <navLabel>
+            <text>9.2.4 Text to words and then to numbers with Keras</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch09.htm#sigil_toc_id_123"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-140" playOrder="140">
+        <navLabel>
+          <text>9.3 Defining an end-to-end NLP pipeline with TensorFlow</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch09.htm#sigil_toc_id_124"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-141" playOrder="141">
+        <navLabel>
+          <text>9.4 Happy reviews mean happy customers: Sentiment analysis</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch09.htm#sigil_toc_id_125"/>
+        <navPoint class="chapter" id="navPoint-142" playOrder="142">
+          <navLabel>
+            <text>9.4.1 LSTM Networks</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch09.htm#sigil_toc_id_126"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-143" playOrder="143">
+          <navLabel>
+            <text>9.4.2 Defining the final model</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch09.htm#sigil_toc_id_127"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-144" playOrder="144">
+        <navLabel>
+          <text>9.5 Training and evaluating the model</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch09.htm#sigil_toc_id_128"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-145" playOrder="145">
+        <navLabel>
+          <text>9.6 Injecting semantics with word vectors</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch09.htm#sigil_toc_id_129"/>
+        <navPoint class="chapter" id="navPoint-146" playOrder="146">
+          <navLabel>
+            <text>9.6.1 Word embeddings</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch09.htm#sigil_toc_id_130"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-147" playOrder="147">
+          <navLabel>
+            <text>9.6.2 Defining the final model with word embeddings</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch09.htm#sigil_toc_id_131"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-148" playOrder="148">
+          <navLabel>
+            <text>9.6.3 Training and evaluating the model</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch09.htm#sigil_toc_id_132"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-149" playOrder="149">
+        <navLabel>
+          <text>Summary</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch09.htm#sigil_toc_id_133"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-150" playOrder="150">
+        <navLabel>
+          <text>Answers to exercises</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch09.htm#sigil_toc_id_134"/>
+      </navPoint>
+    </navPoint>
+    <navPoint class="chapter" id="navPoint-151" playOrder="151">
+      <navLabel>
+        <text>10 Natural language processing with TensorFlow: Language modeling</text>
+      </navLabel>
+      <content src="OEBPS/Text/ch10.htm"/>
+      <navPoint class="chapter" id="navPoint-152" playOrder="152">
+        <navLabel>
+          <text>10.1 Processing the data</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch10.htm#sigil_toc_id_135"/>
+        <navPoint class="chapter" id="navPoint-153" playOrder="153">
+          <navLabel>
+            <text>10.1.1 What is language modeling?</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch10.htm#sigil_toc_id_136"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-154" playOrder="154">
+          <navLabel>
+            <text>10.1.2 Downloading and playing with data</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch10.htm#sigil_toc_id_137"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-155" playOrder="155">
+          <navLabel>
+            <text>10.1.3 Too large vocabulary? N-grams to the rescue</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch10.htm#sigil_toc_id_138"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-156" playOrder="156">
+          <navLabel>
+            <text>10.1.4 Tokenizing text</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch10.htm#sigil_toc_id_139"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-157" playOrder="157">
+          <navLabel>
+            <text>10.1.5 Defining a tf.data pipeline</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch10.htm#sigil_toc_id_140"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-158" playOrder="158">
+        <navLabel>
+          <text>10.2 GRUs in Wonderland: Generating text with deep learning</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch10.htm#sigil_toc_id_141"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-159" playOrder="159">
+        <navLabel>
+          <text>10.3 Measuring the quality of the generated text</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch10.htm#sigil_toc_id_142"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-160" playOrder="160">
+        <navLabel>
+          <text>10.4 Training and evaluating the language model</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch10.htm#sigil_toc_id_143"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-161" playOrder="161">
+        <navLabel>
+          <text>10.5 Generating new text from the language model: Greedy decoding</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch10.htm#sigil_toc_id_144"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-162" playOrder="162">
+        <navLabel>
+          <text>10.6 Beam search: Enhancing the predictive power of sequential models</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch10.htm#sigil_toc_id_145"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-163" playOrder="163">
+        <navLabel>
+          <text>Summary</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch10.htm#sigil_toc_id_146"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-164" playOrder="164">
+        <navLabel>
+          <text>Answers to exercises</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch10.htm#sigil_toc_id_147"/>
+      </navPoint>
+    </navPoint>
+    <navPoint class="chapter" id="navPoint-165" playOrder="165">
+      <navLabel>
+        <text>Part 3 Advanced deep networks for complex problems</text>
+      </navLabel>
+      <content src="OEBPS/Text/P3.htm"/>
+    </navPoint>
+    <navPoint class="chapter" id="navPoint-166" playOrder="166">
+      <navLabel>
+        <text>11 Sequence-to-sequence learning: Part 1</text>
+      </navLabel>
+      <content src="OEBPS/Text/ch11.htm"/>
+      <navPoint class="chapter" id="navPoint-167" playOrder="167">
+        <navLabel>
+          <text>11.1 Understanding the machine translation data</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch11.htm#sigil_toc_id_148"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-168" playOrder="168">
+        <navLabel>
+          <text>11.2 Writing an English-German seq2seq machine translator</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch11.htm#sigil_toc_id_149"/>
+        <navPoint class="chapter" id="navPoint-169" playOrder="169">
+          <navLabel>
+            <text>11.2.1 The TextVectorization layer</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch11.htm#sigil_toc_id_150"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-170" playOrder="170">
+          <navLabel>
+            <text>11.2.2 Defining the TextVectorization layers for the seq2seq model</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch11.htm#sigil_toc_id_151"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-171" playOrder="171">
+          <navLabel>
+            <text>11.2.3 Defining the encoder</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch11.htm#sigil_toc_id_152"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-172" playOrder="172">
+          <navLabel>
+            <text>11.2.4 Defining the decoder and the final model</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch11.htm#sigil_toc_id_153"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-173" playOrder="173">
+          <navLabel>
+            <text>11.2.5 Compiling the model</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch11.htm#sigil_toc_id_154"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-174" playOrder="174">
+        <navLabel>
+          <text>11.3 Training and evaluating the model</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch11.htm#sigil_toc_id_155"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-175" playOrder="175">
+        <navLabel>
+          <text>11.4 From training to inference: Defining the inference model</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch11.htm#sigil_toc_id_156"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-176" playOrder="176">
+        <navLabel>
+          <text>Summary</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch11.htm#sigil_toc_id_157"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-177" playOrder="177">
+        <navLabel>
+          <text>Answers to exercises</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch11.htm#sigil_toc_id_158"/>
+      </navPoint>
+    </navPoint>
+    <navPoint class="chapter" id="navPoint-178" playOrder="178">
+      <navLabel>
+        <text>12 Sequence-to-sequence learning: Part 2</text>
+      </navLabel>
+      <content src="OEBPS/Text/ch12.htm"/>
+      <navPoint class="chapter" id="navPoint-179" playOrder="179">
+        <navLabel>
+          <text>12.1 Eyeballing the past: Improving our model with attention</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch12.htm#sigil_toc_id_159"/>
+        <navPoint class="chapter" id="navPoint-180" playOrder="180">
+          <navLabel>
+            <text>12.1.1 Implementing Bahdanau attention in TensorFlow</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch12.htm#sigil_toc_id_160"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-181" playOrder="181">
+          <navLabel>
+            <text>12.1.2 Defining the final model</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch12.htm#sigil_toc_id_161"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-182" playOrder="182">
+          <navLabel>
+            <text>12.1.3 Training the model</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch12.htm#sigil_toc_id_162"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-183" playOrder="183">
+        <navLabel>
+          <text>12.2 Visualizing the attention</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch12.htm#sigil_toc_id_163"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-184" playOrder="184">
+        <navLabel>
+          <text>Summary</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch12.htm#sigil_toc_id_164"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-185" playOrder="185">
+        <navLabel>
+          <text>Answers to exercises</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch12.htm#sigil_toc_id_165"/>
+      </navPoint>
+    </navPoint>
+    <navPoint class="chapter" id="navPoint-186" playOrder="186">
+      <navLabel>
+        <text>13 Transformers</text>
+      </navLabel>
+      <content src="OEBPS/Text/ch13.htm"/>
+      <navPoint class="chapter" id="navPoint-187" playOrder="187">
+        <navLabel>
+          <text>13.1 Transformers in more detail</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch13.htm#sigil_toc_id_166"/>
+        <navPoint class="chapter" id="navPoint-188" playOrder="188">
+          <navLabel>
+            <text>13.1.1 Revisiting the basic components of the Transformer</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch13.htm#sigil_toc_id_167"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-189" playOrder="189">
+          <navLabel>
+            <text>13.1.2 Embeddings in the Transformer</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch13.htm#sigil_toc_id_168"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-190" playOrder="190">
+          <navLabel>
+            <text>13.1.3 Residuals and normalization</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch13.htm#sigil_toc_id_169"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-191" playOrder="191">
+        <navLabel>
+          <text>13.2 Using pretrained BERT for spam classification</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch13.htm#sigil_toc_id_170"/>
+        <navPoint class="chapter" id="navPoint-192" playOrder="192">
+          <navLabel>
+            <text>13.2.1 Understanding BERT</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch13.htm#sigil_toc_id_171"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-193" playOrder="193">
+          <navLabel>
+            <text>13.2.2 Classifying spam with BERT in TensorFlow</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch13.htm#sigil_toc_id_172"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-194" playOrder="194">
+        <navLabel>
+          <text>13.3 Question answering with Hugging Face’s Transformers</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch13.htm#sigil_toc_id_173"/>
+        <navPoint class="chapter" id="navPoint-195" playOrder="195">
+          <navLabel>
+            <text>13.3.1 Understanding the data</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch13.htm#sigil_toc_id_174"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-196" playOrder="196">
+          <navLabel>
+            <text>13.3.2 Processing data</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch13.htm#sigil_toc_id_175"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-197" playOrder="197">
+          <navLabel>
+            <text>13.3.3 Defining the DistilBERT model</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch13.htm#sigil_toc_id_176"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-198" playOrder="198">
+          <navLabel>
+            <text>13.3.4 Training the model</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch13.htm#sigil_toc_id_177"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-199" playOrder="199">
+          <navLabel>
+            <text>13.3.5 Ask BERT a question</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch13.htm#sigil_toc_id_178"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-200" playOrder="200">
+        <navLabel>
+          <text>Summary</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch13.htm#sigil_toc_id_179"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-201" playOrder="201">
+        <navLabel>
+          <text>Answers to exercises</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch13.htm#sigil_toc_id_180"/>
+      </navPoint>
+    </navPoint>
+    <navPoint class="chapter" id="navPoint-202" playOrder="202">
+      <navLabel>
+        <text>14 TensorBoard: Big brother of TensorFlow</text>
+      </navLabel>
+      <content src="OEBPS/Text/ch14.htm"/>
+      <navPoint class="chapter" id="navPoint-203" playOrder="203">
+        <navLabel>
+          <text>14.1 Visualize data with TensorBoard</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch14.htm#sigil_toc_id_181"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-204" playOrder="204">
+        <navLabel>
+          <text>14.2 Tracking and monitoring models with TensorBoard</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch14.htm#sigil_toc_id_182"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-205" playOrder="205">
+        <navLabel>
+          <text>14.3 Using tf.summary to write custom metrics during model training</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch14.htm#sigil_toc_id_183"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-206" playOrder="206">
+        <navLabel>
+          <text>14.4 Profiling models to detect performance bottlenecks</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch14.htm#sigil_toc_id_184"/>
+        <navPoint class="chapter" id="navPoint-207" playOrder="207">
+          <navLabel>
+            <text>14.4.1 Optimizing the input pipeline</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch14.htm#sigil_toc_id_185"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-208" playOrder="208">
+          <navLabel>
+            <text>14.4.2 Mixed precision training</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch14.htm#sigil_toc_id_186"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-209" playOrder="209">
+        <navLabel>
+          <text>14.5 Visualizing word vectors with the TensorBoard</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch14.htm#sigil_toc_id_187"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-210" playOrder="210">
+        <navLabel>
+          <text>Summary</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch14.htm#sigil_toc_id_188"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-211" playOrder="211">
+        <navLabel>
+          <text>Answers to exercises</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch14.htm#sigil_toc_id_189"/>
+      </navPoint>
+    </navPoint>
+    <navPoint class="chapter" id="navPoint-212" playOrder="212">
+      <navLabel>
+        <text>15 TFX: MLOps and deploying models with TensorFlow</text>
+      </navLabel>
+      <content src="OEBPS/Text/ch15.htm"/>
+      <navPoint class="chapter" id="navPoint-213" playOrder="213">
+        <navLabel>
+          <text>15.1 Writing a data pipeline with TFX</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch15.htm#sigil_toc_id_190"/>
+        <navPoint class="chapter" id="navPoint-214" playOrder="214">
+          <navLabel>
+            <text>15.1.1 Loading data from CSV files</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch15.htm#sigil_toc_id_191"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-215" playOrder="215">
+          <navLabel>
+            <text>15.1.2 Generating basic statistics from the data</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch15.htm#sigil_toc_id_192"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-216" playOrder="216">
+          <navLabel>
+            <text>15.1.3 Inferring the schema from data</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch15.htm#sigil_toc_id_193"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-217" playOrder="217">
+          <navLabel>
+            <text>15.1.4 Converting data to features</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch15.htm#sigil_toc_id_194"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-218" playOrder="218">
+        <navLabel>
+          <text>15.2 Training a simple regression neural network: TFX Trainer API</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch15.htm#sigil_toc_id_195"/>
+        <navPoint class="chapter" id="navPoint-219" playOrder="219">
+          <navLabel>
+            <text>15.2.1 Defining a Keras model</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch15.htm#sigil_toc_id_196"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-220" playOrder="220">
+          <navLabel>
+            <text>15.2.2 Defining the model training</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch15.htm#sigil_toc_id_197"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-221" playOrder="221">
+          <navLabel>
+            <text>15.2.3 SignatureDefs: Defining how models are used outside TensorFlow</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch15.htm#sigil_toc_id_198"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-222" playOrder="222">
+          <navLabel>
+            <text>15.2.4 Training the Keras model with TFX Trainer</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch15.htm#sigil_toc_id_199"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-223" playOrder="223">
+        <navLabel>
+          <text>15.3 Setting up Docker to serve a trained model</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch15.htm#sigil_toc_id_200"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-224" playOrder="224">
+        <navLabel>
+          <text>15.4 Deploying the model and serving it through an API</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch15.htm#sigil_toc_id_201"/>
+        <navPoint class="chapter" id="navPoint-225" playOrder="225">
+          <navLabel>
+            <text>15.4.1 Validating the infrastructure</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch15.htm#sigil_toc_id_202"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-226" playOrder="226">
+          <navLabel>
+            <text>15.4.2 Resolving the correct model</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch15.htm#sigil_toc_id_203"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-227" playOrder="227">
+          <navLabel>
+            <text>15.4.3 Evaluating the model</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch15.htm#sigil_toc_id_204"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-228" playOrder="228">
+          <navLabel>
+            <text>15.4.4 Pushing the final model</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch15.htm#sigil_toc_id_205"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-229" playOrder="229">
+          <navLabel>
+            <text>15.4.5 Predicting with the TensorFlow serving API</text>
+          </navLabel>
+          <content src="OEBPS/Text/ch15.htm#sigil_toc_id_206"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-230" playOrder="230">
+        <navLabel>
+          <text>Summary</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch15.htm#sigil_toc_id_207"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-231" playOrder="231">
+        <navLabel>
+          <text>Answers to exercises</text>
+        </navLabel>
+        <content src="OEBPS/Text/ch15.htm#sigil_toc_id_208"/>
+      </navPoint>
+    </navPoint>
+    <navPoint class="chapter" id="navPoint-232" playOrder="232">
+      <navLabel>
+        <text>appendix A Setting up the environment</text>
+      </navLabel>
+      <content src="OEBPS/Text/A.htm"/>
+      <navPoint class="chapter" id="navPoint-233" playOrder="233">
+        <navLabel>
+          <text>A.1 In a Unix-based environment</text>
+        </navLabel>
+        <content src="OEBPS/Text/A.htm#sigil_toc_id_209"/>
+        <navPoint class="chapter" id="navPoint-234" playOrder="234">
+          <navLabel>
+            <text>A.1.1 Creating a virtual Python environment with Anaconda distribution (Ubuntu)</text>
+          </navLabel>
+          <content src="OEBPS/Text/A.htm#sigil_toc_id_210"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-235" playOrder="235">
+          <navLabel>
+            <text>A.1.2 Prerequisites for GPU support (Ubuntu)</text>
+          </navLabel>
+          <content src="OEBPS/Text/A.htm#sigil_toc_id_211"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-236" playOrder="236">
+          <navLabel>
+            <text>A.1.3 Notes on MacOS</text>
+          </navLabel>
+          <content src="OEBPS/Text/A.htm#sigil_toc_id_212"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-237" playOrder="237">
+        <navLabel>
+          <text>A.2 In Windows Environments</text>
+        </navLabel>
+        <content src="OEBPS/Text/A.htm#sigil_toc_id_213"/>
+        <navPoint class="chapter" id="navPoint-238" playOrder="238">
+          <navLabel>
+            <text>A.2.1 Creating a Virtual Python Environment (Anaconda)</text>
+          </navLabel>
+          <content src="OEBPS/Text/A.htm#sigil_toc_id_214"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-239" playOrder="239">
+          <navLabel>
+            <text>A.2.2 Prerequisites for GPU support</text>
+          </navLabel>
+          <content src="OEBPS/Text/A.htm#sigil_toc_id_215"/>
+        </navPoint>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-240" playOrder="240">
+        <navLabel>
+          <text>A.3 Activating and deactivating the conda environment</text>
+        </navLabel>
+        <content src="OEBPS/Text/A.htm#sigil_toc_id_216"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-241" playOrder="241">
+        <navLabel>
+          <text>A.4 Running the Jupyter Notebook server and creating notebooks</text>
+        </navLabel>
+        <content src="OEBPS/Text/A.htm#calibre_pb_0_1"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-242" playOrder="242">
+        <navLabel>
+          <text>A.5 Miscellaneous notes</text>
+        </navLabel>
+        <content src="OEBPS/Text/A.htm#sigil_toc_id_218"/>
+      </navPoint>
+    </navPoint>
+    <navPoint class="chapter" id="navPoint-243" playOrder="243">
+      <navLabel>
+        <text>appendix B Computer vision</text>
+      </navLabel>
+      <content src="OEBPS/Text/B.htm"/>
+      <navPoint class="chapter" id="navPoint-244" playOrder="244">
+        <navLabel>
+          <text>B.1 Grad-CAM: Interpreting computer vision models</text>
+        </navLabel>
+        <content src="OEBPS/Text/B.htm#sigil_toc_id_219"/>
+      </navPoint>
+      <navPoint class="chapter" id="navPoint-245" playOrder="245">
+        <navLabel>
+          <text>B.2 Image segmentation: U-Net model</text>
+        </navLabel>
+        <content src="OEBPS/Text/B.htm#sigil_toc_id_220"/>
+        <navPoint class="chapter" id="navPoint-246" playOrder="246">
+          <navLabel>
+            <text>B.2.1 Understanding and defining the U-Net model</text>
+          </navLabel>
+          <content src="OEBPS/Text/B.htm#sigil_toc_id_221"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-247" playOrder="247">
+          <navLabel>
+            <text>B.2.2 What’s better than an encoder? A pretrained encoder</text>
+          </navLabel>
+          <content src="OEBPS/Text/B.htm#sigil_toc_id_222"/>
+        </navPoint>
+      </navPoint>
+    </navPoint>
+    <navPoint class="chapter" id="navPoint-248" playOrder="248">
+      <navLabel>
+        <text>appendix C Natural language processing</text>
+      </navLabel>
+      <content src="OEBPS/Text/C.htm"/>
+      <navPoint class="chapter" id="navPoint-249" playOrder="249">
+        <navLabel>
+          <text>C.1 Touring around the zoo: Meeting other Transformer models</text>
+        </navLabel>
+        <content src="OEBPS/Text/C.htm#sigil_toc_id_223"/>
+        <navPoint class="chapter" id="navPoint-250" playOrder="250">
+          <navLabel>
+            <text>C.1.1 Generative pre-training (GPT) model (2018)</text>
+          </navLabel>
+          <content src="OEBPS/Text/C.htm#sigil_toc_id_224"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-251" playOrder="251">
+          <navLabel>
+            <text>C.1.2 DistilBERT (2019)</text>
+          </navLabel>
+          <content src="OEBPS/Text/C.htm#sigil_toc_id_225"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-252" playOrder="252">
+          <navLabel>
+            <text>C.1.3 RoBERT/ToBERT (2019)</text>
+          </navLabel>
+          <content src="OEBPS/Text/C.htm#sigil_toc_id_226"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-253" playOrder="253">
+          <navLabel>
+            <text>C.1.4 BART (2019)</text>
+          </navLabel>
+          <content src="OEBPS/Text/C.htm#sigil_toc_id_227"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-254" playOrder="254">
+          <navLabel>
+            <text>C.1.5 XLNet (2020)</text>
+          </navLabel>
+          <content src="OEBPS/Text/C.htm#sigil_toc_id_228"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-255" playOrder="255">
+          <navLabel>
+            <text>C.1.6 Albert (2020)</text>
+          </navLabel>
+          <content src="OEBPS/Text/C.htm#sigil_toc_id_229"/>
+        </navPoint>
+        <navPoint class="chapter" id="navPoint-256" playOrder="256">
+          <navLabel>
+            <text>C.1.7 Reformer (2020)</text>
+          </navLabel>
+          <content src="OEBPS/Text/C.htm#sigil_toc_id_230"/>
+        </navPoint>
+      </navPoint>
+    </navPoint>
+    <navPoint class="chapter" id="navPoint-257" playOrder="257">
+      <navLabel>
+        <text>index</text>
+      </navLabel>
+      <content src="OEBPS/Text/index.htm"/>
+    </navPoint>
+  </navMap>
+</ncx>

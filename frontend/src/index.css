@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 208 100% 11%;
+    --foreground: 0 0% 98%;
+    --card: 208 100% 13%;
+    --card-foreground: 0 0% 98%;
+    --popover: 208 100% 11%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 346 88% 52%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 208 40% 20%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 208 40% 20%;
+    --muted-foreground: 208 20% 70%;
+    --accent: 208 40% 25%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 208 40% 20%;
+    --input: 208 40% 20%;
+    --ring: 346 88% 52%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom Scrollbar for Plex-like feel */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-background;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-muted rounded-full border-2 border-background border-transparent bg-clip-padding;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground;
+}

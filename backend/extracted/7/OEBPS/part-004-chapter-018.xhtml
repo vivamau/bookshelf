@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+ "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xml:lang="en" xmlns:epub="http://www.idpf.org/2007/ops" xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+  <title>Chapter 18: Stakeholder Management</title>
+  <link rel="stylesheet"
+        type="text/css"
+        href="css/style.css" />
+  <link rel="stylesheet"
+        type="text/css"
+        href="css/media.css" />
+</head>
+<body>
+  <div id="part-4-chapter-3" class="element element-bodymatter element-container-single element-type-chapter element-with-heading">
+    <div class="heading heading-container-single heading-size-full heading-format-full heading-alignment-flexible heading-without-image">
+      <div class="heading-contents">
+        <div class="title-subtitle-block title-block-with-element-number">
+          <div class="element-number-block">
+            <div class="element-number case-upper"><span class="element-number-term">CHAPTER</span> <span class="element-number-number">18</span></div>
+          </div>
+          <div class="title-block">
+            <h1 class="element-title case-upper">STAKEHOLDER MANAGEMENT</h1>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="text" id="part-4-chapter-3-text">
+      <p class="first first-in-chapter first-full-width">Stakeholders are people and groups with an interest in a project’s outcome. Internally, they may be product folks, the legal team, engineering teams, or any other business unit. Stakeholders can also be external to the company, in the form of users, customers, vendors, regulatory bodies, and others.</p>
+      <p class="subsq">The best time to figure out the key stakeholders in your project is as soon as possible. The worst time is when you are ready to ship, as an important-enough person could then appear seemingly from nowhere and take a proper look at your project for the first time, and declare major changes are needed. In this case, it would have been better to consult this key stakeholder earlier.</p>
+      <p class="subsq">In this chapter, we cover ways of identifying stakeholders and working with them.</p>
+      <ol>
+        <li><a class="content-external-link" href="part-004-chapter-018.xhtml#subhead-1">The real goal of stakeholder management</a></li>
+        <li><a class="content-external-link" href="part-004-chapter-018.xhtml#subhead-2">Types of stakeholders</a></li>
+        <li><a class="content-external-link" href="part-004-chapter-018.xhtml#subhead-3">Figuring out who your stakeholders are</a></li>
+        <li><a class="content-external-link" href="part-004-chapter-018.xhtml#subhead-4">Keeping them in the loop</a></li>
+        <li><a class="content-external-link" href="part-004-chapter-018.xhtml#subhead-5">Problematic stakeholders</a></li>
+        <li><a class="content-external-link" href="part-004-chapter-018.xhtml#subhead-6">Learning from stakeholders</a></li>
+      </ol>
+      <h2 id="subhead-1" class="section-title subhead keep-with-next paragraph-follows case-upper">1. THE REAL GOAL OF STAKEHOLDER MANAGEMENT</h2>
+      <p class="first first-after-subhead">As a tech lead, why do you need to manage stakeholders? Why identify them and give them detailed enough, frequent enough updates? Is it to maintain a good relationship with them? This is nice to have, but isn’t the real goal.</p>
+      <p class="subsq"><b>The point of stakeholder management is for the project to succeed by keeping everyone on the same page. </b>So many projects fail because the people involved have different ideas of what to do and how to do it. This means that when engineering announces a project is done, business stakeholders often say that what has been built is not what the business needs.</p>
+      <p class="subsq">Stakeholder management involves various approaches to ensure everyone with a meaningful say in the project knows what’s happening, knows about new risks and changes to the project, and is aware of – and does not object to – key responses to changes in a project. It is just a tool to help a project succeed and to ensure everyone agrees what success looks like.</p>
+      <p class="subsq">I worked on a project with several teams involved, in which the project lead sent weekly, pages-long status updates to all team members and posted updates on chat. Yet it felt like everyone was pulling in different directions, and it was unclear what the real focus was, beyond finishing our assigned engineering task. In the end, the project seemed like a failure and left a sour taste in everyone’s mouths.</p>
+      <p class="subsq">On another, similarly complex project, the goal was much clearer and updates were sparser, but the project felt more united. And when we shipped, the business stakeholders surprised the engineering team with a bottle of champagne as a thank-you. The difference between this project and the previous one? The project lead communicated much more with product folks and business stakeholders.</p>
+      <p class="subsq"><b>Good stakeholder management is highly collaborative. </b>For the latter, successful project, the tech lead did far less “formal” stakeholder management in terms of emails and written updates. What they did was talk with business stakeholders in person and on video. And the tech lead became familiar enough with the business domain that they used good judgment in seeking input from the business when an engineering risk meant potentially changing the scope of the work.</p>
+      <h2 id="subhead-2" class="section-title subhead keep-with-next paragraph-follows case-upper">2. TYPES OF STAKEHOLDERS</h2>
+      <p class="first first-after-subhead">For most engineering projects, stakeholders typically fall into these groups:</p>
+      <ul>
+        <li><b>Customers: </b>users of a project’s outputs. For engineering teams building B2C (business to customer) products, these are the end users. For B2B (business to business) projects, they’re the product’s users. And for internal-facing projects – frequently built by platform teams<sup><a id="part-4-chapter-3-endnote-1" class="endnote-source" href="part-004-chapter-018.xhtml#part-4-chapter-3-endnote-1-text">1</a></sup> – these are internal teams.</li>
+        <li><b>Business stakeholders:</b> internal, non-tech groups at a company with skin in a project, such as Legal, Marketing, Customer Support, Finance, Operations, and others. My take is that a good kickoff is needed so that engineering is aware of who all the business stakeholders are, which we cover in the “Project Management” section. Why? If a business stakeholder is out of the loop, it can delay a project.</li>
+        <li><b>External stakeholders:</b> teams at other companies with an interest in a project, such as vendors, or other engineering teams at a partner organization.</li>
+        <li><b>Product stakeholders:</b> product managers, design, data science, and other groups in tech that work closely with product managers. Most of them collaborate with business stakeholders and the engineering team.</li>
+        <li><b>Engineering stakeholders:</b> internal engineering teams which are upstream or downstream dependencies for a project, defined below.</li>
+      </ul>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Categorize</span> stakeholders by dependency type</b></p>
+      <p class="subsq">Bucketing stakeholders into one of the following categories can be a useful mental model. For this, visualize a flowing river, with teams building dams in different places, both downstream and upstream, from your team.</p>
+      <div class="inline-image inline-image-kind-photograph inline-image-size-full inline-image-flow-center inline-image-flow-within-text inline-image-aspect-wide block-height-not-mult-of-line-height inline-image-with-caption inline-image-after-section-begin inline-image-before-element-end">
+        <div class="inline-image-container">
+          <img src="images/image26.jpg"
+               alt="Upstream and downstream dependencies, visualized." />
+        </div>
+        <p class="inline-image-caption"><i>Upstream and downstream dependencies, visualized.</i></p>
+      </div>
+      <ul>
+        <li><b>Upstream dependencies</b> are teams whose work you depend on. They must do a specific task in order for your team to do its work, and for the project to get done.</li>
+        <li><b>Downstream dependencies</b> are teams that depend on your work. Downstream teams come after yours, meaning your work must be done before they can complete their part of a project.</li>
+        <li><b>Strategic stakeholders</b> are people or teams you want to keep in the loop, who can often help unblock upstream dependencies.</li>
+      </ul>
+      <p class="subsq">This categorization helps make it clearer which stakeholders to communicate with in certain situations. For example:</p>
+      <ul>
+        <li>When making a change to one of your APIs, communicate this change to downstream dependencies which depend on this API.</li>
+        <li>When you need to use an API which another team owns, they are an upstream dependency. Reach out to them and confirm that the API will not have any major changes, and that they’re aware you’re building a new feature on top of it.</li>
+        <li>A country marketing manager could have a special interest in your project because they want to launch a campaign when the feature rolls out. They’re a strategic stakeholder, so add this person to update emails, and keep them in the loop in case of any delays.</li>
+      </ul>
+      <h2 id="subhead-3" class="section-title subhead keep-with-next paragraph-follows case-upper">3. FIGURE OUT WHO YOUR STAKEHOLDERS ARE</h2>
+      <p class="first first-after-subhead">As a tech lead, knowing your key stakeholders is vital because not knowing can easily harm a project in the forms of wasted work and delays. I have personal experience of this. On one project, my team forgot to share the engineering plan – the RFC – with an engineering team whose service we needed to modify. When we got to making this modification, the engineering team in question blocked it because our approach made no sense for their system. We eventually found a solution, but not knowing the team was a stakeholder delayed the project by two weeks.</p>
+      <p class="subsq">In another case, I observed an engineering team work for a month on a project, only for the legal department to intervene and block it, unexpectedly. Legal had not been in the loop, even though they should have been. They reviewed the proposed changes, said the project was too risky to ship and wouldn’t budge from this judgment, so the project was canceled. The engineering team would have saved themselves much wasted work had they involved the legal team earlier.</p>
+      <p class="subsq">So, how do you find out who your stakeholders are? This question is especially relevant at large companies with dozens – or hundreds – of engineering teams, and large numbers of product/design/data and business folks. There’s the hard way, as detailed above, and there’s the easy way:</p>
+      <p class="subsq"><b>Just ask! </b>Consult people who definitely are stakeholders about who else could be a stakeholder. For example:</p>
+      <ul>
+        <li>Ask your product counterpart which business colleagues could have an interest.</li>
+        <li>Talk with data science folks, as they often collaborate with other data scientists to ensure experiments don’t overlap.</li>
+        <li>Ask experienced tech leads which teams they identified as stakeholders for previous projects. Could any of them be your stakeholders, too?</li>
+      </ul>
+      <p class="subsq">Look at architecture changes and the code. Finding engineering stakeholders can often be done just by understanding which parts of the code and which services will be modified by your project. Reach out to teams who own those parts of the code and services.</p>
+      <p class="subsq">The concept of upstream and downstream stakeholders is useful when modifying services. This is because a common enough conflict is when an engineering team modifies a service, which breaks a downstream user of it. This can be avoided by identifying the downstream user as a key stakeholder early. Then the engineering team could get feedback sooner, and modify their plans so as not to break that team.</p>
+      <p class="subsq"><b>Identify the “usual suspects.” </b>There are some teams whom it’s safe to assume have an interest in your project. At midsize and larger companies these tend to be:</p>
+      <ul>
+        <li>Engineering</li>
+        <li>Product</li>
+        <li>Design/user experience</li>
+        <li>Data science</li>
+        <li>Security and compliance</li>
+        <li>Infrastructure, DevOps, Site Reliability</li>
+        <li>Legal</li>
+        <li>Marketing/growth/user acquisition</li>
+        <li>Customer support/helpdesk</li>
+        <li>Operations</li>
+        <li>Sales/business development</li>
+        <li>Finance</li>
+      </ul>
+      <p class="subsq">Make a list of the usual stakeholders at your company, then figure out if they have an interest in your project.</p>
+      <h2 id="subhead-4" class="section-title subhead keep-with-next paragraph-follows case-upper">4. KEEP THEM IN THE LOOP</h2>
+      <p class="first first-after-subhead">“Stakeholder management” is a fancy phrase for ensuring everyone who needs to know what your team is doing, does know. Poor stakeholder management is leaving key people and teams out of the communications loop. This can cause frustration, trigger complaints, and delay a project.</p>
+      <p class="subsq">Once you’ve identified your stakeholders, it’s helpful to ensure they don’t get taken by surprise by decisions your team makes. Given there are usually several stakeholders, it’s impractical to use one-to-one communication, and it is more efficient to update stakeholders as a group.</p>
+      <p class="subsq">I’ve observed three common ways to keep stakeholders updated:</p>
+      <ol>
+        <li><b>Meetings:</b> recurring or ad-hoc. In a meeting, the project lead shares progress, decisions made, blockers, and invites input from stakeholders.</li>
+        <li><b>Asynchronous updates:</b> such as emails or chat messages. The content is the same as in a meeting, but less time-consuming. A downside is stakeholders might miss a message, and tend to focus more during meetings.</li>
+        <li><b>Hybrid.</b> When stakeholders are expected to have significant input, organize a meeting. Milestone demonstrations and major project changes may warrant this. Otherwise, stick with asynchronous communication.</li>
+      </ol>
+      <p class="subsq">It’s helpful to understand your organization’s culture; how do tech leads and product folks keep stakeholders updated? Do stakeholders prefer certain formats for updates? If so, it could be sensible to use familiar formats in the first few projects you lead.</p>
+      <p class="subsq"><b>Proactively written communication on how a project is progressing is always useful. </b>An approach I’ve seen work well is sending regular update emails about progress, risks and how they’re being mitigated, timeline changes, and confidence about deadlines. Here’s an example of an update email:</p>
+      <div class="inline-image inline-image-kind-photograph inline-image-size-full inline-image-flow-center inline-image-flow-within-text inline-image-aspect-wide block-height-not-mult-of-line-height inline-image-with-caption inline-image-after-section-begin inline-image-before-element-end">
+        <div class="inline-image-container">
+          <img src="images/image21.jpg"
+               alt="A status update email proactively sharing the project’s status, risks, and mitigation." />
+        </div>
+        <p class="inline-image-caption"><i>A status update email proactively sharing the project’s status, risks, and mitigation.</i></p>
+      </div>
+      <div class="alignment-block alignment-block-align-center">
+        <div class="text-block">
+        <p class="alignment-block-content alignment-block-content-center"><i>Template source: Software engineers leading projects / The Pragmatic Engineer</i><sup><a id="part-4-chapter-3-endnote-2" class="endnote-source" href="part-004-chapter-018.xhtml#part-4-chapter-3-endnote-2-text">2</a></sup></p>
+      </div>
+      </div>
+      <p class="subsq">A nice thing about an email is that it acts as a “master” status update and useful reference in meetings and other catchups with stakeholders. Meetings can be necessary for stakeholders who are demanding or tend to have lots to say about a project. However, as a tech lead the more you can get stakeholders to treat regular status update emails as the ‘source of truth,’ the easier it will be to ensure all stakeholders are quite literally on the same page.</p>
+      <h2 id="subhead-5" class="section-title subhead keep-with-next paragraph-follows case-upper">5. PROBLEMATIC STAKEHOLDERS</h2>
+      <p class="first first-after-subhead">You will encounter problematic stakeholders as a project lead. But what does “problematic” mean? This depends on whether they are a downstream, upstream, or a strategic stakeholder:</p>
+      <ul>
+        <li>Upstream problematic stakeholders are teams or individuals you depend on, and yet see as unreliable, or have issues collaborating with, or trusting them.</li>
+        <li>Downstream problematic stakeholders often bug you about when you’ll be ready, and try to push you and your team.</li>
+        <li>Strategic problematic stakeholders continuously seek updates, or give you a hard time about emerging challenges.</li>
+      </ul>
+      <p class="subsq">In each case, the biggest issue tends to be communication and trust. Below are some approaches to improve things that apply to all the above groups.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Talk</span> face-to-face</b></p>
+      <p class="subsq">Instead of communicating via chat or email, consider talking in person with problematic folks. Get on a video call, or meet in the workplace and lay out the issues you’re observing. Discuss what can change to improve things. For example, if an upstream stakeholder keeps nagging you about whether your team can ship a milestone sooner, walk them through the progress to date and what’s left to do, give feedback that being nagged isn’t helpful, and reach an agreement on how to work better together.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Be</span> transparent and educate them</b></p>
+      <p class="subsq">For upstream stakeholders and strategic stakeholders – both typically impatient – explain what needs to be done and why, and where you are right now with it. It’s easiest to do this in face-to-face meetings.</p>
+      <p class="subsq">Update emails are another way to be transparent and educational. Regular, honest updates about progress helps to calm nerves, which is another reason I’m a fan of them. If you write these, there’s a good chance that simply adding problematic stakeholders to the mailing list will resolve the problem.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Ask</span> for support</b></p>
+      <p class="subsq">There may be times when talking directly and being more transparent doesn’t help. If you’re getting nowhere, it’s time to pull in your management chain or project leadership chain for assistance. Ask for help and advice from people with more authority than you.</p>
+      <h2 id="subhead-6" class="section-title subhead keep-with-next paragraph-follows case-upper">6. LEARNING FROM STAKEHOLDERS</h2>
+      <p class="first first-after-subhead">If you do a good enough job of managing stakeholders, you’ll reduce the risk of unexpected delays caused by a stakeholder who’s not in the loop. However, if you focus solely on managing stakeholders, you miss out on one of the best parts of working with the people invested in your project: learning from them!</p>
+      <p class="subsq">As a tech lead, you’ll likely interact with people in different teams, and stakeholders working across various disciplines. This is a fantastic learning opportunity. Explore their professional area, their discipline, and their part of the business. As we cover in <a class="content-external-link" href="part-005.xhtml">Part V</a>, understanding the business is table-stakes at staff+ levels. Tech leads have the chance to learn on the job by working with stakeholders day-to-day.</p>
+      <p class="subsq">Here are some approaches to make the most of working with stakeholders and learning from them:</p>
+      <ul>
+        <li><b>Ask about their part of the business. </b>What are they responsible for, how does their area contribute to the company, what are their team’s goals, any recent wins?</li>
+        <li><b>Ask about their challenges. </b>What is a difficult problem they have, even if it’s unrelated to the project you’re collaborating on? You can learn a lot from someone sharing their biggest challenges.</li>
+        <li><b>Ask what they do outside of the project you’re collaborating on.</b> Which other projects do they have? What was the last product they contributed to?</li>
+        <li><b>Small talk.</b> Get to know them better as a person, especially if working together for an extended period. What did they do before joining the company, what are their hobbies, do you have shared interests at work, or outside of it?</li>
+        <li><b>Consider grabbing coffee or lunch.</b> In some cases, it could be easy enough to catch up over lunch, and take the opportunity to discover more about them.</li>
+        <li><b>Ask if you can shadow their team meeting as a one-off.</b> As a tech lead, there are two major benefits in shadowing another team’s meeting. First, you get new ideas about how to run such meetings, and observe the dynamics in the room. Second, you’ll likely hear a lot you don’t fully understand. This is a chance to learn more about what another team works on, why it matters, and to expand your knowledge and understanding.</li>
+      </ul>
+      <p class="subsq">A benefit of learning from stakeholders is that it makes you better at handling them at work. When you understand what they do, their domain, and their challenges, it’s easier to be empathetic and to express details about your project in terms they understand.</p>
+      <p class="subsq">Learning from stakeholders is much easier in person than in a remote setting. When working remotely, it helps to be much more upfront about your intentions and to schedule more focused sessions. Here is an approach that worked well for software engineer and engineering manager, John Crickett<sup><a id="part-4-chapter-3-endnote-3" class="endnote-source" href="part-004-chapter-018.xhtml#part-4-chapter-3-endnote-3-text">3</a></sup>:</p>
+      <p class="subsq">“If you’re remote, send people an invite. Mine is this:</p>
+      <p class="subsq">‘Hi X – I’m John, I’ve recently joined [Org] and would love to meet you to understand more about your area of the business. I’d really appreciate 15 minutes of your time if you can spare it. I’ve picked a free spot in your calendar, but please suggest an alternative if it’s inconvenient. Many thanks, – John’</p>
+      <p class="subsq">The area or areas and the project name, could be appropriate details to add. So far, no one has ever said no! And most people are okay with this catchup overrunning or offering a longer slot.</p>
+      <p class="subsq">I make sure I am on the call on time and have a list of questions for them to help move the conversation along. Typically it’s general questions like:</p>
+      <ul>
+        <li>What is your team working on?</li>
+        <li>What’s the biggest challenge you have right now?</li>
+        <li>How can I/the team I’ve joined, help you?”</li>
+      </ul>
+    </div>
+    <div class="fewer-than-100-notes">
+      <div class="endnotes">
+        <div class="endnotes-separator">
+        </div>
+        <div>
+          <div id="part-4-chapter-3-endnote-1-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-004-chapter-018.xhtml#part-4-chapter-3-endnote-1">1</a> </span><a class="content-external-link text-is-url" href="https://blog.pragmaticengineer.com/platform-teams">https://blog.pragmaticengineer.com/platform-teams</a></p>
+          </div>
+          <div id="part-4-chapter-3-endnote-2-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-004-chapter-018.xhtml#part-4-chapter-3-endnote-2">2</a> </span><a class="content-external-link text-is-url" href="https://newsletter.pragmaticengineer.com/p/engineers-leading-projects-part-2">https://newsletter.pragmaticengineer.com/p/engineers-leading-projects-part-2</a></p>
+          </div>
+          <div id="part-4-chapter-3-endnote-3-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-004-chapter-018.xhtml#part-4-chapter-3-endnote-3">3</a> </span><a class="content-external-link text-is-url" href="https://www.linkedin.com/in/johncrickett">https://www.linkedin.com/in/johncrickett</a></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

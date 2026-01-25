@@ -1,0 +1,528 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xml:lang="en"
+      lang="en"
+      xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:epub="http://www.idpf.org/2007/ops">
+<head>
+<title>TensorFlow in Action</title>
+<link rel="stylesheet" type="text/css" href="../../override_v1.css"/>
+<link rel="stylesheet" type="text/css" href="../../stylesheet.css"/><link rel="stylesheet" type="text/css" href="../../page_styles.css"/>
+</head>
+<body>
+<div id="book-content">
+<div id="sbo-rt-content" class="calibre"><h1 class="tochead"><a id="pgfId-1051136"></a>appendix B Computer vision</h1>
+
+  <h2 class="fm-head" id="sigil_toc_id_219"><a id="pgfId-1051137"></a>B.1 Grad-CAM: Interpreting computer vision models</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051141"></a>Grad-CAM (which stands<a class="calibre8" id="marker-1055548"></a> for gradient class activation map<a class="calibre8" id="marker-1055549"></a><a class="calibre8" id="marker-1055550"></a>) was introduced in chapter 7 and is a model interpretation technique introduced for deep neural networks by Ramprasaath R. Selvaraju et al. in “Grad-CAM: Visual Explanations from Deep Networks via Gradient-based Localization” (<span class="fm-hyperlink"><a class="url" href="https://arxiv.org/pdf/1610.02391.pdf">https://arxiv.org/pdf/1610.02391.pdf</a></span>). Deep networks are notorious for their inexplicable nature and are thus termed <i class="fm-italics">black boxes</i>. Therefore, we must do some analysis and ensure that the model is working as intended.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051143"></a>Let’s refresh our memory on the model we implemented in chapter 7: a pretrained Inception-based model called InceptionResNet v2, topped with a softmax classifier that has 200 nodes (i.e., the same as the number of classes in our image classification data set, TinyImageNet; see the following listing).</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1051145"></a>Listing B.1 The InceptionResNet v2 model we defined in chapter 7</p>
+  <pre class="programlisting">import tensorflow as tf
+import tensorflow.keras.backend as K
+from tensorflow.keras.applications import InceptionResNetV2
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Input, Dense, Dropout
+ 
+K.clear_session()
+ 
+def get_inception_resnet_v2_pretrained():
+    model = Sequential([                                       <span class="fm-combinumeral">❶</span>
+        Input(shape=(224,224,3)),                              <span class="fm-combinumeral">❷</span>
+        InceptionResNetV2(include_top=False, pooling='avg'),   <span class="fm-combinumeral">❸</span>
+        Dropout(0.4),                                          <span class="fm-combinumeral">❹</span>
+        Dense(200, activation='softmax')                       <span class="fm-combinumeral">❺</span>
+    ])
+    loss = tf.keras.losses.CategoricalCrossentropy()
+    adam = tf.keras.optimizers.Adam(learning_rate=0.0001)
+    model.compile(loss=loss, optimizer=adam, metrics=['accuracy'])
+    return model 
+ 
+model = get_inception_resnet_v2_pretrained()
+model.summary()</pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1058939"></a><span class="fm-combinumeral">❶</span> Define a model using the Sequential API.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1058960"></a><span class="fm-combinumeral">❷</span> Define an input layer to take in a 224 × 224 × 3-sized batch of images.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1058977"></a><span class="fm-combinumeral">❸</span> Download and use the pretrained InceptionResNetV2 model (without the built-in classifier).</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1058994"></a><span class="fm-combinumeral">❹</span> Add a dropout layer.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1059011"></a><span class="fm-combinumeral">❺</span> Add a new classifier layer that has 200 nodes.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051175"></a>If you print the summary of this model, you will get the following output:</p>
+  <pre class="programlisting">Model: "sequential"
+_________________________________________________________________
+Layer (type)                 Output Shape              Param #   
+=================================================================
+inception_resnet_v2 (Model)  (None, 1536)              54336736  
+_________________________________________________________________
+dropout (Dropout)            (None, 1536)              0         
+_________________________________________________________________
+dense (Dense)                (None, 200)               307400    
+=================================================================
+Total params: 54,644,136
+Trainable params: 54,583,592
+Non-trainable params: 60,544
+_________________________________________________________________</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051190"></a>As you can see, the InceptionResNet v2 model is considered a single layer in our model. In other words, it’s a nested model, where the outer model (<span class="fm-code-in-text">sequential</span>) has an inner model (<span class="fm-code-in-text">inception_resnet_v2</span>). But we need more transparency, as we are going to access a particular layer inside the <span class="fm-code-in-text">inception_resnet_v2</span> model in order to implement Grad-CAM. Therefore, we are going to “unwrap” or remove this nesting and have the model described by layers only. We can achieve this using the following code:</p>
+  <pre class="programlisting">K.clear_session()
+ 
+model = load_model(os.path.join('models','inception_resnet_v2.h5'))
+ 
+def unwrap_model(model):
+    inception = model.get_layer('inception_resnet_v2')
+    inp = inception.input
+    out = model.get_layer('dropout')(inception.output)
+    out = model.get_layer('dense')(out)
+    return Model(inp, out)   
+    
+unwrapped_model = unwrap_model(model)
+ 
+unwrapped_model.summary()</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051205"></a>Essentially what we are doing is taking the existing model and changing the input of it slightly. After taking the existing model, we change the input to the input layer of the <span class="fm-code-in-text">inception_resnet_v2</span> model. With that, we define a new model (which essentially uses the same parameters as the old model). Then you will see the following output. There are no more models within models:</p>
+  <pre class="programlisting">Model: "model"
+___________________________________________________________________________
+<span class="fm-code-continuation-arrow">➥</span> ________________
+Layer (type)                    Output Shape         Param #     Connected 
+<span class="fm-code-continuation-arrow">➥</span> to                     
+===========================================================================
+<span class="fm-code-continuation-arrow">➥</span> ================
+input_2 (InputLayer)            [(None, None, None,  0                                            
+___________________________________________________________________________
+<span class="fm-code-continuation-arrow">➥</span> ________________
+conv2d (Conv2D)                 (None, None, None, 3 864         
+<span class="fm-code-continuation-arrow">➥</span> input_2[0][0]                    
+___________________________________________________________________________
+<span class="fm-code-continuation-arrow">➥</span> ________________
+batch_normalization (BatchNorma (None, None, None, 3 96          
+<span class="fm-code-continuation-arrow">➥</span> conv2d[0][0]                     
+___________________________________________________________________________
+<span class="fm-code-continuation-arrow">➥</span> ________________
+activation (Activation)         (None, None, None, 3 0           
+<span class="fm-code-continuation-arrow">➥</span> batch_normalization[0][0]        
+___________________________________________________________________________
+<span class="fm-code-continuation-arrow">➥</span> ________________
+ 
+...
+___________________________________________________________________________
+<span class="fm-code-continuation-arrow">➥</span> ________________
+conv_7b (Conv2D)                (None, None, None, 1 3194880     
+<span class="fm-code-continuation-arrow">➥</span> block8_10[0][0]                  
+___________________________________________________________________________
+<span class="fm-code-continuation-arrow">➥</span> ________________
+conv_7b_bn (BatchNormalization) (None, None, None, 1 4608        
+<span class="fm-code-continuation-arrow">➥</span> conv_7b[0][0]                    
+___________________________________________________________________________
+<span class="fm-code-continuation-arrow">➥</span> ________________
+conv_7b_ac (Activation)         (None, None, None, 1 0           
+<span class="fm-code-continuation-arrow">➥</span> conv_7b_bn[0][0]                 
+___________________________________________________________________________
+<span class="fm-code-continuation-arrow">➥</span> ________________
+global_average_pooling2d (Globa (None, 1536)         0           
+<span class="fm-code-continuation-arrow">➥</span> conv_7b_ac[0][0]                 
+___________________________________________________________________________
+<span class="fm-code-continuation-arrow">➥</span> ________________
+dropout (Dropout)               (None, 1536)         0           
+<span class="fm-code-continuation-arrow">➥</span> global_average_pooling2d[0][0]   
+___________________________________________________________________________
+<span class="fm-code-continuation-arrow">➥</span> ________________
+dense (Dense)                   (None, 200)          307400      
+<span class="fm-code-continuation-arrow">➥</span> dropout[1][0]                    
+===========================================================================
+<span class="fm-code-continuation-arrow">➥</span> ================
+Total params: 54,644,136
+Trainable params: 54,583,592
+Non-trainable params: 60,544
+___________________________________________________________________________
+<span class="fm-code-continuation-arrow">➥</span> ________________</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051237"></a>Next, we are going to make one more change: introduce a new output to our model. Remember that we used the functional API to define our model. This means we can define multiple outputs in our model. The output we need is the feature maps produced by the last convolutional layer in the <span class="fm-code-in-text">inception_resnet_v2</span> model. This is a core part of the Grad-CAM computations. You can get the layer name of the last convolutional layer by looking at the model summary of the unwrapped model:</p>
+  <pre class="programlisting">last_conv_layer = 'conv_7b' # This is the name of the last conv layer of the model
+ 
+grad_model = Model(
+    inputs=unwrapped_model.inputs, 
+    outputs=[
+        unwrapped_model.get_layer(last_conv_layer).output,
+        unwrapped_model.output
+    ]    
+)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051247"></a>With our model ready, let’s move on to the data. We will use the validation data set to inspect our model. Particularly, we will write a function (listing B.2) that takes in the following:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1051248"></a><span class="fm-code-in-text">image_path</span> (<span class="fm-code-in-text">str</span>)—Path to an image in the data set.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1051249"></a><span class="fm-code-in-text">val_df</span> (<span class="fm-code-in-text">pd.DataFrame</span>)—A pandas DataFrame that contains a mapping from an image name to wnid (i.e., a WordNet ID). Remember that a wnid is a special coding used to identify a specific class of objects.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1051250"></a><span class="fm-code-in-text">class_indices</span> (dict)—A wnid (string) to class (integer between 0-199) mapping. This keeps information about which wnid is represented by which index in the final output layer of the model.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1051251"></a><span class="fm-code-in-text">words</span> (<span class="fm-code-in-text">pd.DataFrame</span>)—A pandas DataFrame that contains a mapping from a wnid to a human-readable description of the class.</p>
+    </li>
+  </ul>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1051253"></a>Listing B.2 Retrieving the transformed image, class index, and human-readable label</p>
+  <pre class="programlisting">img_path = 'data/tiny-imagenet-200/val/images/val_434.JPEG'
+ 
+val_df = pd.read_csv(                                                          <span class="fm-combinumeral">❶</span>
+    os.path.join('data','tiny-imagenet-200', 'val', 'val_annotations.txt'),
+    sep='\t', index_col=0, header=None
+)
+ 
+with open(os.path.join('data','class_indices'),'rb') as f:                     <span class="fm-combinumeral">❷</span>
+    class_indices = pickle.load(f)
+words = pd.read_csv(                                                           <span class="fm-combinumeral">❸</span>
+    os.path.join('data','tiny-imagenet-200', 'words.txt'), 
+    sep='\t', index_col=0, header=None
+)
+ 
+def get_image_class_label(img_path, val_df, class_indices, words):
+    """ Returns the normalized input, class (int) and the label name for a given image"""
+    
+    img = np.expand_dims(                                                      <span class="fm-combinumeral">❹</span>
+        np.asarray(
+            Image.open(img_path).resize((224,224)                              <span class="fm-combinumeral">❺</span>
+    )
+ 
+    img /= 127.5                                                               <span class="fm-combinumeral">❻</span>
+    img -= 1                                                                   <span class="fm-combinumeral">❻</span>
+ 
+    if img.ndim == 3:
+        img = np.repeat(np.expand_dims(img, axis=-1), 3, axis=-1)              <span class="fm-combinumeral">❼</span>
+ 
+    _, img_name = os.path.split(img_path)
+ 
+    wnid = val_df.loc[img_name,1]                                              <span class="fm-combinumeral">❽</span>
+    cls = class_indices[wnid]                                                  <span class="fm-combinumeral">❾</span>
+    label = words.loc[wnid, 1]                                                 <span class="fm-combinumeral">❿</span>
+    return img, cls, label
+ 
+# Test the function with a test image
+img, cls, label = get_image_class_label(img_path, val_df, class_indices, words)<span class="fm-combinumeral">⓫</span></pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1057939"></a><span class="fm-combinumeral">❶</span> Reads in the val_annotations.txt. This will create a data frame that has a mapping from an image filename to a wnid (i.e., WordNet ID).</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1057960"></a><span class="fm-combinumeral">❷</span> Load the class indices that map a wnid to a class index (integer).</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1057984"></a><span class="fm-combinumeral">❸</span> This will create a data frame that has a mapping from a wnid to a class description.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1058001"></a><span class="fm-combinumeral">❹</span> Loads the image given by the filepath. First, we add an extra dimension to represent the batch dimension.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1058018"></a><span class="fm-combinumeral">❺</span> Resize the image to a 224 × 224-sized image.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1058035"></a><span class="fm-combinumeral">❻</span> Bring image pixels to a range of [-1, 1].</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1058055"></a><span class="fm-combinumeral">❼</span> If the image is grayscale, repeat the image three times across the channel dimension to have the same format as an RGB image.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1058072"></a><span class="fm-combinumeral">❽</span> Get the wnid of the image.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1058089"></a><span class="fm-combinumeral">❾</span> Get the class index of the image.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1058106"></a><span class="fm-combinumeral">❿</span> Get the string label of the class.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1058123"></a><span class="fm-combinumeral">⓫</span> Run the function for an example image.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051306"></a>The <span class="fm-code-in-text">get_image_class_label()</span> function takes the arguments specified and loads the image given by the <span class="fm-code-in-text">image_path</span>. First, we resize the image to a 224 × 224-sized image. We also add an extra dimension at the beginning to represent the image as a batch of one image. Then it performs a specific numerical transformation (i.e., divide element-wise by 127.5 and subtract 1). This is a special transformation that is used to train the InceptionResNet v2 model. Afterward, we get the class index (i.e., an integer) and the human-readable label of that class using the data frames and <span class="fm-code-in-text">class_indices</span> we passed into the function. Finally, it returns the transformed image, the class index, and the label of the class the image belongs to.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051307"></a>The next listing shows how the Grad-CAMs are computed for images. We will use 10 images to compute Grad-CAMs for each individually.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1051309"></a>Listing B.3 Computing Grad-CAM for 10 images</p>
+  <pre class="programlisting"># Define a sample probe set to get Grad-CAM
+image_fnames = [
+    os.path.join('data','tiny-imagenet-200', 'val','images',f) \
+    for f in [
+        'val_9917.JPEG', 'val_9816.JPEG', 'val_9800.JPEG', 'val_9673.JPEG', 
+<span class="fm-code-continuation-arrow">➥</span> 'val_9470.JPEG',
+        'val_4.JPEG', 'val_127.JPEG', 'val_120.JPEG', 'val_256.JPEG', 
+<span class="fm-code-continuation-arrow">➥</span> 'val_692.JPEG'
+    ]
+]
+ 
+grad_info = {}
+for fname in image_fnames:                                                      <span class="fm-combinumeral">❶</span>
+    img, cls, label = get_image_class_label(fname, val_df, class_indices, words)<span class="fm-combinumeral">❷</span>
+    
+    with tf.GradientTape() as tape:                                             <span class="fm-combinumeral">❸</span>
+        conv_output, preds = grad_model(img)                                    <span class="fm-combinumeral">❸</span>
+        loss = preds[:, cls]                                                    <span class="fm-combinumeral">❹</span>
+    
+    
+    grads = tape.gradient(loss, conv_output)                                    <span class="fm-combinumeral">❺</span>
+ 
+    weights = tf.reduce_mean(grads, axis=(1, 2), keepdims=True)                 <span class="fm-combinumeral">❻</span>
+    grads *= weights                                                            <span class="fm-combinumeral">❻</span>
+     
+    grads = tf.reduce_sum(grads, axis=(0,3))                                    <span class="fm-combinumeral">❼</span>
+    grads = tf.nn.relu(grads)                                                   <span class="fm-combinumeral">❼</span>
+ 
+    grads /= tf.reduce_max(grads)                                               <span class="fm-combinumeral">❽</span>
+    grads = tf.cast(grads*255.0, 'uint8')                                       <span class="fm-combinumeral">❽</span>
+    
+    grad_info[fname] = {'image': img, 'class': cls, 'label':label, 'gradcam': 
+<span class="fm-code-continuation-arrow">➥</span> grads}                                                                       <span class="fm-combinumeral">❾</span></pre>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1057009"></a><span class="fm-combinumeral">❶</span> Get the normalized input, class(int), and label (string) for each image.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1057045"></a><span class="fm-combinumeral">❷</span> We compute the output of the model in the GradientTape context.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1057062"></a><span class="fm-combinumeral">❸</span> This will enable us to later access the gradients that appeared during the computation.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1057079"></a><span class="fm-combinumeral">❹</span> We only take the loss corresponding to the class index of the input image.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1057096"></a><span class="fm-combinumeral">❺</span> Get the gradients of the loss with respect to the last convolutional feature map.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1057113"></a><span class="fm-combinumeral">❻</span> Compute and apply weights.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1057130"></a><span class="fm-combinumeral">❼</span> Collapse the feature maps to a single channel to get the final heatmap.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1057147"></a><span class="fm-combinumeral">❽</span> Normalize the values to be in the range of 0-255.</p>
+
+  <p class="fm-code-annotation-mob"><a id="pgfId-1057010"></a><span class="fm-combinumeral">❾</span> Store the computed GradCAMs in a dictionary to visualize later.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051349"></a>To compute the Grad-CAM for one image, we follow the following procedure. First, we get the transformed image, class index, and label for a given image path.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051350"></a>Next is the most important step of this computation! You know that, given an image and a label, the final loss is computed as the sum of class-specific losses for all the available classes. That is, if you imagine a one-hot encoded label and a probability vector output by the model, we compute element-wise loss between each output node. Here each node represents a single class. To compute the gradient map, we first compute the gradients of the class-specific loss only for the true label of that image, with respect to the output of the last convolutional layer. This gives a tensor the same size as the output of the last convolutional layer. It is important to note the difference between the typical loss we use and the loss used here. Typically, we sum the loss across all classes, whereas in Grad-CAM, we only consider the loss of the specific node that corresponds to the true class of the input.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051351"></a>Note how we are computing the gradients. We use something called the <span class="fm-code-in-text">GradientTape</span> <i class="fm-italics">(</i><span class="fm-hyperlink"><a class="url" href="http://mng.bz/wo1Q">http://mng.bz/wo1Q</a></span><i class="fm-italics">)</i>. It’s an innovative piece of technology from TensorFlow. Whenever you compute something in the context of a <span class="fm-code-in-text">GradientTape</span>, it will record the gradients of all those computations. This means that when we compute the output in the context of a <span class="fm-code-in-text">GradientTape</span>, we can access the gradients of that computation later.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051353"></a>Then we do a few more transformations. First, we compute weights for each channel of the output feature map. The weights are simply the mean value of that feature map. The feature map values are multiplied by those weights. We then sum the output across all the channels. This means we will get an output with a width and height that have a single channel. This is essentially a heatmap, where a high value indicates more importance at a given pixel. To clip negative values to 0, we then apply ReLU activation on the output. As the final normalization step, we bring all the values to a range of 0-255 so that we can superimpose this on the actual image as a heatmap. Then it’s a simple matter of using the <span class="fm-code-in-text">matplotlib</span> library<a class="calibre8" id="marker-1055288"></a> to plot the images and overlap the Grad-CAM outputs we generated on top of the images. If you want to see the code for this, please refer to the Ch07-Improving-CNNs-and-Explaining/7.3.Interpreting_CNNs_ Grad-CAM.ipynb notebook. The final output will look like<a class="calibre8" id="marker-1055289"></a><a class="calibre8" id="marker-1055290"></a> figure B.1.</p>
+
+  <p class="fm-figure"><img alt="B-1" class="calibre10" src="../../OEBPS/Images/B-1.png" width="1092" height="1092"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1059466"></a>Figrue B.1 Visualization of the Grad-CAM output for several probe images. The redder an area in the image, the more the model focuses on that part of the image. You can see that our model has learned to understand some complex scenes and separate the model that it needs to focus on.</p>
+
+  <h2 class="fm-head" id="sigil_toc_id_220"><a id="pgfId-1051363"></a>B.2 Image segmentation: U-Net model</h2>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051367"></a>In<a class="calibre8" id="marker-1051364"></a><a class="calibre8" id="marker-1051365"></a><a class="calibre8" id="marker-1051366"></a> chapter 8, we discussed the DeepLab v3: an image segmentation model. In this section we will discuss a different image segmentation model known as U-Net. It has a different architecture compared to a DeepLab model and is quite commonly used in the rea world. Therefore, it’s a model worth learning about.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_221"><a id="pgfId-1051368"></a>B.2.1 Understanding and defining the U-Net model</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051372"></a>The<a class="calibre8" id="marker-1051369"></a><a class="calibre8" id="marker-1051370"></a><a class="calibre8" id="marker-1051371"></a> U-Net model is essentially two mirrored fully convolutional networks that act as the encoder and the decoder, with some additional connections that connect parts of the encoder to parts of the decoder.</p>
+
+  <div class="fm-sidebar-block">
+    <p class="fm-sidebar-title"><a class="calibre8" id="pgfId-1051373"></a>Background of U-Net</p>
+
+    <p class="fm-sidebar-text"><a id="pgfId-1051374"></a>U-Net was introduced in the paper “U-Net: Convolution Networks for Biomedical Image Segmentation” (<span class="fm-hyperlink"><a class="url" href="https://arxiv.org/pdf/1505.04597.pdf">https://arxiv.org/pdf/1505.04597.pdf</a></span>) and has its origins in biomedical image segmentation. The name U-net is derived from what the network looks like. It is still a popular pick for segmentation tasks in biology/medicine domains and has been shown to work well for more general-purpose tasks as well.</p>
+  </div>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051377"></a>First, we will look at the original U-Net model introduced in the paper. Later, we will slightly change the direction of our discussion to make it more suited to the problem at hand. The original model consumed a 572 × 572 × 1-sized image (i.e., a grayscale image) and outputted a 392 × 392 × 2-sized image. The network was trained to identify/segment cell boundaries from bodies. Therefore, the two channels in the output represent a binary output of whether the pixel belongs to a cell boundary.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051378"></a>The encoder consists of several downsampling modules, which gradually downsample the input. A downsampling module consists of two convolution layers and one max pooling layer. Specifically, a downsampling module comprises</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1051379"></a>A 3 × 3 convolution layer (with valid padding) × 2</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1051380"></a>A 2 × 2 max-pooling layer (except in the last downsampling module)</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051381"></a>A series of such downsampling layers brings the 572 × 572 × 1-sized input to a 28 × 28 × 1024-sized output.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051382"></a>Next, the decoder consists of several upsampling layers. Specifically, each decoder upsampling module consists of</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1051383"></a>A 2 × 2 transpose convolution layer</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1051384"></a>A 3 × 3 convolution layer (with valid padding) × 2</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051385"></a>You might already be wondering, what is a transpose convolution layer? Transpose convolution is what you get if you reverse the computations happening in a convolution layer. Instead of the convolution operation reducing the size of the output (i.e., using strides), transpose convolution <i class="fm-italics">increases</i> the size of the output (i.e., upsamples the input). This is also known as <i class="fm-italics">fractional striding</i>, as increasing the stride leads to larger outputs when using transpose convolution. This is illustrated in figure B.2.</p>
+
+  <p class="fm-figure"><img alt="B-2" class="calibre10" src="../../OEBPS/Images/B-2.png" width="1019" height="744"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1059507"></a>Figure B.2 Standard convolution versus transpose convolution. A positive stride on standard convolution leads to a smaller output, whereas a positive stride on transpose convolution leads to a bigger image.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051392"></a>Finally, there are skip connections that connect interim layers of the encoder to interim layers of the decoder. This is an important architectural design, as this provides the much needed spatial/contextual information to the decoder that otherwise would have been lost. Particularly, the output of the encoder’s i<sup class="fm-superscript">th</sup> level output is concatenated to the output of the decoder’s n-i<sup class="fm-superscript">th</sup> level input (e.g., the output of the first level [of size 568 × 568 × 64] is concatenated to the input of the last level of the decoder [of size 392 × 392 × 64]; figure B.3). In order to do so, the encoder’s output first needs to be cropped slightly to match the corresponding decoder layer’s<a class="calibre8" id="marker-1051393"></a><a class="calibre8" id="marker-1051394"></a><a class="calibre8" id="marker-1051395"></a> output.</p>
+
+  <p class="fm-figure"><img alt="B-3" class="calibre10" src="../../OEBPS/Images/B-3.png" width="1011" height="528"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1059536"></a>Figure B.3 The original U-Net model proposed. The light blocks represent the encoder, and the dark blocks represent the decoder. The vertical numbers represent the size of the output (height and width) at a given position, and the number on top represents the number of filters.</p>
+
+  <h3 class="fm-head1" id="sigil_toc_id_222"><a id="pgfId-1051403"></a>B.2.2 What’s better than an encoder? A pretrained encoder</h3>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051408"></a>If<a class="calibre8" id="marker-1051404"></a><a class="calibre8" id="marker-1051405"></a><a class="calibre8" id="marker-1051406"></a><a class="calibre8" id="marker-1051407"></a> you use the original network as is for the Pascal VOC data set, you will likely be very disappointed with its performance. There could be several reasons behind this behavior:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1051409"></a>The data in the Pascal VOC is much more complex than what the original U-Net was designed for. For example, as opposed to the images containing simple cell structures in black and white, we have RGB images containing complex scenes in the real world.</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1051410"></a>As a fully convolution network, U-Net is highly regularized (due to the small number of parameters). This number of parameters is not enough to solve the complex task we have with adequate accuracy.</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1051411"></a>As a network that started with a random initialization, it needs to learn to solve the task without the pretrained knowledge from a pretrained model.</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051412"></a>In line with this reasoning, let’s discuss a few changes that we will make to the original U-Net architecture. We will be implementing a U-Net network that has</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1051413"></a>A pretrained encoder</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1051414"></a>A larger number of filters in each decoder module</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051416"></a>The pretrained encoder we will use is a ResNet-50 model (<span class="fm-hyperlink"><a class="url" href="https://arxiv.org/pdf/1512.03385.pdf">https://arxiv.org/pdf/1512.03385.pdf</a></span>). It is one of the pioneering residual networks that made waves in the computer vision community a few years ago. We will look at ResNet-50 on the surface only, as we will discuss this model in detail in our section on the DeepLab v3 model. The ResNet-50 model consists of several convolution blocks, followed by a global average pooling layer and a fully connected final prediction layer with softmax activation. The convolution block is the innovative part of the model (denoted by B in figure B.4). The original model has 16 convolution blocks organized into 5 groups. We will only use the first 13 blocks (i.e., first 4 groups). A single block consists of three convolution layers (1 × 1 convolution layer with stride 2, 3 × 3 convolution layer, and 1 × 1 convolution layer), batch normalization, and residual connections, as shown in figure B.4. We discussed residual connections in depth in chapter 7.</p>
+
+  <p class="fm-figure"><img alt="B-4" class="calibre10" src="../../OEBPS/Images/B-4.png" width="1103" height="783"/><br class="calibre2"/></p>
+
+  <p class="fm-figure-caption"><a id="pgfId-1059570"></a>Figure B.4 The modified U-Net architecture (best viewed in color). This version of U-Net has the first four blocks of the ResNet-50 model as the encoder, and the decoder specifications (e.g., number of filters) are increased to match the specifications of the matching encoder layers.</p>
+
+  <p class="fm-head2"><a id="pgfId-1051423"></a>Implementing the modified U-Net</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051424"></a>With a sound conceptual understanding of the model and its different components, it’s time to implement it in Keras. We will use the Keras functional API. First, we define the encoder part of the network:</p>
+  <pre class="programlisting">inp = layers.Input(shape=(512, 512, 3))
+# Defining the pretrained resnet 50 as the encoder
+encoder = tf.keras.applications.ResNet50 (
+    include_top=False, input_tensor=inp,pooling=None
+)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051432"></a>Next, we discuss the bells and whistles of the decoder. The decoder consists of several upsampling layers, which serve two important functions:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1051433"></a>Upsampling the input to the layer to a larger output</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1051434"></a>Copying, cropping, and concatenating the matched encoder input</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051435"></a>The function shown in the following listing encapsulates the computations we outlined.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1051436"></a>Listing B.4 The upsampling layer of the modified UNet’s decoder</p>
+  <pre class="programlisting">def upsample_conv(inp, copy_and_crop, filters):
+    """ Up sampling layer of the U-net """
+    
+    # 2x2 transpose convolution layer
+    conv1_out = layers.Conv2DTranspose(
+        filters, (2,2), (2,2), activation='relu'
+    )(inp)
+    # Size of the crop length for one side
+    crop_side = int((copy_and_crop.shape[1]-conv1_out.shape[1])/2)
+    
+    # Crop if crop side is &gt; 0
+    if crop_side &gt; 0:
+        cropped_copy = layers.Cropping2D(crop_side)(copy_and_crop)
+    else:
+        cropped_copy = copy_and_crop
+   
+    # Concat the cropped encoder output and the decoder output
+    concat_out = layers.Concatenate(axis=-1)([conv1_out, cropped_copy])
+    
+    # 3x3 convolution layer
+    conv2_out = layers.Conv2D(
+        filters, (3,3), activation='relu', padding='valid'
+    )(concat_out)
+ 
+    # 3x3 Convolution layer
+    out = layers.Conv2D(
+        filters, (3,3), activation='relu', padding='valid'
+    )(conv2_out)
+    
+    return out</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051468"></a>Let’s analyze the function we wrote. It takes the following arguments:</p>
+
+  <ul class="calibre9">
+    <li class="fm-list-bullet">
+      <p class="list"><a class="calibre8" id="pgfId-1051469"></a><span class="fm-code-in-text">input</span>—The input to the layer</p>
+    </li>
+
+    <li class="fm-list-bullet1">
+      <p class="list"><a class="calibre8" id="pgfId-1051470"></a><span class="fm-code-in-text">copy_and_crop</span>—The input that is copied across from the encoder</p>
+    </li>
+
+    <li class="fm-list-bullet-last">
+      <p class="list"><a class="calibre8" id="pgfId-1051471"></a><span class="fm-code-in-text">filters</span>—The number of output filters after performing transpose convolution</p>
+    </li>
+  </ul>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051472"></a>First, we perform transpose convolution as</p>
+  <pre class="programlisting">conv1_out = layers.Conv2DTranspose(
+                    filters=filters, kernel_size=(2,2), 
+                    strides=(2,2), activation='relu'
+    )(inp)</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051478"></a>The <span class="fm-code-in-text">Conv2DTranspose</span> has identical syntax to the C<span class="fm-code-in-text">onv2D</span> we have used many times. It has a number of filters, a kernel size (height and width), strides (height and width), activation, and padding (defaults to valid). We will compute the crop parameters depending on the size of the transpose convolution output and the encoder’s input. Then we perform cropping using the Keras layer <span class="fm-code-in-text">Cropping2D</span> as required:</p>
+  <pre class="programlisting">crop_side = int((copy_and_crop.shape[1]-conv1_out.shape[1])/2)
+if crop_side &gt; 0:
+        cropped_copy = layers.Cropping2D(crop_side)(copy_and_crop)
+    else:
+        cropped_copy = copy_and_crop</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051485"></a>Here, we first compute how much to crop from one side by subtracting the encoder’s size from the upsampled output <span class="fm-code-in-text">conv1_out</span>. Then, if the size is greater than zero, <span class="fm-code-in-text">cropped_copy</span> is computed by passing the <span class="fm-code-in-text">crop_side</span> as a parameter to a <span class="fm-code-in-text">Cropping2D</span> Keras layer<a class="calibre8" id="marker-1051486"></a>. The cropped encoder’s output and the upsampled <span class="fm-code-in-text">conv1_out</span> is then concatenated to produce a single tensor. This goes through two 3 × 3 convolution layers with ReLU activation and valid padding to produce the final output. We now define the decoder fully (see the next listing). The decoder consists of three upsampling layers, which consume the output of the previous layer, as well as an encoder output that is copied across.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1051488"></a>Listing B.5 The decoder of the modified U-Net model</p>
+  <pre class="programlisting">def decoder(inp, encoder):
+    """ Define the decoder of the U-net model """
+        
+    up_1 = upsample_conv(inp, encoder.get_layer("conv3_block4_out").output, 
+<span class="fm-code-continuation-arrow">➥</span> 512) # 32x32
+ 
+    up_2 = upsample_conv(up_1, 
+<span class="fm-code-continuation-arrow">➥</span> encoder.get_layer("conv2_block3_out").output, 256) # 64x64
+ 
+    up_3 = upsample_conv(up_2, encoder.get_layer("conv1_relu").output, 64) 
+<span class="fm-code-continuation-arrow">➥</span> # 128 x 128    
+    
+    return up_3</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051500"></a>Copying an interim output of a predefined model across is not something we have done previously. Therefore, it is worth investigating further. We don’t have the luxury of resorting to previously defined variables that represent the encoders’ outputs because this is a predefined model we downloaded through Keras, without the references to actual variables that were used in creating the model.</p>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051501"></a>But accessing intermediate outputs and using them to create new connections is not that difficult. All you need to know is the name of the layer that you want to access. This can be done by looking at the output of <span class="fm-code-in-text">encoder.summary()</span>. For example, here (according to figure B.4) we get the last outputs of the <span class="fm-code-in-text">conv3</span>, <span class="fm-code-in-text">conv2</span>, and <span class="fm-code-in-text">conv1</span> modules. To get the output of <span class="fm-code-in-text">conv3_block4_out</span>, all you need to do is</p>
+  <pre class="programlisting">encoder.get_layer("conv3_block4_out").output</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051507"></a>and pass that to the <span class="fm-code-in-text">upsample_conv</span> layer<a class="calibre8" id="marker-1051506"></a> we just defined. The ability to perform such complex manipulations is a testament to how flexible the Keras functional API is. Finally, you can define the holistic modified U-Net model in the function <span class="fm-code-in-text">unet_ pretrained_encoder</span><a class="calibre8" id="marker-1051508"></a><span class="fm-code-in-text">()</span>, as shown in the next listing.</p>
+
+  <p class="fm-code-listing-caption"><a id="pgfId-1051510"></a>Listing B.6 Full modified U-Net model</p>
+  <pre class="programlisting">def unet_pretrained_encoder():
+    """ Define a pretrained encoder based on the Resnet50 model """
+    
+    # Defining an input layer of size 384x384x3
+    inp = layers.Input(shape=(512, 512, 3))
+    # Defining the pretrained resnet 50 as the encoder
+    encoder = tf.keras.applications.ResNet50 (
+        include_top=False, input_tensor=inp,pooling=None
+    )
+    
+    # Encoder output # 8x8
+    decoder_out = decoder(encoder.get_layer("conv4_block6_out").output, encoder)
+    
+    # Final output of the model (note no activation)
+    final_out = layers.Conv2D(num_classes, (1,1))(decoder_out)    
+    # Final model
+    model = models.Model(encoder.input, final_out)
+    return model</pre>
+
+  <p class="body"><a class="calibre8" id="pgfId-1051529"></a>What’s happening here is quite clear. We first define a 512 × 512 × 3-sized input that is passed to the encoder. Our encoder is a ResNet-50 model without the top prediction layer or global pooling. Next, we define the decoder, which takes the <span class="fm-code-in-text">conv4_block6_out</span> layer’s output as the input (i.e., final output of the <span class="fm-code-in-text">conv4</span> block of the ResNet-50 model) and then upsamples it gradually using transpose convolution operations. Moreover, the decoder copies, crops, and concatenates matching encoder layers. We also define a 1 × 1 convolution layer that produces the final output. Finally, we define an end-to-end model using the<a class="calibre8" id="marker-1053927"></a><a class="calibre8" id="marker-1053928"></a><a class="calibre8" id="marker-1053929"></a><a class="calibre8" id="marker-1053930"></a> Keras<a class="calibre8" id="marker-1053931"></a><a class="calibre8" id="marker-1053932"></a><a class="calibre8" id="marker-1053933"></a> functional<a class="calibre8" id="marker-1053934"></a> API.</p>
+</div>
+</div>
+</body>
+</html>

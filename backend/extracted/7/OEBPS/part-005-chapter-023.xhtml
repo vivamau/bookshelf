@@ -1,0 +1,406 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+ "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xml:lang="en" xmlns:epub="http://www.idpf.org/2007/ops" xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+  <title>Chapter 23: Software Engineering</title>
+  <link rel="stylesheet"
+        type="text/css"
+        href="css/style.css" />
+  <link rel="stylesheet"
+        type="text/css"
+        href="css/media.css" />
+</head>
+<body>
+  <div id="part-5-chapter-3" class="element element-bodymatter element-container-single element-type-chapter element-with-heading">
+    <div class="heading heading-container-single heading-size-full heading-format-full heading-alignment-flexible heading-without-image">
+      <div class="heading-contents">
+        <div class="title-subtitle-block title-block-with-element-number">
+          <div class="element-number-block">
+            <div class="element-number case-upper"><span class="element-number-term">CHAPTER</span> <span class="element-number-number">23</span></div>
+          </div>
+          <div class="title-block">
+            <h1 class="element-title case-upper">SOFTWARE ENGINEERING</h1>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="text" id="part-5-chapter-3-text">
+      <p class="first first-in-chapter first-full-width">As a staff+ engineer, your role incorporates that of a senior engineer, plus a whole lot more. It’s common to be responsible for your team’s pace of engineering work and its quality, as well as your own – and often the outputs of other teams, or a whole group.</p>
+      <p class="subsq">Due to your seniority, you’re likely expected to improve the execution speed and engineering quality of the teams you work with. In this chapter, we cover approaches that help with this, including:</p>
+      <ol>
+        <li><a class="content-external-link" href="part-005-chapter-023.xhtml#subhead-1">Coding you still do</a></li>
+        <li><a class="content-external-link" href="part-005-chapter-023.xhtml#subhead-2">Helpful engineering processes</a></li>
+        <li><a class="content-external-link" href="part-005-chapter-023.xhtml#subhead-3">Engineering practices to iterate quickly</a></li>
+        <li><a class="content-external-link" href="part-005-chapter-023.xhtml#subhead-4">Tools to make engineers more efficient</a></li>
+        <li><a class="content-external-link" href="part-005-chapter-023.xhtml#subhead-5">Compliance and privacy</a></li>
+        <li><a class="content-external-link" href="part-005-chapter-023.xhtml#subhead-6">Secure development</a></li>
+      </ol>
+      <p class="subsq">I want to say there are no “silver bullets” in software engineering or approaches that universally work in every setting. But some approaches do tend to work well across the board. As a staff+ engineer, the best you can do is to become experienced in using these approaches, broaden your toolset, and learn when to deploy which approach at the appropriate time when it helps your team.</p>
+      <h2 id="subhead-1" class="section-title subhead keep-with-next paragraph-follows case-upper">1. CODING YOU STILL DO</h2>
+      <p class="first first-after-subhead">How much time should a staff-or-above engineer spend coding? There’s no single answer, but one thing is for sure: there are plenty of other things to do. Yes, you should make time for coding, but less of it.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Code in bursts</span></b></p>
+      <p class="subsq">Accept you cannot code as often as you’d probably like to. But book out times – ideally across a few weeks – when you get hands-on with it. Coding in bursts can work well if it aligns with the start of a project, or another key phase. Stay focused on this priority by being involved with reviews and giving feedback when not coding.</p>
+      <p class="subsq">Bursts are also a good reminder of why it’s useful to push back on some non-coding commitments, to make time for coding.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Pair during coding</span> bursts</b></p>
+      <p class="subsq">Don’t hesitate to pair, especially if it could benefit other developers. When pairing, don’t lead things, and instead nudge your pairing buddy in the right direction. This approach takes longer than taking the lead and doing things the “right” way, but nudging helps level up your buddy – thereby improving the team’s skillset. This is what makes pairing a high-leverage activity.</p>
+      <p class="subsq"><b>Use coding as an opportunity to mentor, coach, and lead by example. </b>When you write code and get “in the zone” doing it, you may well enjoy it being just you and the computer, at last. This is a great feeling, but if you spend this time rushing through the code, and put up a sloppy, half-baked pull request with no tests, then your teammates will likely see it. This can happen if your skills are a bit rusty, or you’re in a rush and want to move fast.</p>
+      <p class="subsq">Don’t forget, code you write will most likely go through code review, which is often a learning experience for engineers. For this reason, pay attention to creating a well-documented, clear pull request, that’s a model of what a good one looks like.</p>
+      <p class="subsq">The quality of code you write matters because junior colleagues often look to staff+ people to set the bar for quality, whose code is an example to follow and take inspiration from. If the team sees the quality bar is lower in your work, then this legitimizes lower standards elsewhere. After all, if the staff+ engineer can get away with it, why not everyone else?</p>
+      <p class="subsq">This is why it’s worth coding properly. This means that when something’s done, it’s done – as we cover in Part III: “Getting things done.” Leading by example helps to improve the team’s engineering culture.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Jump into struggling</span> projects</b></p>
+      <p class="subsq">If you’re stretched by working across teams, you could focus on putting out fires, which means getting involved with coding, pairing, and code reviews on teams which need help the most.</p>
+      <p class="subsq">A team that needs help could be one at risk of slipping with a key project, or falling behind. This approach is reactive but sometimes is the most impactful, so long as the team doesn’t see your intervention as a case of “seagull management” where someone from above intervenes in a team and “poops” on its work, for example by committing code that’s a hack and not a sustainable fix, and who then departs as quickly as they arrived.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Adapt</span> your style to the team</b></p>
+      <p class="subsq">There’s a fair likelihood of working with several engineering teams, or being asked to join one to help ship an important project. By now, you will likely have an opinionated way of working; preferred coding styles, processes, naming, and tooling. When not deeply embedded in a team, aim to adapt to it rather than reshape it around you.</p>
+      <p class="subsq">Colleagues will respect you more if you adapt and help them improve practices. Ideally, these should come from team members themselves, who feel empowered by your support to make sensible changes.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Be</span> strategic</b></p>
+      <p class="subsq">Choose wisely <i>which</i> work you pick up when writing code. As one of the most experienced engineers around, who knows several ways to be strategic about coding, you have various approaches to choose from, such as:</p>
+      <p class="subsq"><b>Pick up challenging parts of coding tasks </b>and lead by example in solving them; balancing efficiency, quality, and maintainability.</p>
+      <p class="subsq">You might encounter more complex work and problems requiring in-depth domain expertise, such as understanding how related systems work, or something for which there’s a lack of in-depth technical expertise on the team, like low-level performance optimization.</p>
+      <p class="subsq"><b>Take on coding work with a wider impact. </b>Some coding tasks are more strategic than others. Here are a few examples which can have a wide impact:</p>
+      <ul>
+        <li>A pull request to add a new framework, and the first few pull requests to demonstrate its use. Examples of how the framework is used serve as proof that it works as expected, and are a template for colleagues to follow.</li>
+        <li>Adding a new type of automated test; for example, adding the first few integrations or UI tests. Adding these probably involves writing them and configuring the CI/CD system to run them on every pull request and deploy.</li>
+        <li>CI/CD changes or improvements. For example, adding a linter to run on every pull request, or changing the CI server to add a warning when a pull request has low test code coverage.</li>
+        <li>Improving the engineering team’s tooling. This could involve building and sharing a tool that automates a tedious but necessary development task, like rolling out a feature flag, making a deployment, or rolling back a change.</li>
+      </ul>
+      <p class="subsq"><b>Get involved in the early coding phase of a project, then make space for others. </b>The early stages of a project are when the right decisions are most critical, like setting up the architecture, putting the code structure in place, ensuring tests are written as agreed, and that monitoring and logging are done in line with agreed parameters.</p>
+      <p class="subsq">It’s often a sensible approach to be very hands-on by writing code, pairing, and giving feedback via code reviews.</p>
+      <p class="subsq"><b>Use time constraints to do more creative coding. </b>It’s wise to make time for uninterrupted periods of coding, as you need this time to get “in the zone.” However, it’s also smart to gather context on the most productive way to spend your limited time on coding. Are there ways to improve the team’s efficiency? Is there a complex blocker to tackle? Would pairing be more helpful?</p>
+      <p class="subsq">There’s rarely as much time to code as you’d like, so make the most of the time you have!</p>
+      <h2 id="subhead-2" class="section-title subhead keep-with-next paragraph-follows case-upper">2. HELPFUL ENGINEERING PROCESSES</h2>
+      <p class="first first-after-subhead">What are ways to improve a team’s quality of software engineering? As ever, there are no “universal” methodologies that work for all teams, regardless of skillset, experience, or constraints. However, some approaches and processes often help: we cover these.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Define “done”</span></b></p>
+      <p class="subsq">What does “done” mean? It sounds like a simple question, but do all team members have the same answer? In many cases, the answer is that everyone has a slightly different definition of what “done” means. Are automated tests part of what “done” means or are they a bonus, what about the accessibility of a user-facing feature, and is updating documentation part of this criteria?</p>
+      <p class="subsq">On a team perceived as shipping low-quality work, clarifying what “done” means and reaching agreement on this, can lead to visible improvements. When working on such a team, or helping to improve its execution, consider this exercise:</p>
+      <p class="subsq">Facilitate a discussion where teammates describe what “done” means to them individually, and then discuss a shared definition for it. You can do this by using post-it notes, a digital whiteboard, or people taking notes. Just ensure to start by setting the goal of the session to be agreement on the bare minimum criteria of “done” in quality work. Give everyone a say and push for an agreement. Once “done” is defined, put it in writing. Congratulations; team members have now set their own bar and there’s a target for them to hold each other accountable to.</p>
+      <p class="subsq">This is often called the “Definition of Done” (DoD.) It evolves as a team does, and can change with projects. The DoD will be different for a proof-of-concept when there’s pressure from an external deadline, or a project being built for long-term maintainability.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Coding</span> style guidelines</b></p>
+      <p class="subsq">On inexperienced teams, clear coding style guides can avoid arguments about how to format code, and which conventions to follow. Guidelines need to be set, with a way for members to suggest modifications.</p>
+      <p class="subsq">The clearest way to “enforce” coding style guidelines is to configure a linter to check for them, then wire up this linter to the continuous integration (CI) system. When linting rules aren’t followed, consider blocking a pull request from being merged.</p>
+      <p class="subsq">Several companies open source their coding style guidelines. Below are examples for inspiration:</p>
+      <ul>
+        <li>Google’s style guides<sup><a id="part-5-chapter-3-endnote-1" class="endnote-source" href="part-005-chapter-023.xhtml#part-5-chapter-3-endnote-1-text">1</a></sup></li>
+        <li>Airbnb: JavaScript style guide<sup><a id="part-5-chapter-3-endnote-2" class="endnote-source" href="part-005-chapter-023.xhtml#part-5-chapter-3-endnote-2-text">2</a></sup> and Swift style guide<sup><a id="part-5-chapter-3-endnote-3" class="endnote-source" href="part-005-chapter-023.xhtml#part-5-chapter-3-endnote-3-text">3</a></sup></li>
+        <li>GitLab: frontend style guides<sup><a id="part-5-chapter-3-endnote-4" class="endnote-source" href="part-005-chapter-023.xhtml#part-5-chapter-3-endnote-4-text">4</a></sup></li>
+      </ul>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Code reviews</span></b></p>
+      <p class="subsq">A good code review process in which feedback is timely and reviews are helpful, tends to promote quality and enables a team of mixed seniority to move faster, overall, as reviews catch issues before code makes it into production.</p>
+      <p class="subsq">As one of the most experienced engineers, you’re in an excellent position to get a sense of the dynamics of code reviews. In Part III: “Collaboration and teamwork” we cover the features of good code reviews. Look out for these dynamics and find ways to nudge engineers to do better code reviews. An obvious way is to lead by example. Another approach is to give feedback on other code reviews; praising the good parts and pointing out how engineers could improve them.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Post-commit code reviews</span></b></p>
+      <p class="subsq">For highly experienced teams, blocking code reviews can reduce productivity. These are teams where code reviews tend to say less about the code and focus more on sharing understanding of the changes made.</p>
+      <p class="subsq">Obviously, post-commit code reviews happen after code is committed. Software engineer Cindy Sridharan details her experience with post-commit code reviews in the article, “Post-Commit Reviews<sup><a id="part-5-chapter-3-endnote-5" class="endnote-source" href="part-005-chapter-023.xhtml#part-5-chapter-3-endnote-5-text">5</a></sup>”:</p>
+      <div class="blockquote-container prose without-attribution within-prose-element">
+        <blockquote class="prose without-attribution within-prose-element">
+        <p class="first blockquote-content blockquote-content-prose blockquote-position-first">“In many ways, post-commit reviews offer the best of both worlds: developer velocity is not sacrificed at the altar of waiting for approval, and reasonable concerns get addressed in short order by the developer in follow-up commits.</p>
+        <p class="subsq blockquote-content blockquote-content-prose blockquote-position-last">While there are a number of caveats to post-commit reviews [... ] preponderantly favoring post-commit reviews can allow developers to rapidly iterate on features they’re developing while also keeping their changes small.”</p>
+      </blockquote>
+      </div>
+      <p class="subsq">Post-commit code reviews don’t necessarily mean a review happens post-deployment, though. In fact, post-commit code reviews tend to work well in teams where deployments are not necessarily continuous, but occur as regular build cuts. They tend to work best in high-trust environments, which are often – but not always! – teams of long tenure and a high degree of seniority. Teams invested in automation which catches obvious issues also tend to benefit more from this approach.</p>
+      <p class="subsq">Let’s end this section with more from Sridharan, a long-time practitioner of post-commit code reviews:</p>
+      <div class="blockquote-container prose without-attribution within-prose-element">
+        <blockquote class="prose without-attribution within-prose-element">
+        <p class="first blockquote-content blockquote-content-prose blockquote-position-first">“Walking the tightrope between developer productivity and high-quality code is always going to be a challenging undertaking, requiring smart choices and tradeoffs. The iteration speed of developers can be improved by either flavor of post-commit reviews.</p>
+        <p class="subsq blockquote-content blockquote-content-prose blockquote-position-last">As with all good things, it requires time and investment to get right, but for teams or organizations trying to improve developer productivity, it’s certainly an avenue worth exploring.”</p>
+      </blockquote>
+      </div>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Automated</span> testing and testing in production</b></p>
+      <p class="subsq">Automated testing is table-stakes at most tech companies. Its upsides almost always justify the effort put into them. Look at the approach to testing of teams you work with, and consider if investing effort in testing would help them move faster with higher quality. If so, you’re in the right position to drive improvements to the testing approach.</p>
+      <p class="subsq">We go into more detail on automated testing approaches, including testing in production, in <a class="content-external-link" href="part-003-chapter-014.xhtml">Part III: “Testing.”</a></p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Scaffolding</span> new services and components</b></p>
+      <p class="subsq">How do engineers set up an application’s new services or components? One approach is a robust scaffolding system, which can deliver a major productivity boost. The absence of one can be a drain on productivity, as engineers keep reinventing the wheel, and each service gets slightly different configurations, dependencies, and coding styles.</p>
+      <p class="subsq">There’s a reason why most developer portals have the functionality to define software templates or skeletons: it’s because easy-to-do scaffolding is such a big developer productivity unlock!</p>
+      <p class="subsq">If you observe engineers regularly setting up services or components from scratch at the start of projects, consider defining a way to scaffold them. This can just be a project template linked to a wiki page, or be as sophisticated as a code generator that can create scaffolding for a wide range of use cases.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Rollouts and experiment</span> hygiene</b></p>
+      <p class="subsq">How are rollouts done on teams you work with, and how safely are configuration changes made? Are there rollback plans in place for major rollouts, and are some of these rollbacks automated?</p>
+      <p class="subsq">If rollouts are a source of mistakes and outages, then planning for rollouts, rollbacks, and automated rollbacks, can make them more reliable. For example, if a team experiments frequently by using feature flags, stale feature flags, and stale experiments, then this can become a source of tech debt. A codebase with many feature flags – many of which are redundant – is harder to navigate and riskier to make changes to, than one where pointless feature flags are removed.</p>
+      <p class="subsq">Experiment hygiene means removing feature flags that have served their purposes. But how are teams you work with doing this? Some create follow-up tasks and remove feature flags after an experiment concludes. But this is a task that’s easy to overlook. Another option is to build automated tooling that captures inactive feature flags. Taking it a step further, you could even put tooling in place that creates automated pull requests for review by an engineer that suggests stale feature flags to be removed. An example of this is Piranha6 by Uber, which automatically refactors code based on how a flag is expected to permanently behave.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Systems health dashboards</span></b></p>
+      <p class="subsq">How healthy are the systems which your team owns and operates? The most straightforward way to answer this is a dashboard that visualizes the team’s key business and systems metrics. An engineer should easily be able to understand whether their systems are healthy or unhealthy.</p>
+      <p class="subsq">Do teams you work with have dashboards? If not, ask why not. There are no rules about how a dashboard should look; it should just make sense to the team. Of course, it’s a bonus if stakeholders can also understand it, but not a requirement. If there’s no dashboard, get to work on putting one together!</p>
+      <p class="subsq">The “Reliable Software Engineering” chapter in Part V of this book, has suggestions for defining what to monitor.</p>
+      <h2 id="subhead-3" class="section-title subhead keep-with-next paragraph-follows case-upper">3. ENGINEERING PRACTICES TO ITERATE QUICKLY</h2>
+      <p class="first first-after-subhead">As a staff+ engineer, your goal should be to improve the efficiency of the engineering team you work with, and other engineering teams in the group. There are several tools and processes which efficient engineering groups can use. We go through a selection.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Continuous integration (CI)</span></b></p>
+      <p class="subsq">Continuous integration (CI) refers to frequently integrating your code back to the main branch, via pull requests. Every opened pull request kicks off an automated build which typically has these steps:</p>
+      <ul>
+        <li>Compile and build the project</li>
+        <li>Run static analysis tests and linting</li>
+        <li>Execute unit tests, integration tests, and other automated tests</li>
+        <li>Execute further automation, like security checks or custom rules</li>
+      </ul>
+      <p class="subsq">The benefit of CI is rapid feedback and detection of regressions much sooner than without it.</p>
+      <p class="subsq">One of the biggest challenges for all CI systems is getting the running times of automated tests down, ideally to minutes. If an engineer opens a new pull request but must wait more than 30 minutes for feedback, this isn’t a timely feedback cycle.</p>
+      <p class="subsq">The challenge of making CI automation execute fast is especially tricky on large codebases, and when there are high numbers of tests. A few approaches can help speed things up:</p>
+      <ul>
+        <li>Modularize the code and cache build artifacts which are unchanged</li>
+        <li>Split up the test suite and run it in parallel on several machines</li>
+        <li>Only run a smaller part of the test suite for CI, and run the full test suite later</li>
+        <li>Only run tests that exercise code that changed during CI, and run the full test suite later</li>
+      </ul>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Continuous deployment (CD)</span></b></p>
+      <p class="subsq">Continuous deployment (CD) takes CI one step further and deploys approved code changes straight to production. CI and CD typically go hand-in-hand, as there is little point in CD if there’s no CI set-up in place.</p>
+      <p class="subsq">Advanced automated deployment practices tend to be of value to larger systems, including:</p>
+      <ul>
+        <li><b>Automated staged rollout of changes.</b> Rolling out changes to larger systems can be risky, even if all automated tests are passed. For backend systems, a canarying approach can be used to deploy new code to a fraction of servers. The CD system monitors health metrics and continues a rollout only if they’re healthy.</li>
+        <li><b>Automated rollback.</b> When the system detects unhealthy metrics post-rollout it automatically rolls back the latest deployment and sends an alert for teams to investigate.</li>
+      </ul>
+      <p class="subsq">CI and CD systems offer rapid feedback for engineers, and reduce errors by automating testing and deployment steps. CI/CD is a very common practice across most tech companies.</p>
+      <p class="subsq">However, there are downsides to CI/CD systems:</p>
+      <ul>
+        <li>Time to set up. The initial setup takes time and effort, which can be non-trivial</li>
+        <li>Slow builds and tests: if these are sluggish, then engineers spend a lot more time waiting for tests to run, which isn’t a good developer experience</li>
+        <li>Maintenance cost: a healthy CI/CD system needs to be maintained. Builds and tests get slower as more code is added. If test suites are time-consuming, they can slow developers down.</li>
+      </ul>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Trunk-based</span> development</b></p>
+      <p class="subsq">This is a common strategy at many tech companies where all engineers work on a single, shared branch (often called the ‘main’ branch) of the codebase. This is the opposite of working in a long-lived branch, and merging to a release branch infrequently.</p>
+      <p class="subsq">Trunk-based development has several advantages:</p>
+      <ul>
+        <li>A single source of truth: the ‘main’ branch is the code that runs in production and all engineers develop on it.</li>
+        <li>More frequent commits: to stay in sync with the main branch, engineers commit frequently to it.</li>
+        <li>Continuous integration: it’s necessary to set up CI for trunk-based development to ensure the main branch is healthy.</li>
+        <li>Feature flags: teams will still want to do staged rollouts of functionality in a trunk-based environment. In the absence of long-lived branches where this functionality could live, feature flags tend to be an obvious option.</li>
+      </ul>
+      <p class="subsq">The biggest downside of trunk-based environments is that more investment is needed in build tooling and CI/CD. Merges into trunk are more frequent, as are builds, which can put a strain on the build system so that it becomes necessary to improve build throughput and reduce build times.</p>
+      <p class="subsq">It’s common enough for companies with trunk-based development to have a platform team which is at least partially responsible for build tooling. The larger the engineering team working on a codebase, the more complex this is.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Feature flags</span></b></p>
+      <p class="subsq">A common way to control a rollout is to hide it behind a feature flag in the code. This feature flag can be enabled for a subset of users who execute the new version of the code.</p>
+      <p class="subsq">Feature flags are easy enough to implement and might look something like this for an imaginary feature called ‘Zeno’:</p>
+      <p class="subsq">if( featureFlags.isEnabled(“Zeno_Feature_Flag”)) {</p>
+      <p class="subsq">// New code to execute</p>
+      <p class="subsq">} else {</p>
+      <p class="subsq">// Old code to execute</p>
+      <p class="subsq">}</p>
+      <p class="subsq">Feature flags are especially common in these contexts:</p>
+      <ul>
+        <li>Trunk-based development: feature flags are the most viable way to commit not-yet-production-ready functionality into the codebase</li>
+        <li>Native mobile and desktop applications: these ship binary code to the end user. Feature flags can toggle which parts of the code to execute.</li>
+        <li>Companies with a culture of experimentation. Feature flags are a preferred approach for guarding and controlling experiments and feature flags.</li>
+      </ul>
+      <p class="subsq">We touch on feature flags in more detail in <a class="content-external-link" href="part-004-chapter-017.xhtml">Part IV: “Shipping to Production.”</a></p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Monorepos</span></b></p>
+      <p class="subsq">A monorepo refers to when all the source code across a platform lives in a single, large repository. For example, there might be one monorepo for all Go code, one for all iOS code, and so on. This is the approach of large tech companies like Google, Meta, and Uber.</p>
+      <p class="subsq">The size of a monorepo is its biggest downside, as the repository can become so large that checking out the codebase on a single developer machine is time-consuming or even impossible for very large codebases. Tooling is another challenge; most source control vendors offer better support for more reasonably sized repositories.</p>
+      <p class="subsq">However, with dedicated tooling, developing in a monorepo tends to be much more efficient. This is because dependencies are clearer, refactoring is simpler, and it’s easier to write integration tests that span multiple components in the repository. It’s also easier for engineers to navigate all of the codebase once they understand its structure.</p>
+      <p class="subsq">Most tech companies start by having desiccated repositories for each major project. As companies grow, there is a natural push to consider moving to a monorepo, to improve developer productivity and experience.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Microservices vs monoliths</span></b></p>
+      <p class="subsq">Microservice architecture structures applications as a collection of loosely coupled, independently deployable services. These can be small and are called “microservices.” Monolithic architecture is the opposite: all features are within a single codebase and run as such.</p>
+      <p class="subsq">There is an eternal debate whether a monolithic application design or a microservices architecture serves a company better. There are tradeoffs to both approaches and also examples of companies employing each one successfully. For example, Shopify famously sticks with a monolithic application design with more than 2 million lines of Ruby code powering<sup><a id="part-5-chapter-3-endnote-6" class="endnote-source" href="part-005-chapter-023.xhtml#part-5-chapter-3-endnote-6-text">6</a></sup> the core of the company, while Uber went down the microservices route and operated well over 2,000 services<sup><a id="part-5-chapter-3-endnote-7" class="endnote-source" href="part-005-chapter-023.xhtml#part-5-chapter-3-endnote-7-text">7</a></sup>.</p>
+      <p class="subsq"><b>Modular monoliths and microservices with a more modular structure seem to be the pragmatic middle ground between both approaches. </b>As a company grows, the pain points of both become more pronounced:</p>
+      <ul>
+        <li>Formonoliths,thecodebasebecomeslargeanditcangethardertomakecodechanges, given the tight coupling of all parts of the codebase.</li>
+        <li>For microservices, their numbers explode and it can become easier to accidentally break other services that have implicit dependencies on those being modified.</li>
+      </ul>
+      <p class="subsq">Companies that follow a monolithic approach eventually modularize their monolith, so engineers can work on smaller parts of it which are more independent. This is the approach Shopify takes<sup><a id="part-5-chapter-3-endnote-8" class="endnote-source" href="part-005-chapter-023.xhtml#part-5-chapter-3-endnote-8-text">8</a></sup>.</p>
+      <p class="subsq">Companies employing the microservices approach eventually introduce guidance on structuring and organizing them in a more logical architecture. This is the approach Uber took, structuring thousands of microservices into a few dozen collections called “domains.”</p>
+      <h2 id="subhead-4" class="section-title subhead keep-with-next paragraph-follows case-upper">4. TOOLS TO MAKE ENGINEERS MORE EFFICIENT</h2>
+      <p class="first first-after-subhead">Several tools can make engineering teams more efficient, especially at larger tech companies. It’s useful to know these tools as they ease developer productivity pain points.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Services</span> catalog</b></p>
+      <p class="subsq">At companies where teams build services or microservices, service sprawl becomes a problem. As the number of teams and services increases, it gets harder to answer questions like:</p>
+      <ul>
+        <li>Is there a service that does X?</li>
+        <li>Who owns service Y and where is the oncall rotation?</li>
+        <li>How do I onboard my team to this service?</li>
+      </ul>
+      <p class="subsq">The most obvious way to start answering these questions is with a services catalog. It’s a portal where teams can register their services, and engineers can search for them. Several larger tech companies build their own services catalog, but an increasing number adopt developer portals which offer them as a feature.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Code search</span></b></p>
+      <p class="subsq">How easy is it to search the whole codebase? Does your company’s codebase search method offer:</p>
+      <ul>
+        <li>Searches of the entire codebase</li>
+        <li>Support for regular expressions</li>
+        <li>Support for cross-references for clicking through to classes for their definitions</li>
+        <li>Speed</li>
+      </ul>
+      <p class="subsq">Consider that for more than two decades, Google has had a team dedicated to building and maintaining an advanced code-search tool. The search giant realized that efficiently searching the codebase is a major productivity boost for engineers, and its “Code Search” products support all the use cases above and more.</p>
+      <p class="subsq">Version control vendors such as GitHub and GitLab support code search to some extent. Sourcegraph is a better-known vendor that aims to build code-search tooling as capable as Google’s.</p>
+      <p class="subsq">Given how valuable it is to be able to efficiently search source code, it’s a bit strange that some companies give this no thought. As a staff+ engineer, it’s worth understanding where your company stands on this, and consider if improving code search would boost engineering efficiency, overall.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Developer portals</span></b></p>
+      <p class="subsq">The best-known open-source developer portal is “Backstage,” developed by Spotify. It was built as a way to address pain points the company experienced as it expanded to hundreds of teams, as many services, and an increasingly fragmented way of scaffolding projects.</p>
+      <p class="subsq">Backstage consists of several components:</p>
+      <ul>
+        <li>A software and services catalog to track services, websites, libraries, APIs, and other resources. Teams can register their resources in the catalog for engineers to find.</li>
+        <li>Software templates to scaffold a new API, website, service, or another component. Engineers can create easy-to-find templates, so complex actions can be executed in a few clicks.</li>
+        <li>Tech docs: a wiki for engineering documentation.</li>
+        <li>Plugins: the portal is modular and plugins can be installed from a central catalog. Engineers can also build new plugins.</li>
+      </ul>
+      <p class="subsq">Large tech companies like Google, Meta, Amazon, and Uber, have custom developer portals. Elsewhere, it’s becoming common to adopt existing developer portals like Backstage or another alternative: either an open source one, or purchase one from a vendor.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Cloud development environments</span></b></p>
+      <p class="subsq">The default way to develop software has been to do it locally, and not using the cloud. Here are the steps for using a local development environment:</p>
+      <ol>
+        <li>Install the given integrated development environment (IDE) you use</li>
+        <li>Check out the code</li>
+        <li>Install dependencies</li>
+        <li>Install additional tools or IDE extensions for a project</li>
+        <li>Compile, test, and locally deploy the code, perhaps with custom steps</li>
+        <li>Locally run and debug the code. Custom steps are also an option</li>
+      </ol>
+      <p class="subsq">As a codebase grows, developer productivity can drop at large tech organizations in a few ways, such as:</p>
+      <ul>
+        <li>Checking a codebase takes longer than 10 minutes due to its size.</li>
+        <li>Building the code takes too long</li>
+        <li>Running tests takes more than 10 minutes</li>
+        <li>Setting up the development environment is a complicated, error-prone process</li>
+        <li>Every now and then, a software engineer has trouble building/testing/deploying because their local environment is different from most others</li>
+        <li>Relatively simple git operations like git status take well over 10 seconds</li>
+      </ul>
+      <p class="subsq">When things slow down, cloud developer environments (CDE) can become an interesting option. CDEs offer benefits which local environments don’t, including:</p>
+      <ul>
+        <li><b>Shorter feedback loops. </b>Builds are faster and so is the running of tests. For example, when Uber built a cloud development environment, complicated builds got 2-2.5x faster.</li>
+        <li><b>Consistency and reproducibility.</b> Engineers use the same environment, so it’s easier to reproduce bugs, and less time is spent tracking down issues across different environments.</li>
+        <li><b>Sharing of environments.</b> Developers can share cloud development environments for things like debugging. Environments can be also shared with business stakeholders, or customers for demonstration purposes.</li>
+        <li><b>Simpler security auditing.</b> Instead of monitoring each developer’s local environment for security threats, cloud environments can be equipped with security tools to detect and mitigate threats. Cloud environments are also a smaller attack surface.</li>
+        <li><b>Faster onboarding.</b> Cloud environments tend to offer much faster onboarding than local development environments for new engineers to get up to speed with a new codebase.</li>
+      </ul>
+      <p class="subsq">Cloud-based environments have downsides, too:</p>
+      <ul>
+        <li><b>May not solve for an important bottleneck. </b>“If it ain’t broke, don’t fix it” is a pretty pragmatic approach to follow for most engineering teams. Where are the productivity bottlenecks? If slow build/test times, lengthy onboarding, and inconsistent developer experience aren’t among the top bottlenecks, then a CDE might not help much. So why spend time and money on one?</li>
+        <li><b>Initial set up and maintenance.</b> Setting up and maintaining a cloud development environment takes time and effort, no different from investing in a CI/CD environment. Just ensure to budget for this cost during planning.</li>
+        <li><b>Cost.</b> Operating CDEs could cost more than the engineering team’s laptops. This is down to vendors and usage, but it doesn’t come cheap to spin up really powerful machines in the cloud. Large tech companies like Uber, Slack, and Pipedrive, can justify increased costs because the “developer infrastructure cost” per software engineer is a fraction of a senior engineer’s compensation.</li>
+        <li><b>The maturity of CDE solutions. </b>These evolve rapidly, so you might not find exactly what you want. There could be pieces missing from the tech stack, customization options, and so on.</li>
+        <li><b>Vendor lock-in.</b> Some CDE vendors operate a software as a service (SaaS) model, and make it hard to drop their product. Exercise caution when choosing such a CDE vendor.</li>
+      </ul>
+      <p class="subsq">Cloud development environments make a lot of sense for large organizations, but much less so in smaller groups. Midsized teams and companies should identify the engineering team’s productivity bottlenecks, and decide accordingly.</p>
+      <p class="subsq">Experimenting is always an option. It can be daunting to persuade a whole engineering organization to trial a CDE. But do you really need to do this? It can be much more efficient to trial a CDE solution on one or two teams, and gather feedback. Does the CDE result in faster builds and tests? Do engineers feel more productive? Do they spend less time fixing their environment? Collect data to inform your team whether to keep this setup in place. This could help the wider organization decide whether to onboard to a CDE.</p>
+      <p class="subsq">For more details on CDEs, see my article, Why are cloud development environments spiking in popularity?<sup><a id="part-5-chapter-3-endnote-9" class="endnote-source" href="part-005-chapter-023.xhtml#part-5-chapter-3-endnote-9-text">9</a></sup></p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Artificial Intelligence (AI)</span> coding tools</b></p>
+      <p class="subsq">AI coding assistants are on the rise, and adoption of them accelerated from 2022, with the release of ChatGPT. The first widely-adopted AI coding assistant was TabNine (2019,) followed by GitHub Copilot (2021,) and many others in 2023 – like Sourcegraph Cody, Replit Ghostwriter, Amazon CodeWhisperer, and more.</p>
+      <p class="subsq"><b>AI coding assistants </b>improve developer productivity, and we’re still in the early days of utilizing this technology to its full potential. A few things to consider with AI assistants:</p>
+      <ul>
+        <li>The performance of the underlying model seems an important indicator of how helpful the assistant is. Some machine learning models perform better at coding than others.</li>
+        <li>Training the coding assistant on the codebase can be beneficial, especially for large or unique code bases. But there seem to be benefits without this training.</li>
+        <li>Data ownership and retention are important for most tech companies. Is data for the model also shared with the vendor? If so, could this sensitive data – the company’s source code! – possibly leak or be retained in unintended ways?</li>
+      </ul>
+      <p class="subsq"><b>AI coding tools </b>that can be built, will do more than coding assistants. Obvious applications of AI and large language models (LLM) include:</p>
+      <ul>
+        <li><b>Code reviews. </b>The AI tool critiques a submitted code review and points out obvious issues.</li>
+        <li><b>Writing automated tests.</b> There are plenty of engineers who think a tool should not write tests, but the reality is writing automated tests can be tedious. AI tools can generate test cases, which engineers can tweak before committing them.</li>
+        <li><b>Refactoring.</b> Refactoring tools in IDEs are already advanced and make things like renaming methods or classes straightforward. But AI tools can take things further by executing refactoring across a project based on text inputs like “rename all Company-NameXXX references to NewCompanyNameXXX references.”</li>
+        <li><b>Stale feature flag removal.</b> A specialized and very useful use case for refactoring.</li>
+        <li><b>Compliance and security reviews.</b> AI tools can point out how a code change might raise regulatory or security flags.</li>
+      </ul>
+      <p class="subsq">Tech companies are already building for some of these use cases, and I reckon it’s only a matter of time before vendors offer more advanced AI-assisted tooling.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Buy,</span> build, or adopt?</b></p>
+      <p class="subsq">When acquiring one of the above tools there are typically three options:</p>
+      <ul>
+        <li><b>Build it. </b>This is the approach which large tech companies tend to take, as most vendors don’t support their scale, and big companies can afford to avoid being locked into a single vendor.</li>
+        <li><b>Buy it.</b> This is the fastest way to get started if a vendor offers the tool and capability you need. In the short term, it’s usually the cheapest because building and adopting require dedicated engineers.</li>
+        <li><b>Adopt it.</b> If there’s an open source project for your needed tool or capability, you can adopt this project and operate it yourself. It’s much cheaper than building. However, you will need to pay for infrastructure resources and maintenance. Plus, the tool may need customizing for your company’s use case.</li>
+      </ul>
+      <p class="subsq">As always, there’s no universal rule on whether building, buying or adopting is the best option. Vendors will say buying is the cheapest option, long-term. Engineers have a bias for building, and this or adopting a solution are activities that tend to be recognized more positively during performance reviews and promotions. Also, building is a lot more fun and educational than negotiating terms with a vendor.</p>
+      <p class="subsq">Conventional wisdom says you should maintain full control over the core capabilities of your company, and buy other things. This sounds good in theory, but some of the most successful tech companies repeatedly ignore conventional wisdom and follow the path that works for them.</p>
+      <p class="subsq">If you’re in a position to influence or make buy/build/adopt decisions, follow a similar process as with any major engineering choice. Gather information and fill in the gaps; for example, by prototyping alternatives for a sense of what they involve.</p>
+      <h2 id="subhead-5" class="section-title subhead keep-with-next paragraph-follows case-upper">5. COMPLIANCE AND PRIVACY</h2>
+      <p class="first first-after-subhead">There’s a high likelihood that the software engineering process at your organization needs to adhere to certain compliance and privacy guidelines.</p>
+      <p class="subsq">Larger tech companies tend to have a compliance or legal team that determines which regulations, processes, and guidelines to follow. Some companies have in-house compliance, privacy, and security teams, while others hire external consultants. Compliance violations are costly, both reputationally and financially. Part of a staff+ engineer’s job is ensuring the company takes this area seriously.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Regulations</span></b></p>
+      <p class="subsq"><b>PII (Personally Identifiable Information) </b>should not be accessible to anyone but those who should have access. No software engineer, customer support person, or other employee, should be able to access this information.</p>
+      <p class="subsq"><b>GDPR (General Data Protection Regulation)</b> is a significant piece of European Union (EU) regulation that has expanded the scope of PII, which can only be stored and processed for lawful, legitimate purposes.</p>
+      <p class="subsq">Industry-specific compliance guidelines may apply to your organization. A non-exhaustive list of these includes:</p>
+      <p class="subsq">Industry-specific compliance guidelines may apply to your organization. A non-exhaustive list of these includes:</p>
+      <ul>
+        <li><b>PCI DSS</b> (Payment Card Industry Data Security Standard) for handling credit card information.</li>
+        <li><b>HIPAA </b>(Health Insurance Portability and Accountability Act) and/or ISO/IEC27001 when working with healthcare-related data.</li>
+        <li><b>FERPA</b> (Family Educational Rights and Privacy Act) for working with student or educational information in the US.</li>
+        <li><b>FCRA</b> (Fair Credit Reporting Act) for apps related to consumer reporting agencies such as credit companies, medical information companies or tenant screening.</li>
+        <li><b>Section 508</b> compliance when working with US federal agencies, ensuring people with disabilities can access their electronic information technology (EIT.)</li>
+        <li><b>European Accessibility Act</b> guidelines for when developing for an EU country’s government.</li>
+      </ul>
+      <p class="subsq">Individual country privacy laws may apply to your product, too.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Logging</span></b></p>
+      <p class="subsq">Logging of data is an area which warrants careful thought:</p>
+      <ul>
+        <li>Logging PII data without end-to-end encryption can invite data breaches</li>
+        <li>Aim to not log PII data. Anonymize this information in the logs, turning it into non-PII data</li>
+        <li>Put guidance in place for what, when, and how to log, including a section on PII data</li>
+        <li>Audit logs to ensure they comply with regulations</li>
+        <li>User bug reports – including screenshots! – should not contain PII. You might need to take additional steps to ensure this is the case, so that information like credit card numbers does not circulate in ticketing systems, or be visible to customer support agents</li>
+      </ul>
+      <p class="subsq">As a helpful practice, regularly review what data is being logged and how, in order to ensure no PII is stored non-securely in any system.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Auditing</span></b></p>
+      <p class="subsq">Your systems might need to be audited for regulatory compliance, such as GDPR or PII rules. Audits are done by vendors who specialize in this. Audit criteria tends to state what acceptable practices are. In reality, many of these requirements can be vague, without interpretation by a specialist.</p>
+      <p class="subsq">When taking part or leading an audit, try to find folks who went through it before. If this isn’t possible, consider making the case for hiring a consultant who can help prepare for the audit. Just as valid is the approach of preparing as best as you can for an audit and collaborating with auditors.</p>
+      <p class="subsq">Preparing for an audit can be a significant undertaking, depending on the type of audit and how helpful auditors are expected to be. At Uber, we spent months mapping processes, making process and tool changes, and then auditing them ahead of the launch of GDPR. The amount of work and the scale of the changes made meant this project was one of the bigger undertakings by the company.</p>
+      <p class="subsq">An audit tends to be most time-consuming and energy-draining the first time. Once you pass it and have the right processes in place, staying compliant is far easier.</p>
+      <h2 id="subhead-6" class="section-title subhead keep-with-next paragraph-follows case-upper">6. SECURE DEVELOPMENT</h2>
+      <p class="first first-after-subhead">Secure software development is a continuously evolving and vast topic, which this book doesn’t cover in depth. As a staff+ engineer, you need to be intimately familiar with the secure development practices of your domain, and also with common threat vectors and how to mitigate them.</p>
+      <p class="subsq"><b>Secure coding practices </b>can be language-agnostic, or language-specific. The most popular language-agnostic secure coding guideline is the OWASP secure coding practices reference guide<sup><a id="part-5-chapter-3-endnote-10" class="endnote-source" href="part-005-chapter-023.xhtml#part-5-chapter-3-endnote-10-text">10</a></sup> .</p>
+      <p class="subsq">On top of OWASP guidelines, you might be able to find secure coding practices for the language and framework of your choice. A few examples:</p>
+      <p class="subsq">On top of OWASP guidelines, you might be able to find secure coding practices for the language and framework of your choice. A few examples:</p>
+      <ul>
+        <li>Secure coding guidelines<sup><a id="part-5-chapter-3-endnote-11" class="endnote-source" href="part-005-chapter-023.xhtml#part-5-chapter-3-endnote-11-text">11</a></sup> for Java SE by Oracle</li>
+        <li>Secure coding practices<sup><a id="part-5-chapter-3-endnote-12" class="endnote-source" href="part-005-chapter-023.xhtml#part-5-chapter-3-endnote-12-text">12</a></sup> for Go by OWASP</li>
+        <li>Secure Rust guidelines<sup><a id="part-5-chapter-3-endnote-13" class="endnote-source" href="part-005-chapter-023.xhtml#part-5-chapter-3-endnote-13-text">13</a></sup>, a community project</li>
+      </ul>
+      <p class="subsq"><b>Dependencies as security vulnerabilities are an ever-present security threat. </b>A library that one of your systems uses could one day be found to have a vulnerability. Until that library is patched, your systems could be insecure. One of the most impactful dependency vulnerabilities was discovered in 2021, which was the Log4j logging library’s security vulnerability<sup><a id="part-5-chapter-3-endnote-14" class="endnote-source" href="part-005-chapter-023.xhtml#part-5-chapter-3-endnote-14-text">14</a></sup>, which could be exploited to take backend systems offline with denial-of-service (DoS) attacks.</p>
+      <p class="subsq"><b>Penetration testing</b> is the practice of testing a system by experts for vulnerabilities. If your team or company facilitates this, participating in it can be eye-opening in terms of learning how experts exercise your systems, and the unaddressed threats lurking within.</p>
+      <p class="subsq"><b>Security engineers </b>are increasingly hired from medium-sized companies. Security is an overarching focus that incorporates all parts of the software development life cycle. If you work at a medium-sized or large company, there’s a fair chance a dedicated software security team is already in place.</p>
+      <p class="subsq">Get to know them and aim to build a partnership. How do they improve secure engineering practices in your company, and how can you help? Identify situations when it would be helpful to involve the security team; for example, during project planning, or for certain key code changes.</p>
+    </div>
+    <div class="fewer-than-100-notes">
+      <div class="endnotes">
+        <div class="endnotes-separator">
+        </div>
+        <div>
+          <div id="part-5-chapter-3-endnote-1-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-005-chapter-023.xhtml#part-5-chapter-3-endnote-1">1</a> </span><a class="content-external-link text-is-url" href="https://google.github.io/styleguide">https://google.github.io/styleguide</a></p>
+          </div>
+          <div id="part-5-chapter-3-endnote-2-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-005-chapter-023.xhtml#part-5-chapter-3-endnote-2">2</a> </span><a class="content-external-link text-is-url" href="https://github.com/airbnb/javascript">https://github.com/airbnb/javascript</a></p>
+          </div>
+          <div id="part-5-chapter-3-endnote-3-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-005-chapter-023.xhtml#part-5-chapter-3-endnote-3">3</a> </span><a class="content-external-link text-is-url" href="https://github.com/airbnb/swift">https://github.com/airbnb/swift</a></p>
+          </div>
+          <div id="part-5-chapter-3-endnote-4-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-005-chapter-023.xhtml#part-5-chapter-3-endnote-4">4</a> </span><a class="content-external-link text-is-url" href="https://docs.gitlab.com/ee/development/fe_guide/style">https://docs.gitlab.com/ee/development/fe_guide/style</a></p>
+          </div>
+          <div id="part-5-chapter-3-endnote-5-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-005-chapter-023.xhtml#part-5-chapter-3-endnote-5">5</a> </span><a class="content-external-link text-is-url" href="https://pragmaticurl.com/post-commit-reviews">https://pragmaticurl.com/post-commit-reviews</a></p>
+          </div>
+          <div id="part-5-chapter-3-endnote-6-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-005-chapter-023.xhtml#part-5-chapter-3-endnote-6">6</a> </span><a class="content-external-link text-is-url" href="https://shopify.engineering/shopify-monolith">https://shopify.engineering/shopify-monolith</a></p>
+          </div>
+          <div id="part-5-chapter-3-endnote-7-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-005-chapter-023.xhtml#part-5-chapter-3-endnote-7">7</a> </span><a class="content-external-link text-is-url" href="https://www.uber.com/blog/microservice-architecture">https://www.uber.com/blog/microservice-architecture</a></p>
+          </div>
+          <div id="part-5-chapter-3-endnote-8-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-005-chapter-023.xhtml#part-5-chapter-3-endnote-8">8</a> </span><a class="content-external-link text-is-url" href="https://shopify.engineering/shopify-monolith">https://shopify.engineering/shopify-monolith</a></p>
+          </div>
+          <div id="part-5-chapter-3-endnote-9-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-005-chapter-023.xhtml#part-5-chapter-3-endnote-9">9</a> </span><a class="content-external-link text-is-url" href="https://pragmaticurl.com/CDE">https://pragmaticurl.com/CDE</a></p>
+          </div>
+          <div id="part-5-chapter-3-endnote-10-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-005-chapter-023.xhtml#part-5-chapter-3-endnote-10">10</a> </span><a class="content-external-link text-is-url" href="https://owasp.org/www-project-secure-coding-practices-quick-reference-guide">https://owasp.org/www-project-secure-coding-practices-quick-reference-guide</a></p>
+          </div>
+          <div id="part-5-chapter-3-endnote-11-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-005-chapter-023.xhtml#part-5-chapter-3-endnote-11">11</a> </span><a class="content-external-link text-is-url" href="https://www.oracle.com/java/technologies/javase/seccodeguide.html">https://www.oracle.com/java/technologies/javase/seccodeguide.html</a></p>
+          </div>
+          <div id="part-5-chapter-3-endnote-12-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-005-chapter-023.xhtml#part-5-chapter-3-endnote-12">12</a> </span><a class="content-external-link text-is-url" href="https://github.com/OWASP/Go-SCP">https://github.com/OWASP/Go-SCP</a></p>
+          </div>
+          <div id="part-5-chapter-3-endnote-13-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-005-chapter-023.xhtml#part-5-chapter-3-endnote-13">13</a> </span><a class="content-external-link text-is-url" href="https://anssi-fr.github.io/rust-guide">https://anssi-fr.github.io/rust-guide</a></p>
+          </div>
+          <div id="part-5-chapter-3-endnote-14-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-005-chapter-023.xhtml#part-5-chapter-3-endnote-14">14</a> </span><a class="content-external-link text-is-url" href="https://builtin.com/cybersecurity/log4j-vulerability-explained">https://builtin.com/cybersecurity/log4j-vulerability-explained</a></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

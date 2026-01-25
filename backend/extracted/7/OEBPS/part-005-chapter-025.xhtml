@@ -1,0 +1,303 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+ "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xml:lang="en" xmlns:epub="http://www.idpf.org/2007/ops" xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+  <title>Chapter 25: Software Architecture</title>
+  <link rel="stylesheet"
+        type="text/css"
+        href="css/style.css" />
+  <link rel="stylesheet"
+        type="text/css"
+        href="css/media.css" />
+</head>
+<body>
+  <div id="part-5-chapter-5" class="element element-bodymatter element-container-single element-type-chapter element-with-heading">
+    <div class="heading heading-container-single heading-size-full heading-format-full heading-alignment-flexible heading-without-image">
+      <div class="heading-contents">
+        <div class="title-subtitle-block title-block-with-element-number">
+          <div class="element-number-block">
+            <div class="element-number case-upper"><span class="element-number-term">CHAPTER</span> <span class="element-number-number">25</span></div>
+          </div>
+          <div class="title-block">
+            <h1 class="element-title case-upper">SOFTWARE ARCHITECTURE</h1>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="text" id="part-5-chapter-5-text">
+      <p class="first first-in-chapter first-full-width">When thinking about what standout staff+ engineers do, always near the top of the list are software architecture and software design. Software architecture is the baseline for planning complex systems, while good software architecture is the foundation which reliable and maintainable systems are built upon.</p>
+      <p class="subsq">Software architecture is so important at staff+ levels that traditional companies still refer to their most experienced software engineers as “software architects.” Newer tech businesses have done away with this wording, favoring the staff/principal/distinguished engineer formulations, to emphasize the <i>engineering</i> part. However, while the word “architect” is out of fashion, there’s still a clear expectation for staff+ engineers to be solid software architects.</p>
+      <p class="subsq">The best software architects I’ve seen all became standout in this craft through a mix of experience in challenging projects, and ongoing learning. In this chapter, we don’t cover how to become a standout software architect. I strongly believe this takes practice and the building of challenging real-world projects. What we do cover are areas to pay attention to when planning solutions for complex problems.</p>
+      <p class="subsq">In this chapter, we cover:</p>
+      <ol>
+        <li><a class="content-external-link" href="part-005-chapter-025.xhtml#subhead-1">Keep it as simple as possible</a></li>
+        <li><a class="content-external-link" href="part-005-chapter-025.xhtml#subhead-2">Know the jargon, but don’t overuse it</a></li>
+        <li><a class="content-external-link" href="part-005-chapter-025.xhtml#subhead-3">Architecture debt</a></li>
+        <li><a class="content-external-link" href="part-005-chapter-025.xhtml#subhead-4">One-way door vs two-way door decisions</a></li>
+        <li><a class="content-external-link" href="part-005-chapter-025.xhtml#subhead-5">The “blast radius” of decisions</a></li>
+        <li><a class="content-external-link" href="part-005-chapter-025.xhtml#subhead-6">Scalable architecture</a></li>
+        <li><a class="content-external-link" href="part-005-chapter-025.xhtml#subhead-7">Architecture vs business priorities</a></li>
+        <li><a class="content-external-link" href="part-005-chapter-025.xhtml#subhead-8">Keep close enough to where work is done</a></li>
+        <li><a class="content-external-link" href="part-005-chapter-025.xhtml#subhead-8">Software architect traits</a></li>
+      </ol>
+      <h2 id="subhead-1" class="section-title subhead keep-with-next paragraph-follows case-upper">1. KEEP IT AS SIMPLE AS POSSIBLE</h2>
+      <p class="first first-after-subhead">People are often surprised when I mention we didn’t use “standard” software architecture planning tools for some of the largest projects I’ve worked on, like rebuilding Uber’s payments system which processed $60B/year, or when building Skype for Xbox One, which had 1 million users at launch week. We could have used formal approaches and dedicated architecture frameworks for sketching out architecture like UML<sup><a id="part-5-chapter-5-endnote-1" class="endnote-source" href="part-005-chapter-025.xhtml#part-5-chapter-5-endnote-1-text">1</a></sup>, the 4+1 model<sup><a id="part-5-chapter-5-endnote-2" class="endnote-source" href="part-005-chapter-025.xhtml#part-5-chapter-5-endnote-2-text">2</a></sup>, architecture decision records<sup><a id="part-5-chapter-5-endnote-3" class="endnote-source" href="part-005-chapter-025.xhtml#part-5-chapter-5-endnote-3-text">3</a></sup> (ADR,) the C4 model<sup><a id="part-5-chapter-5-endnote-4" class="endnote-source" href="part-005-chapter-025.xhtml#part-5-chapter-5-endnote-4-text">4</a></sup>, dependency diagrams<sup><a id="part-5-chapter-5-endnote-5" class="endnote-source" href="part-005-chapter-025.xhtml#part-5-chapter-5-endnote-5-text">5</a></sup>, and more. But we didn’t.</p>
+      <p class="subsq">We used whiteboards, boxes, and arrows to draw out ideas, and documents to capture those ideas in simple language, which were then circulated for feedback. We also didn’t make use of specialist language. This was despite the staff+ engineers having spent decades working at the likes of Google, VMWare, PayPal, and other large companies, and having architected large systems before.</p>
+      <p class="subsq">When it comes to architecture, start simple and resist using complex jargon for its own sake. My point isn’t that you should not use more formal approaches, but to do so only when you’re convinced it adds value, and team members understand it.</p>
+      <p class="subsq">The beauty of keeping architecture simple is that it keeps the discussions and ideas accessible to everyone, including entry-level software engineers. This is a great thing because the more people there are who understand the architecture, the more feedback and suggestions you can gather.</p>
+      <p class="subsq"><b>Coming up with complex architecture is often much easier than sketching something simple and efficient.</b> I recall one of the best software architects I’ve met, who’d been a director of engineering and had built some of the largest payments systems on the planet, before we worked together. When we designed Uber’s revamped payments system, he explained the proposed approach in simple terms, with a couple of diagrams that were easy to follow. I asked him how he could capture and express such complex systems so simply. And he told me that clarity comes from having built similar payments systems over and over again; starting with a complex version and distilling it into more efficient approaches.</p>
+      <h2 id="subhead-2" class="section-title subhead keep-with-next paragraph-follows case-upper">2. KNOW THE JARGON, BUT DON’T OVERUSE IT</h2>
+      <p class="first first-after-subhead">Even though it can be helpful to not use jargon in cases when you can avoid it: as a staff+ engineer you still need to know the technical vocabulary relevant to your work: the “jargon!” This includes:</p>
+      <ul>
+        <li><b>Software engineering-related jargon. </b>If you build distributed systems, you’ll want to understand things like weak/strong consistency, idempotency, write-through-cache, reverse proxy, and many other terms.</li>
+        <li><b>Business jargon.</b> For example, if working in the payments domain you’ll want to understand and be able to use terms like issuing bank, acquiring bank, payment gateway, PCI DSS, auth/hold, and much more.</li>
+        <li><b>Internal jargon.</b> Every company has its internal jargon. For example, at Uber we had Morpheus (experimentation system,) Bankemoji (payments system,) landing a diff (merging a pull request,) or commandeering an L5 outage (taking the lead in a high-impact outage.)</li>
+      </ul>
+      <p class="subsq"><b>Find a way to organize and learn the jargon for your day-to-day work. </b>When joining a new team or company, you’ll hear new jargon. Find out what it means by doing research on industry or business language, and asking colleagues about internally-used terms.</p>
+      <p class="subsq">There’s some similarity between learning jargon and learning a new language, in that the more you practice it, the more natural it gets. An approach that has worked well for me is to keep a list of new terms, and figure out what it means later. I used terms in different settings to confirm the correct context.</p>
+      <p class="subsq"><b>Using too much jargon can exclude others who don’t understand it. </b>The single best way to make a less experienced software engineer feel inferior – and discourage them from participating in a conversation and sharing their ideas – is to use jargon they don’t understand.</p>
+      <p class="subsq">Don’t be a “jargon architect.” Yes, you should understand and be able to use the vocabulary of a domain, and yes, jargon does speed up communication when everyone understands it.</p>
+      <p class="subsq">But in a group of varying experience, use simpler terms. Check that people are familiar with terms when using them for the first time.</p>
+      <p class="subsq">Explaining jargon helps people to use it correctly, and you become better at switching between using it and simpler terms. Have you noticed how some of the best teachers can explain complex things in simple ways? Develop this skill by using basic terms instead of technical jargon. Next time you’re about to use jargon, stop yourself and phrase it without using that term. Do this frequently enough and you will be an approachable engineer, not a slightly intimidating jargon architect.</p>
+      <h2 id="subhead-3" class="section-title subhead keep-with-next paragraph-follows case-upper">3. ARCHITECTURE DEBT</h2>
+      <p class="first first-after-subhead">Architecture debt is a form of tech debt, where old software architecture decisions slow down the extending of software or services, maintenance, and even operation.</p>
+      <p class="subsq">No engineer or team sets out to create architecture debt, just as with tech debt. However, decisions that were once sensible can turn sub-optimal over time. Here are four examples of architecture debt.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">#1:</span> Creating standalone services to move faster</b></p>
+      <p class="subsq">A team needs to build a new functionality and the most obvious way to do this is to extend a backend service. However, the backend service in question is owned by another team, which pushes back on the proposed changes. To move quickly, a new service is built which enables the engineering team to launch its feature quickly.</p>
+      <p class="subsq">This engineering team then does the same when launching other new services. In all cases, the decision enables faster shipping, and avoids negotiations with other engineering teams about how to extend or integrate with existing services.</p>
+      <p class="subsq">As time passes, the downsides of a small, standalone service become apparent. Making a change to a feature means finding the right service, and figuring out which conventions it uses. Services might be written in different languages, which makes context-switching harder. Equally problematically, each service has its own dependencies, which use different versions of the same libraries.</p>
+      <p class="subsq">In this case, the team inadvertently creates architecture debt by prioritizing pace above maintaining the system.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">#2:</span> Not breaking up a monolith</b></p>
+      <p class="subsq">The exact opposite approach can also create architecture debt. Take a team that has built a monolithic application to power all its products. At first, sticking with a monolith is sensible as it allows people to move faster, and only deploy a single codebase to their servers.</p>
+      <p class="subsq">However, as the team grows, working on the same monolith becomes painful. If the monolith’s structure is insufficiently granular, engineers might spend longer working on the same files while building very different features and need to resolve merge conflicts. If the monolith can only be deployed as one unit, the time to deploy can increase, with a higher likelihood of conflict between a team that doesn’t want to deploy their changes yet, and another team that does want to push ahead.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">#3:</span> Non-functional issues</b></p>
+      <p class="subsq">Lots of architecture decisions work well when you build systems. However, as the load upon the system increases and more use cases are added, some non-functional characteristics of the system start to noticeably degrade, such as:</p>
+      <ul>
+        <li>Performance. System latency could become unacceptable, and resource optimization such as CPU or memory usage get out of hand, or the throughput of the system could struggle</li>
+        <li>Scalability: as the load upon the system increases, its performance can significantly degrade, to the point where customers notice</li>
+        <li>Reliability: outages or performance degradation which indicate the system has issues, become more common</li>
+      </ul>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">#4:</span> Dated languages or frameworks</b></p>
+      <p class="subsq">This is akin to tech debt, but the use of dated languages or frameworks that become unsupported can also be architecture debt. When using languages or frameworks which aren’t actively supported or maintained, there can be security risks and problems with interoperability. In some cases, the performance of these languages or frameworks is significantly worse than modern alternatives.</p>
+      <p class="subsq">Changing a language or framework is a significant undertaking, for which it’s reasonable to consider whether some architecture decisions should be revisited as part of a rewrite. For example, when the online learning provider, Khan Academy, changed languages from Python 2 to Go, it also broke down its monolith into smaller services and moved from having REST API endpoints to GraphQL.</p>
+      <p class="subsq">Note that using a dated language or framework does not automatically create debt. An underrated benefit of sticking with a stable if unfashionable language or framework, is that there are fewer surprises and blockers. When using frameworks and languages that are currently being developed, there’s always the risk of uncovering problems few other teams encounter, or for which no fixes have been shipped at the language or framework level. This risk can be reduced by using stable versions of frameworks and languages and not development versions, or releases marked “alpha” or “beta.”</p>
+      <h2 id="subhead-4" class="section-title subhead keep-with-next paragraph-follows case-upper">4. ONE-WAY DOOR VS TWO-WAY DOOR DECISIONS</h2>
+      <p class="first first-after-subhead">Software architecture involves lots of decisions, many of which are choices between tradeoffs. But not all decisions are equal, and one common way of thinking about them is as “one-way door” or “two-way door” decisions. This concept comes from online retail giant Amazon, as part of its “Day 1” culture.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Two-way door decisions</span></b></p>
+      <p class="subsq">These are easily reversible decisions of limited impact. A few examples of two-way door decisions:</p>
+      <ul>
+        <li><b>A/B testing of a feature. </b>Changes that are easily reversible by design, like conducting an A/B test, running an experiment, or using a feature flag.</li>
+        <li><b>Naming. </b>For example, the naming of classes and variables for internal use. Names are simple to change, thanks to most programming environments having powerful refactoring capabilities. As long as nothing external depends on a name, it’s straightforward enough.</li>
+        <li><b>Whether to split one class into two classes.</b> Refactoring one class into two, or merging two classes into one, is another relatively easy task to reverse.</li>
+        <li><b>Choosing a CSS preprocessor.</b> When debating whether to use a cascading style sheets (CSS) preprocessor like SASS (syntactically awesome stylesheets,) or LESS (leaner CSS,) it’s uncomplicated to reverse this decision thanks to similarities between the preprocessors. The decision is even easier when only a small part of the codebase was moved to a CSS preprocessor.</li>
+        <li><b>Choosing a testing framework.</b> When choosing a unit testing or other automated testing framework, you can walk back the decision later simply by introducing a new testing framework solely for new tests, without rewriting existing ones.</li>
+        <li><b>Choosing a new linter. </b>This change is a one-off. The work might be a little more complex, but it’s just the tool that’s changed and possibly some formatting of the code.</li>
+      </ul>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">One-way-door</span> decisions</b></p>
+      <p class="subsq">In stark contrast to the above, these are decisions that are very hard to reverse, and should only be changed after serious consideration. It’s wise to prototype such decisions when possible, or execute them in smaller parts of the codebase so that reversing them is easier.</p>
+      <p class="subsq">In reality, there are very few true one-way-door decisions because software is reversible enough by nature. Exceptions to this include shipping software in a way that it cannot be modified later or is very challenging to do. Such software is almost always coupled with hardware, such as embedded software, or software embedded onto ROM (read-only memory) units. Most software decisions are perfectly reversible. For example, if choosing to consolidate 20 microservices into a monolith, this decision can be undone later, even if it would make little sense.</p>
+      <p class="subsq">One-way-door decisions are those that are too expensive to reverse, and this is relative to your working environment. It usually means <i>at least as much</i> work is needed to reverse a decision as went into implementing it. Below are decisions which could be one-way doors due to the time and effort needed to reverse them:</p>
+      <ul>
+        <li><b>Switching from a monolith to microservices, or vice versa. </b>Once the choice is made of a model for a monolith or microservice, migrating to the other approach becomes too expensive.</li>
+        <li><b>Choice of programming language.</b> Changing existing code can be very hard, as you’d have to rewrite all existing code. You might also have to train engineers and hire experts in the target language. There are languages which are easy enough to introduce another language to, like TypeScript into a Javascript web application.</li>
+        <li><b>Choice of framework. </b>Some application development frameworks are opinionated enough that choosing one is considered a one-way door. For example, in the frontend, choosing React, or Vue, or Svelte, locks you into these ecosystems. To move an application off one of these frameworks could involve a full rewrite.</li>
+        <li><b>Cloud vs on-premises infrastructure.</b> Utilizing on-premises infrastructure or acloud provider is a decision that’s very expensive to change. You can make a change more easily by using abstractions such as containers. Still, switching infrastructure is an intense, often risky migration.</li>
+        <li><b>Relational vs NoSQL data storage.</b> Migrating between relational and NoSQL data models is much easier than migrating between NoSQL and SQL models. Choosing one is often considered a one-way door.</li>
+        <li><b>A force upgrade strategy of a native mobile/desktop app.</b> Native applications are interesting because they can run older versions of the client-side code. Deciding how to implement a “force upgrade” strategy to disallow running of certain, older versions is hard to reverse because business logic will run on the client.</li>
+        <li><b>Changes that lead to a full revert/rewrite. </b>If you’d need to undo all your work and do a full rewrite, it’s usually a one-way door decision.</li>
+      </ul>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Two-way doors</span> that become one-way doors</b></p>
+      <p class="subsq">Some decisions that could be seen as two-way doors actually become one-way doors over time, thanks to customer expectations. Here are a few:</p>
+      <ul>
+        <li><b>Protocol choice. </b>Deciding which protocol a service exposes, is a decision that’s very hard to reverse. For example, changing REST, GraphQL, Protobufs, Thrift, or similar protocols, is very expensive. All customers would have to migrate to the new protocol, or an adapter that keeps exposing the “old” protocol must be written for backwards compatibility.</li>
+        <li><b>Versioning strategy. </b>How will version numbers for an API or product be determined? Once this approach is decided and customers are used to one strategy, it can be very hard and often impossible to change without breaching customers’ trust.</li>
+        <li><b>Exposing functionality as a public, stable API.</b> Customers will build on top of an API after they’re exposed to it. Once the API is declared stable, customers will expect no breaking changes, and any change which is, must be launched as a new API endpoint, or as an endpoint with a new major version – assuming versioning accounted for this.</li>
+        <li><b>Launching a new, customer-facing service.</b> Similarly to APIs, services which customers use must be maintained, and often offer backward compatibility. For example, this is why Amazon Web Services (AWS) has a high bar for declaring a new service as “General Availability.” Once AWS does this, it needs to maintain the service, even if it’s loss-making. Services can be deprecated only on a very long timeframe of years, which makes launching a new AWS service a one-way door.</li>
+      </ul>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">In-between decisions</span></b></p>
+      <p class="subsq">Some decisions are reversible, but doing so can be somewhat expensive. Data migrations and introducing smaller frameworks are examples.</p>
+      <p class="subsq">My advice is to decide whether a decision is a two-way door that’s easy to reverse, or a one-way door which is expensive to reverse. For two-way doors, there’s little point in debating the decision too much, or doing extensive prototyping. For one-way doors, do your homework: prototype or build a proof-of-concept to confirm the decision will work, and try to make the first phase of work easy enough to reverse.</p>
+      <p class="subsq">Identifying what is a two-way door and a one-way door decision is a skill that takes time to learn. When in doubt, do your research, move forward with what looks sensible, and when it’s complete, reflect on how the decision played out.</p>
+      <h2 id="subhead-5" class="section-title subhead keep-with-next paragraph-follows case-upper">5. THE BLAST RADIUS OF DECISIONS</h2>
+      <p class="first first-after-subhead">How many teams and customers would be impacted by a decision you make? Some decisions have limited impact, like refactoring a system to clean up the code which only your team uses. The “blast radius” of this decision is small, which also applies to changes to systems that no other teams or customers depend on.</p>
+      <p class="subsq">Other decisions have bigger blast radii. For example, retiring an API endpoint which 20 teams within the company use, will impact them and all customers who depend on those 20 teams. If it’s a public endpoint that 100,000 customers use, then the blast radius is quite large.</p>
+      <p class="subsq">A decision with a big blast radius is much harder to execute for a few reasons:</p>
+      <ul>
+        <li>Pushback from teams that would need to do work due to the change. For example, if all 20 teams have to change their code and test that things work as expected, expect several of them to push back on your team’s proposed timeline.</li>
+        <li>Impact on customers. If retiring an API means that functionality breaks for paying customers, then shipping this breaking change could create customer churn.</li>
+      </ul>
+      <p class="subsq">The blast radius of reversing a one-way-door architecture decision is often big.</p>
+      <p class="subsq"><b>Figure out ways to shrink the blast radius. </b>There are almost certainly multiple ways to reduce any decision’s blast radius. For example, by keeping an API endpoint externally alive while internally retiring an API endpoint, and putting an adapter in place that “translates” using the new API endpoint. Or motivating customers to move to a new endpoint with extra functionality so that the blast radius shrinks as a result.</p>
+      <p class="subsq">It might not be the right choice to pick a decision with a smaller blast radius, given context and constraints. So list all options and consider their tradeoffs. Often, a decision that reduces a blast radius is the result of thinking “outside the box.”</p>
+      <p class="subsq">Good architecture decisions limit the blast radius of corrective future decisions. I wish there was a recipe for avoiding tricky situations where a large blast radius is unavoidable, which is unpopular with teams and customers dependent on your software. But there isn’t one; you live and learn, and try to design more sustainable software next time!</p>
+      <h2 id="subhead-6" class="section-title subhead keep-with-next paragraph-follows case-upper">6. SCALABLE ARCHITECTURE</h2>
+      <p class="first first-after-subhead">Staff+ engineers are often expected to produce scalable architecture. This expectation is commonly put in writing at Big Tech companies. But what does it mean? Scalability means building a system to handle growing amounts of work and accommodate further growth. Scalability is a potentially ambiguous term, but can be broken down to two main categories:</p>
+      <ul>
+        <li>Growth of new business use cases</li>
+        <li>Growth in data, usage, traffic loads</li>
+      </ul>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Scaling</span> to accommodate the growth of new business use cases</b></p>
+      <p class="subsq">Say you work on a ridesharing app, in the payments team. You’re tasked with implementing a way for customers to pay by credit card. You build this payment option, and the business is happy with how it works. Over time, the app grows and the business asks for more new capabilities:</p>
+      <ol>
+        <li>Paying using PayPal</li>
+        <li>Paying using cash</li>
+        <li>Paying using Apple Pay</li>
+        <li>Paying using PayTM (a digital wallet in India)</li>
+      </ol>
+      <p class="subsq">You could just implement support for each payment type from scratch, but this is not really a scalable approach. It’s much more scalable to predict the types of request, and build an approach which makes it easier to add support for each one.</p>
+      <p class="subsq">A scalable approach begins by recognizing the business will want to keep adding payment methods. You realize it takes around a month to create a new payment method by building code on the backend, web and mobile. So you design an opinionated framework, which might take a few months to build, but will cut the time it takes to add a new payment method down to a few days. Congratulations, you’ve put scalable architecture in place.</p>
+      <p class="subsq">You cannot design for scalable business use cases without understanding two things:</p>
+      <ol>
+        <li>How the business works. In the case of payment methods, you need to understand how payments work. For example, by studying the 20 most popular payment methods, globally, and going through their mechanics with a payments expert.</li>
+        <li>The company’s roadmap. Is it worth investing to make it more scalable to add new payment methods? If the business only wants to add Apple Pay during the next two years, the answer is no. But if the plan is to add 10 payment methods within 12 months, then it’s smart to get ahead of this. But you can’t know whether to make systems more “business use case-scaleable,” without first knowing the company’s plans.</li>
+      </ol>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Scaling</span> to accommodate the growth in data, usage, and traffic load</b></p>
+      <p class="subsq">How will a video streaming system operate when it stores 100x more videos than it does today? How will the same system hold up with 100x more daily active users? These are typical scalability challenges. There is ample literature on how to build scalable systems, and somewhat different approaches are required for backend systems, web systems, and mobile or desktop applications. The bulk of scalability conversations tend to be about backend systems, including:</p>
+      <ul>
+        <li>Horizontal vs vertical scalability</li>
+        <li>Sharding</li>
+        <li>Caching</li>
+        <li>Messaging strategies</li>
+        <li>Database replication</li>
+        <li>Content delivery networks</li>
+      </ul>
+      <p class="subsq">We don’t go into depth on scalable architecture topics here, but there are books which do:</p>
+      <ul>
+        <li>Designing Data-Intensive Applications, by Martin Kleppmann</li>
+        <li>Foundations of Scalable Systems, by Ian Gorton</li>
+      </ul>
+      <h2 id="subhead-7" class="section-title subhead keep-with-next paragraph-follows case-upper">7. ARCHITECTURE DECISIONS VS BUSINESSPRIORITIES</h2>
+      <p class="first first-after-subhead">The more experienced software engineers get, the more they appreciate the importance of architecture decisions. It takes time for architecture decisions to play out, including your own. Many engineers build an appreciation of good architecture by making poor architecture decisions or being affected by them.</p>
+      <p class="subsq">It’s easy to fall into the trap of obsessing about “perfect” architecture which enables systems to scale for new business use cases and traffic patterns. However, there’s a risk of over-engineering systems if account isn’t taken of current business needs.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Align architecture decisions</span> with the business’s goals and growth</b></p>
+      <p class="subsq">Architecture should not exist in a vacuum; in fact, good architecture is always coupled to the business. What are the goals of the business? The underlying architecture should enable these goals to be met, and if the current systems get in the way of these goals, then it’s a worthwhile – and necessary! – task to change them.</p>
+      <p class="subsq">How does the business plan to grow? Architecture decisions should help systems evolve and scale in line with the company’s growth goals. However, spending time and effort building scalable systems for things the business has no need for, is a poor use of resources.</p>
+      <p class="subsq">Let’s take a specific example, re-architecting a payments system at an e-commerce company, to make it scale better. But what does “scale” mean here?</p>
+      <p class="subsq">If the business has the pain point of not being able to add new payment methods quickly enough – for example, it takes 2 months but the business needs to add 20 new payment methods in the coming year to stay competitive – then investing in a re-architecture to add payment methods rapidly is a sensible approach.</p>
+      <p class="subsq">If the business has the pain point of payment systems outages causing customer churn, then making changes so that systems operate more reliably, is the sensible approach. This could involve architecture changes, but will likely also include improvements to monitoring, alerting, and oncall.</p>
+      <p class="subsq">But if the business has no payments-related pain points, then is there really a business case for making large architectural changes? Don’t forget that changes involve effort and risk, so there should be an upside and a business reason for them.</p>
+      <p class="subsq">And of course, improving engineering productivity and reducing engineering toil are valid business reasons. Just ensure they’re high on the list!</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Tie architecture changes</span> to business initiatives</b></p>
+      <p class="subsq">There will be many times when you notice that improving the architecture of systems could help reduce tech debt, and increase engineering productivity. However, this improvement is unlikely to be a good enough business reason to justify the work.</p>
+      <p class="subsq">Consider coupling some improvements to business priorities, and projects that ship features and products which the business cares about. For example, when building a new feature, also improve the architecture related to the feature, which might make it more robust, or make similar additions easier and quicker in future.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Good enough may be better</span> than perfect</b></p>
+      <p class="subsq">Code and engineering processes can be modified or removed, and new code and processes introduced, when needed. Architecture can always be modified when needed, but architecture changes are more expensive, so it’s helpful to be careful when making “one-way door” decisions.</p>
+      <p class="subsq">Ultimately, it’s sensible to balance building “perfect” architecture with the importance of having good enough structures in place. “Good enough” architecture allows the business to reach its goals and supports its growth. And architecture is rarely rigid; it can be tweaked and modified as the business changes.</p>
+      <p class="subsq">The more you see business growth and change as being coupled with the evolution of architecture, the more you’ll help software engineering to solve business problems, and use software and software architecture to do this.</p>
+      <h2 id="subhead-8" class="section-title subhead keep-with-next paragraph-follows case-upper">8. STAY CLOSE ENOUGH TO WHERE THE WORK IS DONE</h2>
+      <p class="first first-after-subhead">The biggest challenge of becoming a staff-and-above engineer is that many things pull you away from where coding happens, like meetings, recruitment, and other priorities. You will feel the pull to spend much more time on “big picture” matters; understanding the business, talking with less technical stakeholders, and collaborating with a variety of teams.</p>
+      <p class="subsq">Understanding the business and engaging in strategic discussions are much higher-leverage activities than writing code is. However, they’re only high leverage if you are technical and hands-on enough to represent engineering effectively in such discussions.</p>
+      <p class="subsq"><b>Strike a balance in being close to where the work is done,</b> and doing the work of engineers. Coding certainly won’t be what you spend most of your time on, but aim to not become an archetypal theoretical software architect. Come up with ways to stay hands-on and close to the code, while also getting a deeper understanding of the business.</p>
+      <p class="subsq"><b>Keep being involved in architecture decisions, and support other engineers to become better architects. </b>Good architecture continuously evolves, and it’s software engineers who evolve it. As a staff+ engineer, even if you have many other priorities, take time to review and discuss architecture approaches and improvements that other engineers suggest.</p>
+      <p class="subsq">As a strong architect, you shouldn’t want to make architecture decisions because doing so makes you a bottleneck for the team. Instead, you should help other engineers make future-proof decisions by challenging and coaching them; asking questions and suggesting tradeoffs to consider.</p>
+      <h2 id="subhead-9" class="section-title subhead keep-with-next paragraph-follows case-upper">9. SOFTWARE ARCHITECT TRAITS</h2>
+      <p class="first first-after-subhead">The terms “staff+ software engineer” and “software architect” are often interchangeable. Staff+ engineers may be the most senior engineers in a team, group, or organization. It’s only natural they tend to be heavily involved in architecture and lead many efforts.</p>
+      <p class="subsq">I’ve observed different types of architects or staff+ engineers. The traits of different types of architects can be aids for reflection about software engineering approaches, for an experienced engineer. Below is a roundup of architect archetypes.</p>
+      <p class="subsq">Note these are descriptions of behaviors, and behaviors can change. For example, an architect might be more hands-on in one project, and less so in another. Also, individuals change over time, so an “ivory tower architect” can become an “approachable” one.</p>
+      <p class="subsq">I do have a bias towards more practical traits because I’ve repeatedly observed that engineers who stay close to the code tend to consistently make better decisions than engineers who become detached from this core aspect of engineering. However, there’s no single “good” or “bad” approach, and theoretical traits can be useful in many situations. More theoretical engineers often spend more time understanding the business and the industry, which can bring much-needed insights to decision-making.</p>
+      <h2 id="subhead-10" class="section-title subhead keep-with-next paragraph-follows case-upper">MORE THEORETICAL TRAITS</h2>
+      <p class="first first-after-subhead"><b>#1: Ivory Tower Architect</b></p>
+      <p class="subsq">A software engineer who’s detached from day-to-day work, with few to no interactions with software engineers who implement their architecture ideas. This person is usually hard to reach and does not come across as approachable. Decisions by this person feel “top-down.”</p>
+      <p class="subsq">Being unapproachable means this person is often blissfully unaware when engineers don’t understand their reasoning, or have valid objections.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">#2:</span> The Painfully Precise</b></p>
+      <p class="subsq">An engineer who pays excessive attention to the exact details of what people say and corrects them on that. This person tends to not take engineers seriously who fail to express themselves immaculately.</p>
+      <p class="subsq">The issue many engineers face when dealing with a painfully precise colleague is that discussions often end up being about fine detail, and not the big picture. Less experienced engineers who are repeatedly corrected for improper usage of terms may avoid input from their painfully precise colleague.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">#3:</span> Theory Addict</b></p>
+      <p class="subsq">This engineer is an avid reader of books, papers, and case studies, and suggests patterns or approaches they recently read about, and uses those resources as justification.</p>
+      <p class="subsq">The issue with a theory addict is that they can lean too heavily on book learning, while lacking practical experience of the domain in which they work. In a setting where there’s a more practical architect to challenge them, a theory addict can help a team by bringing alternative approaches. However, without pushback they might enforce impractical architecture approaches which cause pain points and engineering churn in the future.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">#4:</span> The Philosopher</b></p>
+      <p class="subsq">An engineer who seemingly brings a lot of value to every architecture debate by bringing up alternative approaches and counterpoints. The problem with this? Discussions involving this person seem to never end, nor reach agreement. This engineer often prefers an exhaustive debate, which can cause conflict with practically-minded engineers who seek a good enough decision, and want to start building.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">#5:</span> The Superior Linguist</b></p>
+      <p class="subsq">This engineer knows their technical jargon and never misses an opportunity to use perfect language in conversation. In a group setting with junior engineers present, a superior linguist may say something like:</p>
+      <p class="subsq">“Surely idempotency is not a strict requirement, given the system is likely not even weakly consistent. I would suggest we look at durability, but am unsure we have the right quorum for such discussion.”</p>
+      <p class="subsq">A superior linguist may assume an unbreakable link between engineering competency and the use of jargon. So they dismiss input from colleagues without the same command of technical jargon as they have.</p>
+      <p class="subsq">The superior linguist and painfully precise archetypes share common traits, but the painfully precise engineer is usually less fixated on jargon than the superior linguist. The superior linguist is often also an ivory tower architect, as they disdain input from anyone they see as less fluent in technical vocabulary – which is usually almost everybody.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">#6:</span> The Walk-away Advisor</b></p>
+      <p class="subsq">An experienced engineer who provides advice during the early phases of a project, but then walks away from the implementation phase. The problem is that advice provided this way can cause more harm than good, as the assumptions on which this person’s input is based, may turn out to be faulty when the work begins. Then a team is stuck; do they stick to the previous advice which looks less relevant, or do they ask the walk-away advisor for fresh input, or should they take things into their own hands because the walk-away advisor has chosen to have no skin in the game?</p>
+      <p class="subsq">A walk-away advisor can say they’re overstretched and lack time to get involved in the projects they’d like to, due to having too much on their plate. If you find yourself being a walk-away advisor, consider reducing the number of things you’re working on, in order to see efforts through from start to finish.</p>
+      <h2 id="subhead-11" class="section-title subhead keep-with-next paragraph-follows case-upper">MORE PRACTICAL TRAITS</h2>
+      <p class="first first-after-subhead"><b>#7: The Coding Machine</b></p>
+      <p class="subsq">An experienced software engineer who’s heads-down with coding for much of the time. This person tends to get things done fast, and is naturally very approachable for software engineers because they work side by side with them.</p>
+      <p class="subsq">Meta has a dedicated senior staff engineer archetype called the “coding machine,” which was created for Michael Novati<sup><a id="part-5-chapter-5-endnote-6" class="endnote-source" href="part-005-chapter-025.xhtml#part-5-chapter-5-endnote-6-text">6</a></sup>. He shared with me how this archetype was created:</p>
+      <div class="blockquote-container prose without-attribution within-prose-element">
+        <blockquote class="prose without-attribution within-prose-element">
+        <p class="first blockquote-content blockquote-content-prose blockquote-position-first">“Facebook takes fairness as the #1 consideration. I was basically the ”largest volume” committer at the company, but when they calibrated me against the E7 in other areas – which granted was a very small number of people, about 100 – they didn’t feel like I was as impactful, or on par.</p>
+        <p class="subsq blockquote-content blockquote-content-prose blockquote-position-last">I was pushing hard to have my contributions recognized more. I did also do 300+ interviews at that time, and worked on important things on the side. My understanding is that my director of engineering at the time wrote up the “coding machine” archetype and presented it to the calibration group that reviews all E7s. The committee accepted this, and added it to the list of archetypes.”</p>
+      </blockquote>
+      </div>
+      <p class="subsq">Being a coding machine is not a trait most people easily associate with software architects, but I think it’s important to bust the myth that architects can’t be very hands-on with coding. Some of the largest tech companies like Meta recognize the existence and importance of such people.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">#8:</span> The Integrator</b></p>
+      <p class="subsq">An experienced engineer who understands most of the company’s systems, how they work, what they do, and how to easily extend and modify them. These engineers are hands-on and can quickly make modifications to most systems, and integrate new functionality, or one system with the other.</p>
+      <p class="subsq">An integrator is an extremely useful person at places with many complex systems. Thanks to their hands-on knowledge, they can offer smart workarounds and elegant hacks that avoid large rewrite efforts.</p>
+      <p class="subsq">There is a danger that integrators get too used to patching up systems as they go – after all, they are very good at this! Pairing an integrator with a more theoretical engineer could be a great way to go about large rewrites or re-architectures, as the integrator will push back on unnecessary rewrites. Both integrators and coding machines tend to be excellent at debugging and solving challenging bugs and outages, as both have deep understanding of the code and systems, and possess hands-on knowledge.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">#9:</span> The Approachable One</b></p>
+      <p class="subsq">An experienced software engineer who’s surprisingly approachable and available, often because they work on a team, participate in discussions with engineers, go oncall, and take part in chats where engineers hang out.</p>
+      <p class="subsq">This engineer frequently mentors less experienced colleagues informally via code reviews and pairing, and sometimes more formally by meeting mentees regularly to discuss work and challenges.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">#10:</span> The Detailed Documenter</b></p>
+      <p class="subsq">An engineer who writes documents that help fellow engineers understand architecture, common concepts, and terms. This engineer is a proponent of RFCs, design docs, architecture decision records (ADRs,) runbooks, and other documents which capture and spread knowledge.</p>
+      <p class="subsq">Note that depending on how practical the documentation is, this trait can be more practical or more theoretical. Many ivory tower architects are also detailed documenters.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">#11:</span> The New and Shiny Chaser</b></p>
+      <p class="subsq">An engineer who loves to jump to using the latest, greatest framework or approach which they just learned about. This approach tends to work well on less experienced teams, with members who are keen to be on the cutting edge.</p>
+      <p class="subsq">Over time, the approach of – almost blindly – jumping on the latest technological bandwagon can cause issues because new and unexpected problems almost always arise with less battle-tested approaches.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">#12 The Old</span> Schooler</b></p>
+      <p class="subsq">The opposite of the new, shiny chaser, this is an experienced engineer who prefers the same toolset that’s worked for decades, even though teammates see it as out of date.</p>
+      <p class="subsq">Believe it or not, an old schooler may once have been a new, shiny chaser, who got burnt once too often and decided that jumping on bandwagons wasn’t worth it.</p>
+      <p class="subsq">Believe it or not, an old schooler may once have been a new and shiny chaser, who got burnt once too often and decided that jumping on bandwagons wasn’t worth it.</p>
+      <p class="subsq">The old schooler is not necessarily unpopular. They can advocate effectively for a helpful approach on a more experienced team which shares their understanding of battle-tested approaches that often lead to software development with few or no surprises. Their motto is “use boring tech.”</p>
+      <p class="subsq">However, The old schooler can create tension with team members who prefer modern approaches, and their presence could make it more challenging to hire engineers who like cutting-edge approaches.</p>
+      <p class="implicit-break"></p>
+      <p class="first first-in-section first-full-width"><b><span class="first-phrase">Are architect traits useful?</span></b></p>
+      <p class="subsq">You may recognize colleagues with the traits of one or more of the above archetypes. It can be useful to figure out which archetype your colleagues see you as, based on your current work.</p>
+      <p class="subsq">And this is exactly the point of archetypes as tools for reflection. Would you be described as someone who’s more theoretical, or more practical? Most importantly, are you perceived how you want to be?</p>
+      <p class="subsq">Don’t forget these traits describe behaviors, which can and do change. Most engineers can recognize themselves as a mix of the above archetypes, while the mix of traits changes by project and the dynamics of teams.</p>
+      <p class="subsq"><b>Pairing engineers with different traits can create great outcomes. </b>For proof that there are no definitively good or bad traits, I recall the single best architect I’ve had the opportunity to work with. It was not one person, but a pair. One was a highly theoretical architect, and one was highly practical.</p>
+      <p class="subsq">These two kept challenging one another. Their unique pairing led to practical architecture that was built with long-term maintainability and extensibility, all done elegantly. Along the way, each appeared to develop respect for the other’s approach, so that the theoretical engineer grew more practical, while the practical engineer started to appreciate the value of research papers, books, and taking time to think, not just code.</p>
+      <p class="subsq">Across a long enough career, you will likely find yourself operating as a few different archetypes. Recognizing the traits of each can help you reflect on whether people with certain traits are right for a current project and team.</p>
+    </div>
+    <div class="fewer-than-100-notes">
+      <div class="endnotes">
+        <div class="endnotes-separator">
+        </div>
+        <div>
+          <div id="part-5-chapter-5-endnote-1-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-005-chapter-025.xhtml#part-5-chapter-5-endnote-1">1</a> </span><a class="content-external-link text-is-url" href="https://en.wikipedia.org/wiki/Unified_Modeling_Language">https://en.wikipedia.org/wiki/Unified_Modeling_Language</a></p>
+          </div>
+          <div id="part-5-chapter-5-endnote-2-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-005-chapter-025.xhtml#part-5-chapter-5-endnote-2">2</a> </span><a class="content-external-link text-is-url" href="https://en.wikipedia.org/wiki/4%2B1_architectural_view_model">https://en.wikipedia.org/wiki/4%2B1_architectural_view_model</a></p>
+          </div>
+          <div id="part-5-chapter-5-endnote-3-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-005-chapter-025.xhtml#part-5-chapter-5-endnote-3">3</a> </span><a class="content-external-link text-is-url" href="https://github.com/joelparkerhenderson/architecture-decision-record">https://github.com/joelparkerhenderson/architecture-decision-record</a></p>
+          </div>
+          <div id="part-5-chapter-5-endnote-4-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-005-chapter-025.xhtml#part-5-chapter-5-endnote-4">4</a> </span><a class="content-external-link text-is-url" href="https://c4model.com">https://c4model.com</a></p>
+          </div>
+          <div id="part-5-chapter-5-endnote-5-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-005-chapter-025.xhtml#part-5-chapter-5-endnote-5">5</a> </span><a class="content-external-link text-is-url" href="https://herbertograca.com/2019/08/12/documenting-software-architecture">https://herbertograca.com/2019/08/12/documenting-software-architecture</a></p>
+          </div>
+          <div id="part-5-chapter-5-endnote-6-text" class="endnote-text"><p class="first"><span class="endnote-text-number"><a class="endnote-backlink" href="part-005-chapter-025.xhtml#part-5-chapter-5-endnote-6">6</a> </span><a class="content-external-link text-is-url" href="https://www.linkedin.com/in/michaelnovati">https://www.linkedin.com/in/michaelnovati</a></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
