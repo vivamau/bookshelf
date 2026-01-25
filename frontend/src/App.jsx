@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, useNavigate, useParams, Link } 
 import { 
   Home, 
   BookMarked, 
-  Library, 
+  Library as LibraryIcon, 
   Search, 
   Settings, 
   Users, 
@@ -24,6 +24,8 @@ import Login from './pages/Login';
 import BookDetails from './pages/BookDetails';
 import Reader from './pages/Reader';
 import AuthorDetails from './pages/AuthorDetails';
+import Authors from './pages/Authors';
+import Library from './pages/Library';
 import { booksApi } from './api/api';
 
 // UI Components
@@ -94,7 +96,8 @@ function Layout({ children }) {
   const navItems = [
     { label: 'Home', icon: Home, to: '/' },
     { label: 'Read Lists', icon: BookMarked },
-    { label: 'Library', icon: Library },
+    { label: 'Library', icon: LibraryIcon, to: '/library' },
+    { label: 'Authors', icon: Users, to: '/authors' }, // Re-adding authors link too just in case
     { label: 'Discover', icon: Search },
   ];
 
@@ -207,6 +210,7 @@ function Dashboard() {
   const { user, hasPermission } = useAuth();
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchBooks = async () => {
@@ -233,7 +237,7 @@ function Dashboard() {
           <span className="hover:text-foreground cursor-pointer transition-colors">Trending</span>
           <span className="hover:text-foreground cursor-pointer transition-colors">Recommended</span>
           <span className="hover:text-foreground cursor-pointer transition-colors">New arrivals</span>
-          <span className="hover:text-foreground cursor-pointer transition-colors">Authors</span>
+          <span onClick={() => navigate('/authors')} className="hover:text-foreground cursor-pointer transition-colors">Authors</span>
           <span className="hover:text-foreground cursor-pointer transition-colors">Genres</span>
         </div>
 
@@ -310,6 +314,8 @@ function AuthenticatedApp() {
       <Route path="/" element={<Layout><Dashboard /></Layout>} />
       <Route path="/book/:id" element={<Layout><BookDetails /></Layout>} />
       <Route path="/author/:id" element={<Layout><AuthorDetails /></Layout>} />
+      <Route path="/authors" element={<Layout><Authors /></Layout>} />
+      <Route path="/library" element={<Layout><Library /></Layout>} />
       <Route path="/reader/:id" element={<Reader />} />
     </Routes>
   );
