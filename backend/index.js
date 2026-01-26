@@ -375,6 +375,22 @@ booksRouter.post('/:id/progress', (req, res) => {
     });
 });
 
+// Get reviews for a specific book
+booksRouter.get('/:id/reviews', (req, res) => {
+    const bookId = req.params.id;
+    const sql = `
+        SELECT r.*, u.user_username
+        FROM Reviews r
+        JOIN BooksUsers bu ON r.bookuser_ID = bu.ID
+        JOIN Users u ON bu.user_id = u.ID
+        WHERE bu.book_id = ?
+    `;
+    db.all(sql, [bookId], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ data: rows });
+    });
+});
+
 booksRouter.get('/:id', (req, res) => {
     const userId = req.user.user_id;
     const bookId = req.params.id;
@@ -387,8 +403,10 @@ booksRouter.get('/:id', (req, res) => {
                l.language_name, 
                f.format_name, 
                p.publisher_name,
+               bu.ID as bookuser_id,
                bu.book_current_index,
                bu.book_progress_percentage,
+               (SELECT review_score FROM Reviews WHERE bookuser_ID = bu.ID LIMIT 1) as user_rating,
                (SELECT COUNT(*) FROM BooksUsers WHERE book_id = b.ID) as readers_count,
                (SELECT GROUP_CONCAT(a.ID || '::' || a.author_name || ' ' || a.author_lastname || '::' || ba.ID, '||') 
                 FROM Authors a 
@@ -447,6 +465,7 @@ booksRouter.get('/:id', (req, res) => {
 
 app.use('/api/books', booksRouter);
 app.use('/api/userroles', createCrudRouter('UserRoles', db, 'ID', ['GET']));
+app.use('/api/reviews', createCrudRouter('Reviews', db));
 
 // Library scan endpoint
 const { scanLibrary } = require('./utils/libraryScanner');

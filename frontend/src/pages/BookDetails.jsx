@@ -18,7 +18,7 @@ import {
   Trash2,
   Calendar
 } from 'lucide-react';
-import { booksApi, genresApi, booksGenresApi, authorsApi, booksAuthorsApi, publishersApi } from '../api/api';
+import { booksApi, genresApi, booksGenresApi, authorsApi, booksAuthorsApi, publishersApi, reviewsApi } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../lib/utils';
 
@@ -35,6 +35,31 @@ const formatDateForInput = (dateValue) => {
   } catch (e) {
     return '';
   }
+};
+
+const StarRating = ({ rating, onRate, size = 18, interactive = true }) => {
+  const [hover, setHover] = useState(0);
+  
+  return (
+    <div className="flex items-center gap-1">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <Star
+          key={star}
+          size={size}
+          className={cn(
+            "transition-all duration-200",
+            interactive ? "cursor-pointer" : "cursor-default",
+            (hover || rating) >= star 
+              ? "text-yellow-400 fill-yellow-400" 
+              : "text-muted-foreground/30 fill-none"
+          )}
+          onMouseEnter={() => interactive && setHover(star)}
+          onMouseLeave={() => interactive && setHover(0)}
+          onClick={() => interactive && onRate(star)}
+        />
+      ))}
+    </div>
+  );
 };
 
 const DatePicker = ({ value, onChange }) => {
@@ -129,16 +154,125 @@ export default function BookDetails() {
   const [deleting, setDeleting] = useState(false);
   const [coverUrlInput, setCoverUrlInput] = useState('');
   const [updatingCover, setUpdatingCover] = useState(false);
+  
+  // Reviews State
+  const [reviews, setReviews] = useState([]);
+  const [isAddingReview, setIsAddingReview] = useState(false);
+  const [reviewForm, setReviewForm] = useState({ title: '', description: '' });
+  const [submittingReview, setSubmittingReview] = useState(false);
+
+  const fetchReviews = async () => {
+    try {
+      const res = await booksApi.getReviews(id);
+      setReviews(res.data.data || []);
+    } catch (err) {
+      console.error("Failed to fetch reviews", err);
+    }
+  };
+
+  const handleRate = async (newRating) => {
+    try {
+      if (!book.bookuser_id) {
+          // If no relationship exists, create one first (usually happens when starting to read)
+          await booksApi.updateProgress(id, {
+              current_index: 0,
+              progress_percentage: 0
+          });
+          // Refresh book to get new bookuser_id
+          const newBookRes = await booksApi.getById(id);
+          const newBookData = newBookRes.data.data;
+          setBook(newBookData);
+          
+          // Now create review
+          await reviewsApi.create({
+              review_title: 'Rating',
+              review_score: newRating,
+              bookuser_ID: newBookData.bookuser_id,
+              review_create_date: Date.now()
+          });
+      } else {
+          // Check if review exists
+          const reviewsRes = await booksApi.getReviews(id);
+          const userReview = reviewsRes.data.data.find(r => r.bookuser_ID === book.bookuser_id);
+          
+          if (userReview) {
+              await reviewsApi.update(userReview.ID, {
+                  review_score: newRating,
+                  review_update_date: Date.now()
+              });
+          } else {
+              await reviewsApi.create({
+                  review_title: 'Rating',
+                  review_score: newRating,
+                  bookuser_ID: book.bookuser_id,
+                  review_create_date: Date.now()
+              });
+          }
+      }
+      
+      // Update local state
+      setBook(prev => ({ ...prev, user_rating: newRating }));
+      await fetchReviews(); // Refresh review list to show updated star count
+    } catch (err) {
+      console.error("Failed to save rating", err);
+    }
+  };
+
+  const handleSubmitReview = async () => {
+    if (!reviewForm.title) return;
+    setSubmittingReview(true);
+    try {
+      let bookuserId = book.bookuser_id;
+      if (!bookuserId) {
+          // Initialize progress if not exists
+          await booksApi.updateProgress(id, { current_index: 0, progress_percentage: 0 });
+          const updated = await booksApi.getById(id);
+          bookuserId = updated.data.data.bookuser_id;
+          setBook(updated.data.data);
+      }
+
+      const existingReview = reviews.find(r => r.bookuser_ID === bookuserId);
+      if (existingReview) {
+        await reviewsApi.update(existingReview.ID, {
+          review_title: reviewForm.title,
+          review_description: reviewForm.description,
+          review_update_date: Date.now()
+        });
+      } else {
+        await reviewsApi.create({
+          review_title: reviewForm.title,
+          review_description: reviewForm.description,
+          review_score: book.user_rating || 0,
+          bookuser_ID: bookuserId,
+          review_create_date: Date.now()
+        });
+      }
+      setIsAddingReview(false);
+      setReviewForm({ title: '', description: '' });
+      await fetchReviews();
+    } catch (err) {
+      console.error("Failed to submit review", err);
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
     try {
       // 1. Update basic book info (title, summary, ISBN)
       const updateData = {
-        ...editForm,
+        book_title: editForm.book_title,
+        book_summary: editForm.book_summary,
+        book_isbn: editForm.book_isbn,
+        book_isbn_13: editForm.book_isbn_13,
         book_date: editForm.book_date ? new Date(editForm.book_date).getTime() : null,
-        book_publisher_id: editForm.book_publisher_id ? parseInt(editForm.book_publisher_id) : null
+        book_publisher_id: (editForm.book_publisher_id && !isNaN(Number(editForm.book_publisher_id))) 
+          ? Number(editForm.book_publisher_id) 
+          : null
       };
+
+      console.log("Saving book update:", updateData);
       await booksApi.update(id, updateData);
       
       // 2. If an author was selected in the dropdown, update the relationship
@@ -321,6 +455,7 @@ export default function BookDetails() {
       }
     };
     fetchBook();
+    fetchReviews();
   }, [id]);
 
   if (loading) {
@@ -403,6 +538,85 @@ export default function BookDetails() {
                 <p className="text-[9px] text-muted-foreground italic">Tip: Provide a direct URL to an image. It will be downloaded and stored locally.</p>
               </div>
             )}
+
+            {/* Reviews Section */}
+            <div className="mt-8 flex flex-col gap-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground leading-none">Reviews</h3>
+                {!isAddingReview && (hasPermission('userrole_readbooks') || hasPermission('userrole_managebooks')) && (
+                  <button 
+                    onClick={() => {
+                      const userRev = reviews.find(r => r.bookuser_ID === book.bookuser_id);
+                      if (userRev) {
+                        setReviewForm({ title: userRev.review_title, description: userRev.review_description || '' });
+                      } else {
+                        setReviewForm({ title: '', description: '' });
+                      }
+                      setIsAddingReview(true);
+                    }}
+                    className="text-[9px] font-black uppercase text-primary hover:text-primary/80 transition-colors tracking-widest"
+                  >
+                    {reviews.find(r => r.bookuser_ID === book.bookuser_id) ? 'Edit My Review' : 'Add Review'}
+                  </button>
+                )}
+              </div>
+
+              {isAddingReview ? (
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col gap-3 animate-in slide-in-from-top-4 duration-300">
+                  <input 
+                    placeholder="Review Title"
+                    value={reviewForm.title}
+                    onChange={e => setReviewForm({...reviewForm, title: e.target.value})}
+                    className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-xs font-bold text-foreground outline-none focus:border-primary/50 transition-all shadow-inner"
+                  />
+                  <textarea 
+                    placeholder="What did you think of the story?"
+                    rows={4}
+                    value={reviewForm.description}
+                    onChange={e => setReviewForm({...reviewForm, description: e.target.value})}
+                    className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-xs font-medium text-foreground outline-none focus:border-primary/50 transition-all resize-none shadow-inner"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button 
+                      onClick={() => setIsAddingReview(false)}
+                      className="px-3 py-1.5 text-[10px] font-black uppercase text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      onClick={handleSubmitReview}
+                      disabled={submittingReview}
+                      className="px-4 py-1.5 bg-primary text-primary-foreground rounded-lg text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
+                    >
+                      {submittingReview ? 'Posting...' : 'Post Review'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {reviews.length === 0 ? (
+                    <div className="bg-white/[0.02] border border-dashed border-white/10 rounded-xl p-6 text-center">
+                      <p className="text-[10px] font-bold text-muted-foreground/40 italic uppercase tracking-wider">No reviews yet</p>
+                    </div>
+                  ) : (
+                    reviews.map(review => (
+                      <div key={review.ID} className="group relative bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 rounded-xl p-4 transition-all">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[9px] font-black uppercase text-primary tracking-[0.1em]">{review.user_username}</span>
+                          <div className="flex items-center gap-0.5">
+                            {[1,2,3,4,5].map(s => (
+                              <Star key={s} size={8} className={cn(s <= review.review_score ? "text-yellow-400 fill-yellow-400" : "text-white/10 fill-none")} />
+                            ))}
+                          </div>
+                        </div>
+                        <h4 className="text-xs font-black text-foreground mb-1 leading-tight">{review.review_title}</h4>
+                        <p className="text-[11px] text-muted-foreground/80 leading-relaxed italic line-clamp-4 group-hover:line-clamp-none transition-all">"{review.review_description}"</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Metadata */}
@@ -483,6 +697,12 @@ export default function BookDetails() {
                  <span>{book.language_name || 'English'}</span>
                  <span>•</span>
                  <span>{book.format_name || 'Epub'}</span>
+                 <span>•</span>
+                 <StarRating 
+                    rating={book.user_rating} 
+                    onRate={handleRate} 
+                    interactive={hasPermission('userrole_readbooks') || hasPermission('userrole_managebooks')}
+                  />
               </div>
             </div>
 

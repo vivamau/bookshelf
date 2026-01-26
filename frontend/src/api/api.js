@@ -46,6 +46,7 @@ export const booksApi = {
   create: (data) => api.post('/books', data),
   update: (id, data) => api.put(`/books/${id}`, data),
   delete: (id) => api.delete(`/books/${id}`),
+  getReviews: (id) => api.get(`/books/${id}/reviews`),
   setCoverFromUrl: (id, coverUrl) => api.post(`/books/${id}/cover-from-url`, { coverUrl }),
 };
 
@@ -88,6 +89,14 @@ export const publishersApi = {
 
 export const usersApi = {
   getAll: () => api.get('/users'),
+};
+
+export const reviewsApi = {
+  getAll: () => api.get('/reviews'),
+  getById: (id) => api.get(`/reviews/${id}`),
+  create: (data) => api.post('/reviews', data),
+  update: (id, data) => api.put(`/reviews/${id}`, data),
+  delete: (id) => api.delete(`/reviews/${id}`),
 };
 
 

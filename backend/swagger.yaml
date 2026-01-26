@@ -119,6 +119,25 @@ components:
           type: integer
         userrole_update_date:
           type: integer
+    Review:
+      type: object
+      required:
+        - review_title
+      properties:
+        ID:
+          type: integer
+        review_title:
+          type: string
+        review_description:
+          type: string
+        review_score:
+          type: integer
+        bookuser_ID:
+          type: integer
+        review_create_date:
+          type: integer
+        review_update_date:
+          type: integer
 security:
   - bearerAuth: []
 paths:
@@ -241,6 +260,44 @@ paths:
       responses:
         200:
           description: Deleted
+  /api/books/{id}/reviews:
+    get:
+      summary: Get reviews for a specific book
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+      responses:
+        200:
+          description: List of reviews for the book
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        ID:
+                          type: integer
+                        review_title:
+                          type: string
+                        review_description:
+                          type: string
+                        review_score:
+                          type: integer
+                        bookuser_ID:
+                          type: integer
+                        user_username:
+                          type: string
+                        review_create_date:
+                          type: integer
+                        review_update_date:
+                          type: integer
   /api/authors:
     get:
       summary: Get all authors
@@ -450,4 +507,68 @@ paths:
                 properties:
                   data:
                     $ref: '#/components/schemas/UserRole'
-  # Add other endpoints similarly...
+  /api/reviews:
+    get:
+      summary: Get all reviews
+      responses:
+        200:
+          description: List of reviews
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Review'
+    post:
+      summary: Create a review
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Review'
+      responses:
+        201:
+          description: Created
+  /api/reviews/{id}:
+    get:
+      summary: Get review by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Review details
+    put:
+      summary: Update review
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Review'
+      responses:
+        200:
+          description: Updated
+    delete:
+      summary: Delete review
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Deleted
