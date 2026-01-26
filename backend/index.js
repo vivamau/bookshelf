@@ -4,7 +4,9 @@ const db = require('./config/db');
 const createCrudRouter = require('./utils/crudFactory');
 const auth = require('./middleware/auth');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs'); // For password hashing handling if we implement register/login
+const bcrypt = require('bcryptjs'); 
+const axios = require('axios');
+const fs = require('fs');
 
 require('dotenv').config();
 
@@ -207,8 +209,6 @@ const booksRouter = createCrudRouter('Books', db, 'ID', ['POST', 'PUT']);
 // Custom DELETE for books - removes metadata AND files
 booksRouter.delete('/:id', (req, res) => {
     const bookId = req.params.id;
-    const fs = require('fs');
-    const path = require('path');
     
     // First, get book details to know which files to delete
     db.get("SELECT book_filename, book_cover_img FROM Books WHERE ID = ?", [bookId], (err, book) => {
@@ -262,6 +262,57 @@ booksRouter.delete('/:id', (req, res) => {
             });
         });
     });
+});
+
+// Download cover from URL and set it for a book
+booksRouter.post('/:id/cover-from-url', async (req, res) => {
+    const bookId = req.params.id;
+    const { coverUrl } = req.body;
+
+    if (!coverUrl) {
+        return res.status(400).json({ error: 'Cover URL is required' });
+    }
+
+    try {
+        const response = await axios({
+            method: 'get',
+            url: coverUrl,
+            responseType: 'stream'
+        });
+
+        // Determine file extension from Content-Type or URL
+        let ext = 'jpg';
+        const contentType = response.headers['content-type'];
+        if (contentType) {
+            if (contentType.includes('png')) ext = 'png';
+            if (contentType.includes('webp')) ext = 'webp';
+            if (contentType.includes('jpeg') || contentType.includes('jpg')) ext = 'jpg';
+        }
+
+        const fileName = `book_${bookId}_${Date.now()}.${ext}`;
+        const filePath = path.join(__dirname, 'covers', fileName);
+
+        const writer = fs.createWriteStream(filePath);
+        response.data.pipe(writer);
+
+        await new Promise((resolve, reject) => {
+            writer.on('finish', resolve);
+            writer.on('error', reject);
+        });
+
+        // Update DB
+        db.run("UPDATE Books SET book_cover_img = ? WHERE ID = ?", [fileName, bookId], function(err) {
+            if (err) {
+                console.error("DB error updating cover:", err);
+                return res.status(500).json({ error: err.message });
+            }
+            res.json({ success: true, fileName: fileName });
+        });
+
+    } catch (err) {
+        console.error("Error downloading cover:", err);
+        res.status(500).json({ error: 'Failed to download cover' });
+    }
 });
 
 // Update getAll to include progress

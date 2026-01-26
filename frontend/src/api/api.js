@@ -46,6 +46,7 @@ export const booksApi = {
   create: (data) => api.post('/books', data),
   update: (id, data) => api.put(`/books/${id}`, data),
   delete: (id) => api.delete(`/books/${id}`),
+  setCoverFromUrl: (id, coverUrl) => api.post(`/books/${id}/cover-from-url`, { coverUrl }),
 };
 
 export const authorsApi = {

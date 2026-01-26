@@ -46,6 +46,8 @@ export default function BookDetails() {
   const [genreToDelete, setGenreToDelete] = useState(null);
   const [showDeleteBookModal, setShowDeleteBookModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [coverUrlInput, setCoverUrlInput] = useState('');
+  const [updatingCover, setUpdatingCover] = useState(false);
 
   const handleSave = async () => {
     setSaving(true);
@@ -161,6 +163,26 @@ export default function BookDetails() {
     }
   };
 
+  const handleUpdateCover = async (e) => {
+    e?.preventDefault();
+    if (!coverUrlInput) return;
+    
+    setUpdatingCover(true);
+    try {
+      const res = await booksApi.setCoverFromUrl(id, coverUrlInput);
+      if (res.data.success) {
+        // Refresh book data to see new cover
+        const bookRes = await booksApi.getById(id);
+        setBook(bookRes.data.data);
+        setCoverUrlInput('');
+      }
+    } catch (err) {
+      console.error("Failed to update cover", err);
+    } finally {
+      setUpdatingCover(false);
+    }
+  };
+
 
 
   useEffect(() => {
@@ -248,11 +270,45 @@ export default function BookDetails() {
 
         <div className="flex flex-col md:flex-row gap-12 items-start">
           {/* Poster / Cover */}
-          <div className="w-full max-w-[300px] shrink-0 self-center md:self-start">
+          <div className="w-full max-w-[300px] shrink-0 self-center md:self-start flex flex-col gap-4">
             <div className="aspect-[2/3] rounded-lg overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 group relative">
                 <img src={coverUrl} alt={book.book_title} className="w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors" />
             </div>
+
+            {isEditing && (
+              <div className="flex flex-col gap-3 p-4 bg-white/5 border border-white/10 rounded-xl animate-in fade-in slide-in-from-top-2 duration-300">
+                <label className="text-[10px] font-black uppercase tracking-widest text-primary">Custom Cover</label>
+                <form onSubmit={handleUpdateCover} className="flex flex-col gap-2">
+                  <input 
+                    value={coverUrlInput}
+                    onChange={e => setCoverUrlInput(e.target.value)}
+                    placeholder="Paste image URL..."
+                    className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-xs w-full outline-none focus:border-primary transition-all"
+                  />
+                  <div className="flex gap-2">
+                    <button 
+                      type="submit"
+                      disabled={updatingCover || !coverUrlInput}
+                      className="flex-1 bg-primary/20 hover:bg-primary/30 text-primary text-[10px] font-black uppercase tracking-tighter py-2 rounded-lg transition-all disabled:opacity-50"
+                    >
+                      {updatingCover ? 'Downloading...' : 'Update Cover'}
+                    </button>
+                    {book.book_isbn && (
+                       <button 
+                        type="button"
+                        onClick={() => setCoverUrlInput(`https://covers.openlibrary.org/b/isbn/${book.book_isbn}-L.jpg`)}
+                        className="px-3 bg-white/5 hover:bg-white/10 text-muted-foreground text-[10px] font-black uppercase py-2 rounded-lg transition-all"
+                        title="Try OpenLibrary ISBN cover"
+                       >
+                         OL
+                       </button>
+                    )}
+                  </div>
+                </form>
+                <p className="text-[9px] text-muted-foreground italic">Tip: Provide a direct URL to an image. It will be downloaded and stored locally.</p>
+              </div>
+            )}
           </div>
 
           {/* Metadata */}
