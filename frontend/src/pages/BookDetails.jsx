@@ -542,7 +542,23 @@ export default function BookDetails() {
             {/* Reviews Section */}
             <div className="mt-8 flex flex-col gap-6">
               <div className="flex items-center justify-between">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground leading-none">Reviews</h3>
+                <div className="flex flex-col gap-1.5">
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground leading-none">Reviews</h3>
+                  {book.avg_rating > 0 && (
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-0.5">
+                        {[1, 2, 3, 4, 5].map(s => (
+                          <Star 
+                            key={s} 
+                            size={10} 
+                            className={cn(s <= Math.round(book.avg_rating) ? "text-yellow-400 fill-yellow-400" : "text-white/10 fill-none")} 
+                          />
+                        ))}
+                      </div>
+                      <span className="text-[10px] font-black text-foreground/90">{Number(book.avg_rating).toFixed(1)}</span>
+                    </div>
+                  )}
+                </div>
                 {!isAddingReview && (hasPermission('userrole_readbooks') || hasPermission('userrole_managebooks')) && (
                   <button 
                     onClick={() => {

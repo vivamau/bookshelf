@@ -407,6 +407,8 @@ booksRouter.get('/:id', (req, res) => {
                bu.book_current_index,
                bu.book_progress_percentage,
                (SELECT review_score FROM Reviews WHERE bookuser_ID = bu.ID LIMIT 1) as user_rating,
+               (SELECT AVG(review_score) FROM Reviews r JOIN BooksUsers bu2 ON r.bookuser_ID = bu2.ID WHERE bu2.book_id = b.ID AND r.review_score > 0) as avg_rating,
+               (SELECT COUNT(*) FROM Reviews r JOIN BooksUsers bu2 ON r.bookuser_ID = bu2.ID WHERE bu2.book_id = b.ID AND r.review_score > 0) as total_ratings_count,
                (SELECT COUNT(*) FROM BooksUsers WHERE book_id = b.ID) as readers_count,
                (SELECT GROUP_CONCAT(a.ID || '::' || a.author_name || ' ' || a.author_lastname || '::' || ba.ID, '||') 
                 FROM Authors a 
