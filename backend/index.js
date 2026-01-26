@@ -44,9 +44,14 @@ app.post('/login', (req, res) => {
         WHERE u.user_username = ?
     `;
     db.get(sql, [username], async (err, user) => {
-        if (err) return res.status(500).send("Server error");
+        if (err) {
+            console.error("DB Error during login:", err);
+            return res.status(500).send("Server error");
+        }
         if (user) {
-            const validPass = await bcrypt.compare(password, user.user_password.toString());
+            const passwordHash = user.user_password.toString();
+            console.log(`Debug: User found: ${username}, stored hash prefix: ${passwordHash.substring(0, 10)}...`);
+            const validPass = await bcrypt.compare(password, passwordHash);
             console.log(`Login attempt for ${username}: ${validPass ? 'SUCCESS' : 'FAILED'}`);
             if (!validPass) return res.status(400).send("Invalid Credentials");
 
@@ -218,11 +223,15 @@ booksRouter.delete('/:id', (req, res) => {
         
         // Delete related records first (foreign key constraints)
         db.serialize(() => {
+            // 1. Delete reviews associated with any user's progress on this book
+            db.run("DELETE FROM Reviews WHERE bookuser_ID IN (SELECT ID FROM BooksUsers WHERE book_id = ?)", [bookId]);
+            
+            // 2. Delete progress and book-specific metadata relationships
             db.run("DELETE FROM BooksGeneres WHERE book_id = ?", [bookId]);
             db.run("DELETE FROM BooksAuthors WHERE book_id = ?", [bookId]);
             db.run("DELETE FROM BooksUsers WHERE book_id = ?", [bookId]);
             
-            // Delete the book record
+            // 3. Delete the book record itself
             db.run("DELETE FROM Books WHERE ID = ?", [bookId], function(err) {
                 if (err) return res.status(500).json({ error: err.message });
                 
@@ -248,10 +257,20 @@ booksRouter.delete('/:id', (req, res) => {
                     
                     // Delete extracted content folder
                     if (book.book_filename) {
-                        const extractedPath = path.join(__dirname, 'extracted', path.basename(book.book_filename, '.epub'));
+                        // Try standard base name (removing .epub or .EPUB)
+                        const folderName = book.book_filename.replace(/\.[^/.]+$/, "");
+                        const extractedPath = path.join(__dirname, 'extracted', folderName);
+                        
                         if (fs.existsSync(extractedPath)) {
                             fs.rmSync(extractedPath, { recursive: true, force: true });
                             console.log(`Deleted extracted content: ${extractedPath}`);
+                        } else {
+                            // Try one more normalization check for macOS
+                            const normalizedPath = path.join(__dirname, 'extracted', folderName.normalize('NFD'));
+                            if (fs.existsSync(normalizedPath)) {
+                                fs.rmSync(normalizedPath, { recursive: true, force: true });
+                                console.log(`Deleted extracted content (normalized): ${normalizedPath}`);
+                            }
                         }
                     }
                 } catch (fileErr) {

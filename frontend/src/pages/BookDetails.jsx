@@ -269,7 +269,8 @@ export default function BookDetails() {
         book_date: editForm.book_date ? new Date(editForm.book_date).getTime() : null,
         book_publisher_id: (editForm.book_publisher_id && !isNaN(Number(editForm.book_publisher_id))) 
           ? Number(editForm.book_publisher_id) 
-          : null
+          : null,
+        book_update_date: Date.now()
       };
 
       console.log("Saving book update:", updateData);

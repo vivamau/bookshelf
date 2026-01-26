@@ -73,7 +73,8 @@ export default function AuthorDetails() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await authorsApi.update(id, editForm);
+      const payload = { ...editForm, author_update_date: Date.now() };
+      await authorsApi.update(id, payload);
       setAuthor(prev => ({ ...prev, ...editForm }));
       setIsEditing(false);
     } catch (err) {
