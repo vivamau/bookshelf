@@ -18,6 +18,7 @@ const path = require('path');
 app.use(cors());
 app.use(express.json());
 app.use('/covers', express.static(path.join(__dirname, 'covers')));
+const BOOKS_DIR = path.join(__dirname, 'books');
 app.use('/books_files', express.static(path.join(__dirname, 'books')));
 app.use('/extracted', express.static(path.join(__dirname, 'extracted')));
 
@@ -380,8 +381,9 @@ booksRouter.get('/:id', (req, res) => {
     console.log(`Fetching details for book ID: ${bookId} for user: ${userId}`);
 
     const sql = `
-        SELECT b.ID, b.book_title, b.book_isbn, b.book_summary, b.book_cover_img, 
-               b.book_date, b.book_create_date, b.book_filename, b.book_entry_point, b.book_spine,
+        SELECT b.ID, b.book_title, b.book_isbn, b.book_isbn_13, b.book_summary, b.book_cover_img, 
+               b.book_date, b.book_create_date, b.book_filename, b.book_entry_point, b.book_spine, 
+               b.book_publisher_id, b.language_id, b.book_format_id,
                l.language_name, 
                f.format_name, 
                p.publisher_name,
@@ -413,6 +415,32 @@ booksRouter.get('/:id', (req, res) => {
             console.warn(`Book with ID ${bookId} not found in DB`);
             return res.status(404).json({ error: 'Book not found' });
         }
+        
+        // Physical file check
+        let exists = false;
+        if (row.book_filename) {
+            const filePath = path.join(BOOKS_DIR, row.book_filename);
+            exists = fs.existsSync(filePath);
+            
+            // If direct check fails, try normalized checks (common on macOS)
+            if (!exists) {
+                const normalizedFilename = row.book_filename.normalize('NFD');
+                exists = fs.existsSync(path.join(BOOKS_DIR, normalizedFilename));
+            }
+            if (!exists) {
+                const normalizedFilename = row.book_filename.normalize('NFC');
+                exists = fs.existsSync(path.join(BOOKS_DIR, normalizedFilename));
+            }
+            // Final failsafe: case-insensitive/listing check
+            if (!exists) {
+                try {
+                    const files = fs.readdirSync(BOOKS_DIR);
+                    exists = files.includes(row.book_filename);
+                } catch (e) {}
+            }
+        }
+        
+        row.file_exists = exists;
         res.json({ data: row });
     });
 });
@@ -422,6 +450,19 @@ app.use('/api/userroles', createCrudRouter('UserRoles', db, 'ID', ['GET']));
 
 // Library scan endpoint
 const { scanLibrary } = require('./utils/libraryScanner');
+app.get('/api/debug/files', (req, res) => {
+    try {
+        const files = fs.readdirSync(BOOKS_DIR);
+        res.json({
+            dirname: __dirname,
+            booksDir: BOOKS_DIR,
+            files: files
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message, dirname: __dirname, booksDir: BOOKS_DIR });
+    }
+});
+
 app.post('/api/library/scan', async (req, res) => {
     try {
         console.log('Library scan requested by user:', req.user.username);

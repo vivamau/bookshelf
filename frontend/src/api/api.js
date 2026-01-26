@@ -82,6 +82,10 @@ export const libraryApi = {
   scan: () => api.post('/library/scan'),
 };
 
+export const publishersApi = {
+  getAll: () => api.get('/publishers'),
+};
+
 export const usersApi = {
   getAll: () => api.get('/users'),
 };

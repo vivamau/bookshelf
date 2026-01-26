@@ -15,11 +15,91 @@ import {
   ChevronRight,
   ChevronDown,
   X,
-  Trash2
+  Trash2,
+  Calendar
 } from 'lucide-react';
-import { booksApi, genresApi, booksGenresApi, authorsApi, booksAuthorsApi } from '../api/api';
+import { booksApi, genresApi, booksGenresApi, authorsApi, booksAuthorsApi, publishersApi } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../lib/utils';
+
+const formatDateForInput = (dateValue) => {
+  if (!dateValue) return '';
+  try {
+    const d = new Date(dateValue);
+    if (isNaN(d.getTime())) return '';
+    
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  } catch (e) {
+    return '';
+  }
+};
+
+const DatePicker = ({ value, onChange }) => {
+  // Parse YYYY-MM-DD string manually to avoid timezone shifts
+  const parseValue = (val) => {
+    if (!val) return { d: 1, m: 0, y: new Date().getFullYear() };
+    const parts = val.split('-');
+    if (parts.length !== 3) return { d: 1, m: 0, y: new Date().getFullYear() };
+    return {
+      y: parseInt(parts[0]),
+      m: parseInt(parts[1]) - 1,
+      d: parseInt(parts[2])
+    };
+  };
+
+  const { d, m, y } = parseValue(value);
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const years = Array.from({ length: 150 }, (_, i) => new Date().getFullYear() - i);
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+  const updateDate = (newD, newM, newY) => {
+    const mm = String(newM + 1).padStart(2, '0');
+    const dd = String(newD).padStart(2, '0');
+    // Konstrukt exact YYYY-MM-DD string
+    onChange(`${newY}-${mm}-${dd}`);
+  };
+
+  return (
+    <div className="flex gap-1 animate-in fade-in duration-300">
+      <div className="relative group/select">
+        <select 
+          value={d} 
+          onChange={e => updateDate(parseInt(e.target.value), m, y)}
+          className="appearance-none bg-white/5 border border-white/20 hover:border-primary/50 rounded-lg pl-2 pr-6 py-1 text-[11px] font-bold text-foreground outline-none focus:border-primary transition-all cursor-pointer"
+        >
+          {days.map(day => <option key={day} value={day} className="bg-slate-900">{day}</option>)}
+        </select>
+        <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+      </div>
+
+      <div className="relative group/select">
+        <select 
+          value={m} 
+          onChange={e => updateDate(d, parseInt(e.target.value), y)}
+          className="appearance-none bg-white/5 border border-white/20 hover:border-primary/50 rounded-lg pl-2 pr-6 py-1 text-[11px] font-bold text-foreground outline-none focus:border-primary transition-all cursor-pointer"
+        >
+          {months.map((month, i) => <option key={month} value={i} className="bg-slate-900">{month}</option>)}
+        </select>
+        <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+      </div>
+
+      <div className="relative group/select">
+        <select 
+          value={y} 
+          onChange={e => updateDate(d, m, parseInt(e.target.value))}
+          className="appearance-none bg-white/5 border border-white/20 hover:border-primary/50 rounded-lg pl-2 pr-6 py-1 text-[11px] font-bold text-foreground outline-none focus:border-primary transition-all cursor-pointer"
+        >
+          {years.map(year => <option key={year} value={year} className="bg-slate-900">{year}</option>)}
+        </select>
+        <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+      </div>
+    </div>
+  );
+};
 
 export default function BookDetails() {
   const { id } = useParams();
@@ -28,7 +108,7 @@ export default function BookDetails() {
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ book_title: '', book_summary: '', book_isbn: '' });
+  const [editForm, setEditForm] = useState({ book_title: '', book_summary: '', book_isbn: '', book_isbn_13: '', book_publisher_id: '', book_date: '' });
   const [saving, setSaving] = useState(false);
   
   const [allGenres, setAllGenres] = useState([]);
@@ -39,6 +119,7 @@ export default function BookDetails() {
   
   const [allAuthors, setAllAuthors] = useState([]);
   const [selectedAuthorId, setSelectedAuthorId] = useState('');
+  const [allPublishers, setAllPublishers] = useState([]);
   const [currentAuthorRelationId, setCurrentAuthorRelationId] = useState(null);
   
   // Delete Modal State
@@ -53,7 +134,12 @@ export default function BookDetails() {
     setSaving(true);
     try {
       // 1. Update basic book info (title, summary, ISBN)
-      await booksApi.update(id, editForm);
+      const updateData = {
+        ...editForm,
+        book_date: editForm.book_date ? new Date(editForm.book_date).getTime() : null,
+        book_publisher_id: editForm.book_publisher_id ? parseInt(editForm.book_publisher_id) : null
+      };
+      await booksApi.update(id, updateData);
       
       // 2. If an author was selected in the dropdown, update the relationship
       if (selectedAuthorId) {
@@ -81,7 +167,10 @@ export default function BookDetails() {
       setEditForm({
         book_title: updatedBook.book_title,
         book_summary: updatedBook.book_summary,
-        book_isbn: updatedBook.book_isbn
+        book_isbn: updatedBook.book_isbn || '',
+        book_isbn_13: updatedBook.book_isbn_13 || '',
+        book_publisher_id: updatedBook.book_publisher_id,
+        book_date: formatDateForInput(updatedBook.book_date)
       });
       setSelectedAuthorId('');
       setIsEditing(false);
@@ -188,12 +277,14 @@ export default function BookDetails() {
   useEffect(() => {
     const loadGenresAndAuthors = async () => {
         try {
-            const [genresRes, authorsRes] = await Promise.all([
+            const [genresRes, authorsRes, publishersRes] = await Promise.all([
               genresApi.getAll(),
-              authorsApi.getAll()
+              authorsApi.getAll(),
+              publishersApi.getAll()
             ]);
             setAllGenres(genresRes.data.data);
             setAllAuthors(authorsRes.data.data);
+            setAllPublishers(publishersRes.data.data);
         } catch (err) {
             console.error("Failed to load genres/authors", err);
         }
@@ -208,9 +299,12 @@ export default function BookDetails() {
         const bookData = res.data.data;
         setBook(bookData);
         setEditForm({
-            book_title: bookData.book_title,
-            book_summary: bookData.book_summary,
-            book_isbn: bookData.book_isbn
+            book_title: bookData.book_title || '',
+            book_summary: bookData.book_summary || '',
+            book_isbn: bookData.book_isbn || '',
+            book_isbn_13: bookData.book_isbn_13 || '',
+            book_publisher_id: bookData.book_publisher_id || '',
+            book_date: formatDateForInput(bookData.book_date)
         });
         
         // Extract author relationship ID for editing
@@ -316,8 +410,7 @@ export default function BookDetails() {
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-3">
                  <span className="px-2 py-0.5 bg-primary/20 text-primary text-[10px] font-black rounded uppercase tracking-wider">Book</span>
-                 <span className="text-muted-foreground text-sm font-bold tracking-tight">{book.book_date ? new Date(book.book_date).getFullYear() : 'N/A'}</span>
-                 <span className="flex items-center gap-1.5 text-muted-foreground text-xs font-bold bg-white/5 px-2 py-0.5 rounded-full">
+                  <span className="flex items-center gap-1.5 text-muted-foreground text-xs font-bold bg-white/5 px-2 py-0.5 rounded-full">
                     <Users size={12} className="text-primary" />
                     {book.readers_count || 0} Readers
                  </span>
@@ -417,7 +510,17 @@ export default function BookDetails() {
                   ) : (
                     <div className="flex gap-2">
                       <button 
-                        onClick={() => setIsEditing(true)}
+                        onClick={() => {
+                          setEditForm({
+                            book_title: book.book_title || '',
+                            book_summary: book.book_summary || '',
+                            book_isbn: book.book_isbn || '',
+                            book_isbn_13: book.book_isbn_13 || '',
+                            book_publisher_id: book.book_publisher_id || '',
+                            book_date: formatDateForInput(book.book_date)
+                          });
+                          setIsEditing(true);
+                        }}
                         className="flex items-center gap-2 px-6 py-2 rounded-full font-bold text-sm transition-all border"
                         style={{ backgroundColor: '#8bad0d20', borderColor: '#8bad0d50', color: '#8bad0d' }}
                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#8bad0d30'}
@@ -439,7 +542,7 @@ export default function BookDetails() {
               )}
               
               <button 
-                disabled={!hasPermission('userrole_readbooks')}
+                disabled={!hasPermission('userrole_readbooks') || !book.file_exists}
                 onClick={() => {
                   if (book.book_entry_point) {
                     navigate(`/reader/${id}`);
@@ -449,9 +552,9 @@ export default function BookDetails() {
                 }}
                 className={cn(
                   "flex items-center gap-3 px-8 py-3 rounded-full font-black text-sm uppercase tracking-wider transition-all shadow-lg active:scale-95",
-                  hasPermission('userrole_readbooks') 
+                  (hasPermission('userrole_readbooks') && book.file_exists)
                     ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/20" 
-                    : "bg-muted text-muted-foreground cursor-not-allowed"
+                    : "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
                 )}
               >
                 <Play size={18} fill="currentColor" />
@@ -467,7 +570,17 @@ export default function BookDetails() {
                 <Share2 size={20} />
               </div>
 
-              <div className="h-12 w-12 flex items-center justify-center rounded-full bg-secondary/50 border border-white/5 text-muted-foreground hover:text-foreground cursor-pointer transition-colors backdrop-blur-sm">
+              <div 
+                className={cn(
+                  "h-12 w-12 flex items-center justify-center rounded-full bg-secondary/50 border border-white/5 transition-colors backdrop-blur-sm",
+                  book.file_exists ? "text-muted-foreground hover:text-foreground cursor-pointer" : "text-muted-foreground/30 cursor-not-allowed"
+                )}
+                onClick={() => {
+                  if (book.file_exists && book.book_filename) {
+                    window.open(`http://localhost:3005/books_files/${book.book_filename}`, '_blank');
+                  }
+                }}
+              >
                 <Download size={20} />
               </div>
               
@@ -585,7 +698,23 @@ export default function BookDetails() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 mt-4 pt-8 border-t border-white/5">
                 <div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Publisher</p>
-                    <p className="text-sm font-bold text-foreground">{book.publisher_name || 'Unknown'}</p>
+                    {isEditing ? (
+                      <div className="flex flex-col gap-2 items-start">
+                        <span className="text-xs font-bold text-foreground opacity-60 bg-white/5 px-2 py-1 rounded italic">{book.publisher_name || 'Unknown'}</span>
+                        <select 
+                          value={editForm.book_publisher_id || ''}
+                          onChange={e => setEditForm({...editForm, book_publisher_id: e.target.value})}
+                          className="bg-white/10 border border-white/20 rounded-lg px-2 py-1.5 text-xs font-bold text-primary outline-none focus:border-primary transition-all shadow-inner w-full"
+                        >
+                          <option value="">Change publisher...</option>
+                          {allPublishers.filter(p => p.ID !== book.book_publisher_id).map(p => (
+                            <option key={p.ID} value={p.ID}>{p.publisher_name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <p className="text-sm font-bold text-foreground">{book.publisher_name || 'Unknown'}</p>
+                    )}
                 </div>
                 <div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">ISBN</p>
@@ -601,14 +730,47 @@ export default function BookDetails() {
                     )}
                 </div>
                 <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">ISBN 13</p>
+                    {isEditing ? (
+                      <input 
+                        value={editForm.book_isbn_13}
+                        onChange={e => setEditForm({...editForm, book_isbn_13: e.target.value})}
+                        className="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm font-bold text-foreground outline-none focus:border-primary focus:bg-white/15 transition-all w-full shadow-inner"
+                        placeholder="000-0-00-000000-0"
+                      />
+                    ) : (
+                      <p className="text-sm font-bold text-foreground">{book.book_isbn_13 || 'N/A'}</p>
+                    )}
+                </div>
+                <div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Added On</p>
                     <p className="text-sm font-bold text-foreground">
                         {book.book_create_date ? new Date(book.book_create_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Unknown'}
                     </p>
                 </div>
                 <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Published</p>
+                    <div className="flex items-center gap-2">
+                        {isEditing ? (
+                            <DatePicker 
+                                value={editForm.book_date}
+                                onChange={val => setEditForm({...editForm, book_date: val})}
+                            />
+                        ) : (
+                            <p className="text-sm font-bold text-foreground">
+                                {book.book_date ? new Date(book.book_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
+                            </p>
+                        )}
+                    </div>
+                </div>
+                <div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Status</p>
-                    <p className="text-sm font-bold text-primary">Available</p>
+                    <p 
+                        className="text-sm font-bold" 
+                        style={{ color: book.file_exists ? '#8bad0d' : '#f0194b' }}
+                    >
+                        {book.file_exists ? 'Available' : 'Missing File'}
+                    </p>
                 </div>
             </div>
           </div>

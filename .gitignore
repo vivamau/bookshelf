@@ -35,12 +35,6 @@ out/
 *.swp
 *.swo
 
-# Database
-*.db
-*.sqlite
-*.sqlite3
-data/*.db
-
 # Logs
 logs
 *.log
@@ -58,7 +52,7 @@ tmp/
 temp/
 
 # Backend to do not post
-backend/books/
-backend/covers/
-backend/extracted/
+backend/books/*
+backend/covers/*
+backend/extracted/*
 
