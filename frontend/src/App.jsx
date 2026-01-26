@@ -108,29 +108,65 @@ const Layout = ({ children }) => {
   const [showLibraryMenu, setShowLibraryMenu] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState('');
+  const [scanProgress, setScanProgress] = useState(0);
+  const [currentScanningBook, setCurrentScanningBook] = useState('');
 
   const scanLibrary = async () => {
     setIsScanning(true);
     setScanMessage('');
+    setScanProgress(0);
+    setCurrentScanningBook('');
     setShowLibraryMenu(false);
     
     try {
-      const res = await libraryApi.scan();
-      const data = res.data;
-      if (data.success) {
-        setScanMessage(data.message);
-        setTimeout(() => setScanMessage(''), 5000);
-      } else {
-        setScanMessage('Scan failed: ' + data.error);
-        setTimeout(() => setScanMessage(''), 5000);
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:3005/api/library/scan', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // Keep partial line in buffer
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const eventData = JSON.parse(line.substring(6));
+              if (eventData.type === 'progress') {
+                setCurrentScanningBook(eventData.message);
+                const percent = Math.round((eventData.count / eventData.total) * 100);
+                setScanProgress(percent);
+              } else if (eventData.type === 'complete') {
+                setScanMessage(eventData.message);
+                setScanProgress(100);
+                setTimeout(() => {
+                  setScanMessage('');
+                  setScanProgress(0);
+                }, 5000);
+              } else if (eventData.type === 'error') {
+                setScanMessage('Scan failed: ' + eventData.error);
+                setTimeout(() => setScanMessage(''), 5000);
+              }
+            } catch (e) {
+              console.error('Error parsing SSE data', e);
+            }
+          }
+        }
       }
     } catch (err) {
       console.error('Scan error:', err);
-      // The interceptor will handle 401, so we only handle other errors here
-      if (err.response && err.response.status !== 401) {
-        setScanMessage('Scan failed. Please try again.');
-        setTimeout(() => setScanMessage(''), 5000);
-      }
+      setScanMessage('Scan connection lost. Check backend.');
+      setTimeout(() => setScanMessage(''), 5000);
     } finally {
       setIsScanning(false);
     }
@@ -187,10 +223,26 @@ const Layout = ({ children }) => {
             </div>
           )}
           
-          {/* Scan Status Message */}
-          {scanMessage && (
-            <div className="mx-4 mb-2 bg-primary/10 border border-primary/20 rounded-lg p-3 animate-in slide-in-from-top-2 duration-200">
-              <p className="text-xs text-foreground">{scanMessage}</p>
+          {/* Scan Status Message & Progress */}
+          {(isScanning || scanMessage) && (
+            <div className="mx-4 mb-2 bg-primary/5 border border-primary/20 rounded-lg p-3 animate-in slide-in-from-top-2 duration-200">
+              {isScanning ? (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-primary">Scanning Library</span>
+                    <span className="text-[10px] font-black text-primary">{scanProgress}%</span>
+                  </div>
+                  <div className="h-1 w-full bg-primary/10 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-primary transition-all duration-300 ease-out" 
+                      style={{ width: `${scanProgress}%` }} 
+                    />
+                  </div>
+                  <p className="text-[9px] text-muted-foreground truncate italic">{currentScanningBook}</p>
+                </div>
+              ) : (
+                <p className="text-[10px] font-bold text-foreground leading-tight">{scanMessage}</p>
+              )}
             </div>
           )}
 

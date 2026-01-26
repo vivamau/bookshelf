@@ -51,8 +51,11 @@ coverage/
 tmp/
 temp/
 
-# Backend to do not post
+# Backend Assets (Ignore contents, preserve folders)
 backend/books/*
+!backend/books/.gitkeep
 backend/covers/*
+!backend/covers/.gitkeep
 backend/extracted/*
+!backend/extracted/.gitkeep
 

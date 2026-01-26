@@ -80,7 +80,7 @@ export const booksAuthorsApi = {
 };
 
 export const libraryApi = {
-  scan: () => api.post('/library/scan'),
+  scan: () => api.get('/library/scan'),
 };
 
 export const publishersApi = {

@@ -257,16 +257,17 @@ booksRouter.delete('/:id', (req, res) => {
                     
                     // Delete extracted content folder
                     if (book.book_filename) {
-                        // Try standard base name (removing .epub or .EPUB)
-                        const folderName = book.book_filename.replace(/\.[^/.]+$/, "");
+                        // Match the flat naming convention from libraryScanner.js
+                        const folderName = book.book_filename.replace(/[/\\]/g, '_').replace(/\.[^/.]+$/, "");
                         const extractedPath = path.join(__dirname, 'extracted', folderName);
                         
                         if (fs.existsSync(extractedPath)) {
                             fs.rmSync(extractedPath, { recursive: true, force: true });
                             console.log(`Deleted extracted content: ${extractedPath}`);
                         } else {
-                            // Try one more normalization check for macOS
-                            const normalizedPath = path.join(__dirname, 'extracted', folderName.normalize('NFD'));
+                            // Try normalization check for macOS
+                            const normalizedFolderName = book.book_filename.normalize('NFD').replace(/[/\\]/g, '_').replace(/\.[^/.]+$/, "");
+                            const normalizedPath = path.join(__dirname, 'extracted', normalizedFolderName);
                             if (fs.existsSync(normalizedPath)) {
                                 fs.rmSync(normalizedPath, { recursive: true, force: true });
                                 console.log(`Deleted extracted content (normalized): ${normalizedPath}`);
@@ -503,15 +504,31 @@ app.get('/api/debug/files', (req, res) => {
     }
 });
 
-app.post('/api/library/scan', async (req, res) => {
-    try {
-        console.log('Library scan requested by user:', req.user.username);
-        const result = await scanLibrary(db);
-        res.json({ success: true, message: `Scan complete. Added ${result.newBooks} new books out of ${result.totalFiles} total files.`, ...result });
-    } catch (err) {
+app.get('/api/library/scan', (req, res) => {
+    // Set headers for SSE
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders(); 
+
+    const sendEvent = (data) => {
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    console.log('Library scan requested by user (SSE):', req.user?.user_username);
+
+    scanLibrary(db, (message, count, total) => {
+        sendEvent({ type: 'progress', message, count, total });
+    })
+    .then(result => {
+        sendEvent({ type: 'complete', ...result, message: `Scan complete. Processed ${result.newBooks} books out of ${result.totalFiles}.` });
+        res.end();
+    })
+    .catch(err => {
         console.error('Library scan error:', err);
-        res.status(500).json({ success: false, error: err.message });
-    }
+        sendEvent({ type: 'error', error: err.message });
+        res.end();
+    });
 });
 
 app.listen(PORT, () => {

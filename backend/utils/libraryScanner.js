@@ -94,9 +94,24 @@ const getOrCreateAuthor = (db, firstName, lastName) => {
     });
 };
 
-const processBook = async (db, filename, formatId) => {
+const walkSync = (dir, filelist = [], baseDir = dir) => {
+    const files = fs.readdirSync(dir);
+    files.forEach((file) => {
+        const filePath = path.join(dir, file);
+        if (fs.statSync(filePath).isDirectory()) {
+            filelist = walkSync(filePath, filelist, baseDir);
+        } else if (file.toLowerCase().endsWith('.epub')) {
+            // Store relative path from baseDir
+            filelist.push(path.relative(baseDir, filePath));
+        }
+    });
+    return filelist;
+};
+
+const processBook = async (db, filename, formatId, onProgress) => {
     return new Promise(async (resolve) => {
         try {
+            if (onProgress) onProgress(filename);
             console.log(`\nProcessing: ${filename}`);
             
             // Check if book already exists
@@ -106,11 +121,6 @@ const processBook = async (db, filename, formatId) => {
                     else res(row);
                 });
             });
-            
-            if (existingBook) {
-                console.log(`  -> Already exists, skipping`);
-                return resolve();
-            }
             
             const filePath = path.join(BOOKS_DIR, filename);
             const zip = new AdmZip(filePath);
@@ -126,20 +136,38 @@ const processBook = async (db, filename, formatId) => {
             const parser = new xml2js.Parser();
             const result = await parser.parseStringPromise(opfContent);
 
+            const getText = (field) => {
+                if (!field || !field[0]) return null;
+                const val = field[0];
+                if (typeof val === 'string') return val;
+                if (typeof val === 'object' && val._) return val._;
+                if (typeof val === 'object' && val.$ && val._ === undefined) return null; // Attribute only
+                return val.toString();
+            };
+
             const metadata = result.package.metadata[0];
-            const title = metadata['dc:title'] ? metadata['dc:title'][0] : filename;
+            const title = getText(metadata['dc:title']) || path.basename(filename, '.epub');
             const creators = metadata['dc:creator'] || [];
-            const publisher = metadata['dc:publisher'] ? metadata['dc:publisher'][0] : null;
-            const date = metadata['dc:date'] ? metadata['dc:date'][0] : null;
-            const language = metadata['dc:language'] ? metadata['dc:language'][0] : 'en';
-            const description = metadata['dc:description'] ? metadata['dc:description'][0] : null;
-            const isbn = metadata['dc:identifier'] ? 
-                (Array.isArray(metadata['dc:identifier']) ? 
-                    metadata['dc:identifier'].find(id => typeof id === 'string' && id.includes('isbn')) || metadata['dc:identifier'][0] 
-                    : metadata['dc:identifier']) 
-                : null;
+            const publisher = getText(metadata['dc:publisher']);
+            const date = getText(metadata['dc:date']);
+            const language = getText(metadata['dc:language']) || 'en';
+            const description = getText(metadata['dc:description']);
+            
+            let isbn = null;
+            if (metadata['dc:identifier']) {
+                const identifiers = Array.isArray(metadata['dc:identifier']) ? metadata['dc:identifier'] : [metadata['dc:identifier']];
+                const isbnIdentifier = identifiers.find(id => {
+                    const val = typeof id === 'string' ? id : (id._ || '');
+                    return val.toLowerCase().includes('isbn');
+                }) || identifiers[0];
+                isbn = typeof isbnIdentifier === 'string' ? isbnIdentifier : (isbnIdentifier._ || null);
+            }
 
             console.log(`  Title: ${title}`);
+
+            // Use a unique name for folders/files to avoid collisions in subdirs
+            // Replace slashes with underscores for a flat unique filename
+            const uniqueBaseName = filename.replace(/[/\\]/g, '_').replace(/\.epub$/i, '');
 
             // Extract cover
             let coverFilename = null;
@@ -158,7 +186,7 @@ const processBook = async (db, filename, formatId) => {
 
                 if (coverEntry) {
                     const ext = path.extname(coverHref);
-                    coverFilename = `${path.basename(filename, '.epub')}${ext}`;
+                    coverFilename = `${uniqueBaseName}${ext}`;
                     const coverOutputPath = path.join(COVERS_DIR, coverFilename);
                     fs.writeFileSync(coverOutputPath, coverEntry.getData());
                     console.log(`  -> Cover extracted: ${coverFilename}`);
@@ -169,37 +197,68 @@ const processBook = async (db, filename, formatId) => {
             const languageId = await getOrCreateLanguage(db, language);
             const publisherId = await getOrCreatePublisher(db, publisher);
 
-            // Find spine
+            const opfDir = path.dirname(opfEntry.entryName);
+
+            // Find spine and map to HREFs (absolute relative to zip root)
             const spine = result.package.spine ? result.package.spine[0] : null;
-            const spineData = spine ? JSON.stringify(spine.itemref.map(ref => ref.$)) : null;
+            const spineHrefs = [];
+            if (spine && spine.itemref) {
+                spine.itemref.forEach(ref => {
+                    const idref = ref.$.idref;
+                    const item = manifest.find(item => item.$.id === idref);
+                    if (item && item.$.href) {
+                        // Resolve path relative to OPF and normalize slashes
+                        const fullPath = path.join(opfDir, item.$.href).replace(/\\/g, '/');
+                        spineHrefs.push(fullPath);
+                    }
+                });
+            }
+            console.log(`  Spine: ${spineHrefs.length} chapters found. First: ${spineHrefs[0]}`);
+            const spineData = JSON.stringify(spineHrefs);
 
             // Find entry point (first content file)
             let entryPoint = null;
             if (spine && spine.itemref && spine.itemref.length > 0) {
                 const firstItemRef = spine.itemref[0].$;
                 const firstItem = manifest.find(item => item.$.id === firstItemRef.idref);
-                if (firstItem) {
-                    entryPoint = firstItem.$.href;
+                if (firstItem && firstItem.$.href) {
+                    entryPoint = path.join(opfDir, firstItem.$.href).replace(/\\/g, '/');
                 }
             }
 
             const now = Date.now();
             
-            // Insert book
+            // Insert or Update book
             const bookId = await new Promise((res, rej) => {
-                db.run(`INSERT INTO Books (
-                    book_title, book_isbn, book_summary, book_cover_img, 
-                    book_date, book_create_date, book_filename, 
-                    book_format_id, language_id, book_publisher_id,
-                    book_entry_point, book_spine
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [title, isbn, description, coverFilename, date, now, filename, 
-                     formatId, languageId, publisherId, entryPoint, spineData],
-                    function(err) {
-                        if (err) rej(err);
-                        else res(this.lastID);
-                    }
-                );
+                if (existingBook) {
+                    db.run(`UPDATE Books SET 
+                        book_title = ?, book_isbn = ?, book_summary = ?, book_cover_img = ?, 
+                        book_date = ?, book_update_date = ?, 
+                        book_format_id = ?, language_id = ?, book_publisher_id = ?,
+                        book_entry_point = ?, book_spine = ?
+                        WHERE ID = ?`,
+                        [title, isbn, description, coverFilename, date, now, 
+                         formatId, languageId, publisherId, entryPoint, spineData, existingBook.ID],
+                        function(err) {
+                            if (err) rej(err);
+                            else res(existingBook.ID);
+                        }
+                    );
+                } else {
+                    db.run(`INSERT INTO Books (
+                        book_title, book_isbn, book_summary, book_cover_img, 
+                        book_date, book_create_date, book_update_date, book_filename, 
+                        book_format_id, language_id, book_publisher_id,
+                        book_entry_point, book_spine
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                        [title, isbn, description, coverFilename, date, now, now, filename, 
+                         formatId, languageId, publisherId, entryPoint, spineData],
+                        function(err) {
+                            if (err) rej(err);
+                            else res(this.lastID);
+                        }
+                    );
+                }
             });
 
             console.log(`  -> Book ID: ${bookId}`);
@@ -214,27 +273,34 @@ const processBook = async (db, filename, formatId) => {
                 const authorId = await getOrCreateAuthor(db, firstName, lastName);
                 
                 try {
-                    await new Promise((res, rej) => {
-                        db.run("INSERT INTO BooksAuthors (book_id, author_id, bookauthor_create_date) VALUES (?, ?, ?)",
-                            [bookId, authorId, now],
-                            function(err) {
-                                if (err) {
-                                    console.error(`  -> ERROR linking book ${bookId} to author ${authorId}:`, err);
-                                    rej(err);
-                                } else {
-                                    console.log(`  -> Linked to Author: ${firstName} ${lastName} (ID: ${authorId})`);
-                                    res();
-                                }
-                            }
-                        );
+                    // Check if link already exists
+                    const linkExists = await new Promise((res) => {
+                        db.get("SELECT ID FROM BooksAuthors WHERE book_id = ? AND author_id = ?", [bookId, authorId], (err, row) => {
+                            res(!!row);
+                        });
                     });
+
+                    if (!linkExists) {
+                        await new Promise((res, rej) => {
+                            db.run("INSERT INTO BooksAuthors (book_id, author_id, bookauthor_create_date) VALUES (?, ?, ?)",
+                                [bookId, authorId, now],
+                                function(err) {
+                                    if (err) rej(err);
+                                    else {
+                                        console.log(`  -> Linked to Author: ${firstName} ${lastName} (ID: ${authorId})`);
+                                        res();
+                                    }
+                                }
+                            );
+                        });
+                    }
                 } catch (err) {
                     console.error(`  -> Failed to create book-author relationship:`, err);
                 }
             }
 
             // Extract EPUB content
-            const extractPath = path.join(EXTRACTED_DIR, path.basename(filename, '.epub'));
+            const extractPath = path.join(EXTRACTED_DIR, uniqueBaseName);
             if (!fs.existsSync(extractPath)) {
                 fs.mkdirSync(extractPath, { recursive: true });
             }
@@ -250,31 +316,24 @@ const processBook = async (db, filename, formatId) => {
     });
 };
 
-const scanLibrary = async (db) => {
+const scanLibrary = async (db, onProgress) => {
     try {
-        console.log('Starting library scan...');
+        console.log('Starting recursive library scan...');
         
         const formatId = await getOrCreateFormat(db, 'EPUB');
-        const files = fs.readdirSync(BOOKS_DIR).filter(f => f.toLowerCase().endsWith('.epub'));
+        const files = walkSync(BOOKS_DIR);
         
-        console.log(`Found ${files.length} epub files.`);
+        console.log(`Found ${files.length} epub files across all directories.`);
         
         let newBooks = 0;
         for (const file of files) {
-            const existingBook = await new Promise((res, rej) => {
-                db.get("SELECT ID FROM Books WHERE book_filename = ?", [file], (err, row) => {
-                    if (err) rej(err);
-                    else res(row);
-                });
+            await processBook(db, file, formatId, (msg) => {
+                if (onProgress) onProgress(`Processing: ${msg}`, newBooks + 1, files.length);
             });
-            
-            if (!existingBook) {
-                await processBook(db, file, formatId);
-                newBooks++;
-            }
+            newBooks++;
         }
         
-        console.log(`Scan complete. Added ${newBooks} new books.`);
+        console.log(`Scan complete. processed ${newBooks} total files.`);
         return { success: true, newBooks, totalFiles: files.length };
     } catch (err) {
         console.error('Error during library scan:', err);

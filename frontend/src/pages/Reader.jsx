@@ -88,7 +88,9 @@ export default function Reader() {
     );
   }
 
-  const readerUrl = `http://localhost:3005/extracted/${id}/${spine[currentIndex]}`;
+  // Compute folder name using same logic as backend
+  const folderName = book?.book_filename?.replace(/[/\\]/g, '_').replace(/\.epub$/i, '');
+  const readerUrl = `http://localhost:3005/extracted/${folderName}/${spine[currentIndex]}`;
 
   return (
     <div className="h-screen w-full bg-[#0a0a0a] flex flex-col overflow-hidden animate-in fade-in duration-500">
