@@ -31,6 +31,7 @@ import Authors from './pages/Authors';
 import Library from './pages/Library';
 import Publishers from './pages/Publishers';
 import PublisherDetails from './pages/PublisherDetails';
+import GenreDetails from './pages/GenreDetails';
 import { booksApi, libraryApi } from './api/api';
 
 // UI Components
@@ -453,6 +454,7 @@ function AuthenticatedApp() {
       <Route path="/authors" element={<Layout><Authors /></Layout>} />
       <Route path="/publisher/:id" element={<Layout><PublisherDetails /></Layout>} />
       <Route path="/publishers" element={<Layout><Publishers /></Layout>} />
+      <Route path="/genre/:id" element={<Layout><GenreDetails /></Layout>} />
       <Route path="/library" element={<Layout><Library /></Layout>} />
       <Route path="/reader/:id" element={<Reader />} />
     </Routes>

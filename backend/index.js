@@ -150,6 +150,31 @@ generesRouter.post('/', (req, res) => {
         }
     });
 });
+// Custom Generes Routes
+// const generesRouter = express.Router(); // Already declared above
+generesRouter.get('/:id/books', (req, res) => {
+    const genreId = req.params.id;
+    const sql = `
+        SELECT b.*, bu.book_progress_percentage 
+        FROM Books b
+        JOIN BooksGeneres bg ON b.ID = bg.book_id
+        LEFT JOIN BooksUsers bu ON b.ID = bu.book_id AND bu.user_id = ?
+        WHERE bg.genere_id = ?
+    `;
+    db.all(sql, [req.user.user_id, genreId], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ data: rows });
+    });
+});
+
+generesRouter.get('/:id', (req, res) => {
+    db.get("SELECT * FROM Generes WHERE ID = ?", [req.params.id], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ error: 'Genre not found' });
+        res.json({ data: row });
+    });
+});
+
 generesRouter.use('/', createCrudRouter('Generes', db));
 app.use('/api/generes', generesRouter);
 

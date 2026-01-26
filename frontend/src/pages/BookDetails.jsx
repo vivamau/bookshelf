@@ -781,7 +781,9 @@ export default function BookDetails() {
               <button 
                 disabled={!hasPermission('userrole_readbooks') || !book.file_exists}
                 onClick={() => {
-                  if (book.book_entry_point) {
+                  if (book.format_name === 'PDF') {
+                    window.open(`http://localhost:3005/books_files/${encodeURIComponent(book.book_filename)}`, '_blank');
+                  } else if (book.book_entry_point) {
                     navigate(`/reader/${id}`);
                   } else {
                     console.warn('Preview not available for this book.');
@@ -859,10 +861,15 @@ export default function BookDetails() {
                       if (parts.length < 3) return null;
                       const [relId, genreId, genreTitle] = parts;
                       return (
-                          <div key={relId} className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-xs font-bold text-foreground flex items-center gap-2 group">
-                              <span>{genreTitle}</span>
+                          <div key={relId} className="px-3 py-1 bg-[#3e9cbf] border border-[#3e9cbf]/30 rounded-md text-xs font-bold text-white flex items-center gap-2 group shadow-lg shadow-[#3e9cbf]/20">
+                              <Link 
+                                to={isEditing ? '#' : `/genre/${genreId}`} 
+                                className={cn("hover:underline transition-all", isEditing && "cursor-default hover:no-underline")}
+                              >
+                                {genreTitle}
+                              </Link>
                               {hasPermission('userrole_managebooks') && isEditing && (
-                                  <button onClick={() => handleRemoveGenre(relId)} className="text-muted-foreground hover:text-destructive transition-colors">
+                                  <button onClick={() => handleRemoveGenre(relId)} className="text-white/70 hover:text-white transition-colors">
                                       <X size={12} />
                                   </button>
                               )}

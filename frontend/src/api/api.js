@@ -65,6 +65,8 @@ export const rolesApi = {
 
 export const genresApi = {
   getAll: () => api.get('/generes'),
+  getById: (id) => api.get(`/generes/${id}`),
+  getBooks: (id) => api.get(`/generes/${id}/books`),
   create: (data) => api.post('/generes', data),
 };
 
