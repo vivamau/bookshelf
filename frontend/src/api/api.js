@@ -87,6 +87,9 @@ export const publishersApi = {
   getAll: () => api.get('/publishers'),
   getById: (id) => api.get(`/publishers/${id}`),
   getBooks: (id) => api.get(`/publishers/${id}/books`),
+  create: (data) => api.post('/publishers', data),
+  update: (id, data) => api.put(`/publishers/${id}`, data),
+  delete: (id) => api.delete(`/publishers/${id}`),
 };
 
 export const usersApi = {

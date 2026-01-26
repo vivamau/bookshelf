@@ -100,7 +100,7 @@ const walkSync = (dir, filelist = [], baseDir = dir) => {
         const filePath = path.join(dir, file);
         if (fs.statSync(filePath).isDirectory()) {
             filelist = walkSync(filePath, filelist, baseDir);
-        } else if (file.toLowerCase().endsWith('.epub')) {
+        } else if (file.toLowerCase().endsWith('.epub') || file.toLowerCase().endsWith('.pdf')) {
             // Store relative path from baseDir
             filelist.push(path.relative(baseDir, filePath));
         }
@@ -113,14 +113,6 @@ const processBook = async (db, filename, formatId, onProgress) => {
         try {
             if (onProgress) onProgress(filename);
             console.log(`\nProcessing: ${filename}`);
-            
-            // Check if book already exists
-            const existingBook = await new Promise((res, rej) => {
-                db.get("SELECT ID FROM Books WHERE book_filename = ?", [filename], (err, row) => {
-                    if (err) rej(err);
-                    else res(row);
-                });
-            });
             
             const filePath = path.join(BOOKS_DIR, filename);
             const zip = new AdmZip(filePath);
@@ -153,6 +145,43 @@ const processBook = async (db, filename, formatId, onProgress) => {
             const metadata = result.package.metadata[0];
             const title = getText(metadata['dc:title']) || path.basename(filename, '.epub');
             
+            let isbn = null;
+            if (metadata['dc:identifier']) {
+                const identifiers = Array.isArray(metadata['dc:identifier']) ? metadata['dc:identifier'] : [metadata['dc:identifier']];
+                const isbnIdentifier = identifiers.find(id => {
+                    const val = typeof id === 'string' ? id : (id._ || '');
+                    return val.toLowerCase().includes('isbn');
+                }) || identifiers[0];
+                isbn = typeof isbnIdentifier === 'string' ? isbnIdentifier : (isbnIdentifier._ || null);
+            }
+            const date = getText(metadata['dc:date']);
+
+            // SMART DUPLICATE CHECK: Search by filename OR ISBN OR (Title AND Date)
+            const existingBook = await new Promise((res) => {
+                let sql = "SELECT ID FROM Books WHERE book_filename = ?";
+                let params = [filename];
+                
+                if (isbn && isbn.length > 5) {
+                    sql += " OR book_isbn = ?";
+                    params.push(isbn);
+                }
+                
+                if (title) {
+                    sql += " OR (book_title = ? AND book_date = ?)";
+                    params.push(title, date);
+                }
+                
+                db.get(sql, params, (err, row) => {
+                    res(row);
+                });
+            });
+            
+            if (existingBook) {
+                console.log(`  -> Duplicate/Existing book found (ID: ${existingBook.ID}). Updating metadata...`);
+            }
+
+            console.log(`  Title: ${title}`);
+            
             // Deduplicate creators by name
             const rawCreators = metadata['dc:creator'] || [];
             const creators = [];
@@ -166,20 +195,8 @@ const processBook = async (db, filename, formatId, onProgress) => {
                 }
             }
             const publisher = getText(metadata['dc:publisher']);
-            const date = getText(metadata['dc:date']);
             const language = getText(metadata['dc:language']) || 'en';
             const description = getText(metadata['dc:description']);
-            
-            let isbn = null;
-            if (metadata['dc:identifier']) {
-                const identifiers = Array.isArray(metadata['dc:identifier']) ? metadata['dc:identifier'] : [metadata['dc:identifier']];
-                const isbnIdentifier = identifiers.find(id => {
-                    const val = typeof id === 'string' ? id : (id._ || '');
-                    return val.toLowerCase().includes('isbn');
-                }) || identifiers[0];
-                isbn = typeof isbnIdentifier === 'string' ? isbnIdentifier : (isbnIdentifier._ || null);
-            }
-
             console.log(`  Title: ${title}`);
 
             // Use a unique name for folders/files to avoid collisions in subdirs
@@ -343,21 +360,103 @@ const processBook = async (db, filename, formatId, onProgress) => {
     });
 };
 
+const processPdf = async (db, filename, formatId, onProgress) => {
+    return new Promise(async (resolve) => {
+        try {
+            if (onProgress) onProgress(filename);
+            console.log(`\nProcessing PDF: ${filename}`);
+            
+            // Simple metadata extraction from filename
+            const baseName = path.basename(filename, '.pdf');
+            // Try to guess title/author from filename if it contains common separators
+            let title = baseName;
+            let authorName = null;
+
+            if (baseName.includes(' - ')) {
+                const parts = baseName.split(' - ');
+                title = parts[1].trim();
+                authorName = parts[0].trim();
+            } else if (baseName.includes(' (')) {
+                const parts = baseName.split(' (');
+                title = parts[0].trim();
+                authorName = parts[1].replace(')', '').trim();
+            }
+
+            // SMART DUPLICATE CHECK for PDF
+            const existingBook = await new Promise((res) => {
+                db.get("SELECT ID FROM Books WHERE book_filename = ? OR book_title = ?", [filename, title], (err, row) => {
+                    res(row);
+                });
+            });
+
+            if (existingBook) {
+                console.log(`  -> Duplicate found for "${title}", skipping`);
+                return resolve(false);
+            }
+
+            const now = Date.now();
+            const languageId = await getOrCreateLanguage(db, 'EN'); // Default for PDF for now
+            
+            const bookId = await new Promise((res, rej) => {
+                db.run(`INSERT INTO Books (
+                    book_title, book_create_date, book_update_date, book_filename, 
+                    book_format_id, language_id
+                ) VALUES (?, ?, ?, ?, ?, ?)`,
+                    [title, now, now, filename, formatId, languageId],
+                    function(err) {
+                        if (err) rej(err);
+                        else res(this.lastID);
+                    }
+                );
+            });
+
+            if (authorName) {
+                const parts = authorName.split(' ');
+                const firstName = parts.slice(0, -1).join(' ') || authorName;
+                const lastName = parts[parts.length - 1] || '';
+                const authorId = await getOrCreateAuthor(db, firstName, lastName);
+                
+                await new Promise((res, rej) => {
+                    db.run("INSERT INTO BooksAuthors (book_id, author_id, bookauthor_create_date) VALUES (?, ?, ?)",
+                        [bookId, authorId, now],
+                        (err) => err ? rej(err) : res()
+                    );
+                });
+            }
+
+            console.log(`  -> PDF Book ID: ${bookId} (NEW)`);
+            resolve(true);
+
+        } catch (err) {
+            console.error(`Error processing PDF ${filename}:`, err);
+            resolve(false);
+        }
+    });
+};
+
 const scanLibrary = async (db, onProgress) => {
     try {
         console.log('Starting recursive library scan...');
         
-        const formatId = await getOrCreateFormat(db, 'EPUB');
+        const epubFormatId = await getOrCreateFormat(db, 'EPUB');
+        const pdfFormatId = await getOrCreateFormat(db, 'PDF');
         const files = walkSync(BOOKS_DIR);
         
-        console.log(`Found ${files.length} epub files across all directories.`);
+        console.log(`Found ${files.length} files across all directories.`);
         
         let processedCount = 0;
         let newBooksCount = 0;
         for (const file of files) {
-            const isNew = await processBook(db, file, formatId, (msg) => {
-                if (onProgress) onProgress(`Processing: ${msg}`, processedCount + 1, files.length);
-            });
+            let isNew = false;
+            if (file.toLowerCase().endsWith('.epub')) {
+                isNew = await processBook(db, file, epubFormatId, (msg) => {
+                    if (onProgress) onProgress(`Processing: ${msg}`, processedCount + 1, files.length);
+                });
+            } else if (file.toLowerCase().endsWith('.pdf')) {
+                isNew = await processPdf(db, file, pdfFormatId, (msg) => {
+                    if (onProgress) onProgress(`Processing: ${msg}`, processedCount + 1, files.length);
+                });
+            }
             processedCount++;
             if (isNew) newBooksCount++;
         }

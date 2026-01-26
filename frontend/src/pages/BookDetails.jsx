@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   ArrowLeft, 
   Play, 
@@ -950,7 +950,16 @@ export default function BookDetails() {
                         </select>
                       </div>
                     ) : (
-                      <p className="text-sm font-bold text-foreground">{book.publisher_name || 'Unknown'}</p>
+                      book.book_publisher_id ? (
+                        <Link 
+                          to={`/publisher/${book.book_publisher_id}`}
+                          className="text-sm font-bold text-primary hover:underline hover:text-primary/80 transition-all flex items-center gap-1.5"
+                        >
+                          {book.publisher_name || 'Unknown'}
+                        </Link>
+                      ) : (
+                        <p className="text-sm font-bold text-foreground">{book.publisher_name || 'Unknown'}</p>
+                      )
                     )}
                 </div>
                 <div>

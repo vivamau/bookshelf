@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Building2, BookOpen, ExternalLink, SlidersHorizontal } from 'lucide-react';
+import { ArrowLeft, Building2, BookOpen, ExternalLink, SlidersHorizontal, Pencil, Check, Trash2, Globe } from 'lucide-react';
 import { publishersApi } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../lib/utils';
@@ -28,9 +28,15 @@ const BookItem = ({ id, title, year, cover, progress }) => {
 export default function PublisherDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
   const [publisher, setPublisher] = useState(null);
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ publisher_name: '', publisher_website: '' });
+  const [saving, setSaving] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -39,7 +45,12 @@ export default function PublisherDetails() {
           publishersApi.getById(id),
           publishersApi.getBooks(id)
         ]);
-        setPublisher(pubRes.data.data);
+        const pubData = pubRes.data.data;
+        setPublisher(pubData);
+        setEditForm({
+          publisher_name: pubData.publisher_name,
+          publisher_website: pubData.publisher_website || ''
+        });
         setBooks(booksRes.data.data);
       } catch (err) {
         console.error("Failed to fetch publisher details", err);
@@ -49,6 +60,35 @@ export default function PublisherDetails() {
     };
     fetchData();
   }, [id]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const payload = { 
+        ...editForm, 
+        publisher_update_date: Date.now() 
+      };
+      await publishersApi.update(id, payload);
+      setPublisher(prev => ({ ...prev, ...editForm }));
+      setIsEditing(false);
+    } catch (err) {
+      console.error("Failed to update publisher", err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeletePublisher = async () => {
+    setDeleting(true);
+    try {
+      await publishersApi.delete(id);
+      setShowDeleteModal(false);
+      navigate('/');
+    } catch (err) {
+      console.error("Failed to delete publisher", err);
+      setDeleting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -84,13 +124,96 @@ export default function PublisherDetails() {
             <Building2 size={80} className="text-primary/40" />
         </div>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 w-full max-w-2xl">
             <div className="flex flex-col gap-1">
                 <span className="text-primary text-[10px] font-black uppercase tracking-widest">Publisher Profile</span>
-                <h1 className="flex flex-col tracking-tighter leading-none">
-                    <span className="text-3xl md:text-4xl font-black text-foreground uppercase">{publisher.publisher_name}</span>
-                </h1>
+                {isEditing ? (
+                  <div className="flex flex-col gap-4 mt-2">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Publisher Name</label>
+                      <input 
+                        value={editForm.publisher_name}
+                        onChange={e => setEditForm({...editForm, publisher_name: e.target.value})}
+                        className="text-3xl md:text-4xl font-black text-foreground uppercase bg-white/5 border-b border-primary outline-none w-full py-1"
+                        placeholder="Publisher Name"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Website URL</label>
+                      <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-md px-3 py-2">
+                        <Globe size={16} className="text-muted-foreground" />
+                        <input 
+                          value={editForm.publisher_website}
+                          onChange={e => setEditForm({...editForm, publisher_website: e.target.value})}
+                          className="bg-transparent border-none outline-none w-full text-sm font-bold text-foreground"
+                          placeholder="https://example.com"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <h1 className="flex flex-col tracking-tighter leading-none">
+                      <span className="text-3xl md:text-4xl font-black text-foreground uppercase">{publisher.publisher_name}</span>
+                  </h1>
+                )}
             </div>
+
+            {!isEditing && publisher.publisher_website && (
+              <a 
+                href={publisher.publisher_website.startsWith('http') ? publisher.publisher_website : `https://${publisher.publisher_website}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors text-sm font-bold w-fit mt-1"
+              >
+                <Globe size={16} />
+                <span>Visit Official Website</span>
+                <ExternalLink size={14} />
+              </a>
+            )}
+
+            {/* Edit Controls */}
+            {hasPermission('userrole_managebooks') && (
+              <div className="mt-4">
+                 {isEditing ? (
+                    <div className="flex gap-2">
+                       <button 
+                        onClick={handleSave}
+                        disabled={saving}
+                        className="flex items-center gap-2 px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-full font-bold text-sm transition-all"
+                       >
+                         {saving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Check size={18} />}
+                         SAVE CHANGES
+                       </button>
+                       <button 
+                        onClick={() => setIsEditing(false)}
+                        className="flex items-center gap-2 px-6 py-2 bg-white/10 hover:bg-white/20 text-white rounded-full font-bold text-sm transition-all"
+                       >
+                         CANCEL
+                       </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => setIsEditing(true)}
+                        className="flex items-center gap-2 px-6 py-2 rounded-full font-bold text-sm transition-all border"
+                        style={{ backgroundColor: '#8bad0d20', borderColor: '#8bad0d50', color: '#8bad0d' }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#8bad0d30'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#8bad0d20'}
+                      >
+                        <Pencil size={18} />
+                        EDIT PUBLISHER
+                      </button>
+                      <button 
+                        onClick={() => setShowDeleteModal(true)}
+                        className="flex items-center gap-2 px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-full font-bold text-sm transition-all border border-primary/30"
+                      >
+                        <Trash2 size={18} />
+                        DELETE
+                      </button>
+                    </div>
+                  )}
+              </div>
+            )}
 
             <div className="flex items-center gap-8 mt-4 pt-8 border-t border-white/5">
                 <div>
@@ -140,6 +263,63 @@ export default function PublisherDetails() {
             </div>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="bg-card border border-border rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] max-w-md w-full p-6 animate-in zoom-in-95 duration-200">
+                  {books.length > 0 ? (
+                      <>
+                          <h3 className="text-xl font-bold mb-2 text-red-500">Cannot Delete Publisher</h3>
+                          <p className="text-muted-foreground text-sm mb-4">
+                              This publisher cannot be deleted because they have {books.length} book{books.length > 1 ? 's' : ''} in your library.
+                          </p>
+                          <p className="text-foreground text-sm font-bold mb-6">
+                              Please delete or reassign all books from this publisher before removing them.
+                          </p>
+                          <div className="flex gap-3 justify-end">
+                              <button 
+                                  onClick={() => setShowDeleteModal(false)}
+                                  className="px-4 py-2 rounded-full font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                              >
+                                  OK
+                              </button>
+                          </div>
+                      </>
+                  ) : (
+                      <>
+                          <h3 className="text-xl font-bold mb-2 text-red-500">Delete Publisher?</h3>
+                          <p className="text-muted-foreground text-sm mb-4">
+                              Are you sure you want to permanently delete <strong>{publisher.publisher_name}</strong>?
+                          </p>
+                          <p className="text-foreground text-sm font-bold mb-4">
+                              This will remove the publisher footprint from your library.
+                          </p>
+                          <p className="text-red-500 text-xs font-bold mb-6">
+                              ⚠️ This action cannot be undone!
+                          </p>
+                          <div className="flex gap-3 justify-end">
+                              <button 
+                                  onClick={() => setShowDeleteModal(false)}
+                                  disabled={deleting}
+                                  className="px-4 py-2 rounded-full font-bold text-sm bg-muted text-foreground hover:bg-muted/80 transition-colors disabled:opacity-50"
+                              >
+                                  Cancel
+                              </button>
+                              <button 
+                                  onClick={handleDeletePublisher}
+                                  disabled={deleting}
+                                  className="px-4 py-2 rounded-full font-bold text-sm bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                              >
+                                  {deleting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                                  {deleting ? 'Deleting...' : 'Delete Forever'}
+                              </button>
+                          </div>
+                      </>
+                  )}
+              </div>
+          </div>
+      )}
     </div>
   );
 }
