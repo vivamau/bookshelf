@@ -18,7 +18,8 @@ import {
   BookOpen,
   Plus,
   MoreVertical,
-  RefreshCw
+  RefreshCw,
+  Building2
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -28,6 +29,8 @@ import Reader from './pages/Reader';
 import AuthorDetails from './pages/AuthorDetails';
 import Authors from './pages/Authors';
 import Library from './pages/Library';
+import Publishers from './pages/Publishers';
+import PublisherDetails from './pages/PublisherDetails';
 import { booksApi, libraryApi } from './api/api';
 
 // UI Components
@@ -110,12 +113,14 @@ const Layout = ({ children }) => {
   const [scanMessage, setScanMessage] = useState('');
   const [scanProgress, setScanProgress] = useState(0);
   const [currentScanningBook, setCurrentScanningBook] = useState('');
+  const [isFadingOut, setIsFadingOut] = useState(false);
 
   const scanLibrary = async () => {
     setIsScanning(true);
     setScanMessage('');
     setScanProgress(0);
     setCurrentScanningBook('');
+    setIsFadingOut(false);
     setShowLibraryMenu(false);
     
     try {
@@ -149,13 +154,20 @@ const Layout = ({ children }) => {
               } else if (eventData.type === 'complete') {
                 setScanMessage(eventData.message);
                 setScanProgress(100);
+                // Start fade out after 4 seconds, clear after 5
+                setTimeout(() => setIsFadingOut(true), 4000);
                 setTimeout(() => {
                   setScanMessage('');
+                  setIsFadingOut(false);
                   setScanProgress(0);
                 }, 5000);
               } else if (eventData.type === 'error') {
                 setScanMessage('Scan failed: ' + eventData.error);
-                setTimeout(() => setScanMessage(''), 5000);
+                setTimeout(() => setIsFadingOut(true), 4000);
+                setTimeout(() => {
+                  setScanMessage('');
+                  setIsFadingOut(false);
+                }, 5000);
               }
             } catch (e) {
               console.error('Error parsing SSE data', e);
@@ -166,7 +178,11 @@ const Layout = ({ children }) => {
     } catch (err) {
       console.error('Scan error:', err);
       setScanMessage('Scan connection lost. Check backend.');
-      setTimeout(() => setScanMessage(''), 5000);
+      setTimeout(() => setIsFadingOut(true), 4000);
+      setTimeout(() => {
+        setScanMessage('');
+        setIsFadingOut(false);
+      }, 5000);
     } finally {
       setIsScanning(false);
     }
@@ -174,9 +190,9 @@ const Layout = ({ children }) => {
   const navItems = [
     { label: 'Home', icon: Home, to: '/' },
     { label: 'Read Lists', icon: BookMarked },
-    { label: 'Library', icon: LibraryIcon, to: '/library' },
     { label: 'Authors', icon: Users, to: '/authors' }, // Re-adding authors link too just in case
-    { label: 'Discover', icon: Search },
+    { label: 'Publishers', icon: Building2, to: '/publishers' },
+    { label: 'Library', icon: LibraryIcon, to: '/library' },
   ];
 
   const adminItems = [
@@ -194,6 +210,16 @@ const Layout = ({ children }) => {
             <BookOpen size={24} />
           </div>
           <span className="text-xl font-bold tracking-tighter text-foreground uppercase">Bookshelf</span>
+        </div>
+        
+        {/* Role Indicator */}
+        <div className="px-6 mb-6">
+           <div className="bg-secondary/50 border border-border p-3 rounded-lg">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1 leading-none">Access Level</p>
+              <p className="text-sm font-black text-primary truncate leading-none">
+                  {hasPermission('userrole_manageusers') ? 'LIBRARIAN' : hasPermission('userrole_readbooks') ? 'READER' : 'GUEST'}
+              </p>
+           </div>
         </div>
 
         <nav className="flex-1 flex flex-col gap-1">
@@ -225,7 +251,10 @@ const Layout = ({ children }) => {
           
           {/* Scan Status Message & Progress */}
           {(isScanning || scanMessage) && (
-            <div className="mx-4 mb-2 bg-primary/5 border border-primary/20 rounded-lg p-3 animate-in slide-in-from-top-2 duration-200">
+            <div className={cn(
+                "mx-4 mb-2 bg-primary/5 border border-primary/20 rounded-lg p-3 animate-in fade-in slide-in-from-top-2 duration-500 transition-opacity duration-1000",
+                isFadingOut ? "opacity-0" : "opacity-100"
+            )}>
               {isScanning ? (
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between">
@@ -245,16 +274,6 @@ const Layout = ({ children }) => {
               )}
             </div>
           )}
-
-          {/* Role Indicator */}
-          <div className="mt-8 px-6 mb-4">
-             <div className="bg-secondary/50 border border-border p-3 rounded-lg">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1 leading-none">Access Level</p>
-                <p className="text-sm font-black text-primary truncate leading-none">
-                    {hasPermission('userrole_manageusers') ? 'LIBRARIAN' : hasPermission('userrole_readbooks') ? 'READER' : 'GUEST'}
-                </p>
-             </div>
-          </div>
 
           {(hasPermission('userrole_manageusers') || hasPermission('userrole_managebooks')) && (
             <div className="flex flex-col gap-1">
@@ -432,6 +451,8 @@ function AuthenticatedApp() {
       <Route path="/book/:id" element={<Layout><BookDetails /></Layout>} />
       <Route path="/author/:id" element={<Layout><AuthorDetails /></Layout>} />
       <Route path="/authors" element={<Layout><Authors /></Layout>} />
+      <Route path="/publisher/:id" element={<Layout><PublisherDetails /></Layout>} />
+      <Route path="/publishers" element={<Layout><Publishers /></Layout>} />
       <Route path="/library" element={<Layout><Library /></Layout>} />
       <Route path="/reader/:id" element={<Reader />} />
     </Routes>

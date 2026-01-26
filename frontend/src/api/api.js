@@ -85,6 +85,8 @@ export const libraryApi = {
 
 export const publishersApi = {
   getAll: () => api.get('/publishers'),
+  getById: (id) => api.get(`/publishers/${id}`),
+  getBooks: (id) => api.get(`/publishers/${id}/books`),
 };
 
 export const usersApi = {

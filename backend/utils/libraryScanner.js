@@ -136,6 +136,11 @@ const processBook = async (db, filename, formatId, onProgress) => {
             const parser = new xml2js.Parser();
             const result = await parser.parseStringPromise(opfContent);
 
+            if (!result || !result.package || !result.package.metadata) {
+                console.log('  -> Invalid OPF structure, skipping');
+                return resolve(false);
+            }
+
             const getText = (field) => {
                 if (!field || !field[0]) return null;
                 const val = field[0];
@@ -147,7 +152,19 @@ const processBook = async (db, filename, formatId, onProgress) => {
 
             const metadata = result.package.metadata[0];
             const title = getText(metadata['dc:title']) || path.basename(filename, '.epub');
-            const creators = metadata['dc:creator'] || [];
+            
+            // Deduplicate creators by name
+            const rawCreators = metadata['dc:creator'] || [];
+            const creators = [];
+            const seenCreators = new Set();
+            
+            for (const c of rawCreators) {
+                const name = (typeof c === 'string' ? c : c._ || '').trim();
+                if (name && !seenCreators.has(name.toLowerCase())) {
+                    seenCreators.add(name.toLowerCase());
+                    creators.push(c);
+                }
+            }
             const publisher = getText(metadata['dc:publisher']);
             const date = getText(metadata['dc:date']);
             const language = getText(metadata['dc:language']) || 'en';
@@ -188,8 +205,13 @@ const processBook = async (db, filename, formatId, onProgress) => {
                     const ext = path.extname(coverHref);
                     coverFilename = `${uniqueBaseName}${ext}`;
                     const coverOutputPath = path.join(COVERS_DIR, coverFilename);
-                    fs.writeFileSync(coverOutputPath, coverEntry.getData());
-                    console.log(`  -> Cover extracted: ${coverFilename}`);
+                    
+                    if (existingBook && fs.existsSync(coverOutputPath)) {
+                        console.log(`  -> Cover already exists: ${coverFilename}`);
+                    } else {
+                        fs.writeFileSync(coverOutputPath, coverEntry.getData());
+                        console.log(`  -> Cover extracted: ${coverFilename}`);
+                    }
                 }
             }
 
@@ -229,6 +251,7 @@ const processBook = async (db, filename, formatId, onProgress) => {
             const now = Date.now();
             
             // Insert or Update book
+            const isNew = !existingBook;
             const bookId = await new Promise((res, rej) => {
                 if (existingBook) {
                     db.run(`UPDATE Books SET 
@@ -261,7 +284,7 @@ const processBook = async (db, filename, formatId, onProgress) => {
                 }
             });
 
-            console.log(`  -> Book ID: ${bookId}`);
+            console.log(`  -> Book ID: ${bookId} (${isNew ? 'NEW' : 'UPDATED'})`);
 
             // Process authors
             for (const creator of creators) {
@@ -301,17 +324,21 @@ const processBook = async (db, filename, formatId, onProgress) => {
 
             // Extract EPUB content
             const extractPath = path.join(EXTRACTED_DIR, uniqueBaseName);
-            if (!fs.existsSync(extractPath)) {
-                fs.mkdirSync(extractPath, { recursive: true });
+            if (existingBook && fs.existsSync(extractPath)) {
+                console.log(`  -> Content already extracted, skipping extraction`);
+            } else {
+                if (!fs.existsSync(extractPath)) {
+                    fs.mkdirSync(extractPath, { recursive: true });
+                }
+                zip.extractAllTo(extractPath, true);
+                console.log(`  -> Extracted to: ${extractPath}`);
             }
-            zip.extractAllTo(extractPath, true);
-            console.log(`  -> Extracted to: ${extractPath}`);
 
-            resolve();
+            resolve(isNew);
 
         } catch (err) {
             console.error(`Error processing ${filename}:`, err);
-            resolve();
+            resolve(false);
         }
     });
 };
@@ -325,16 +352,18 @@ const scanLibrary = async (db, onProgress) => {
         
         console.log(`Found ${files.length} epub files across all directories.`);
         
-        let newBooks = 0;
+        let processedCount = 0;
+        let newBooksCount = 0;
         for (const file of files) {
-            await processBook(db, file, formatId, (msg) => {
-                if (onProgress) onProgress(`Processing: ${msg}`, newBooks + 1, files.length);
+            const isNew = await processBook(db, file, formatId, (msg) => {
+                if (onProgress) onProgress(`Processing: ${msg}`, processedCount + 1, files.length);
             });
-            newBooks++;
+            processedCount++;
+            if (isNew) newBooksCount++;
         }
         
-        console.log(`Scan complete. processed ${newBooks} total files.`);
-        return { success: true, newBooks, totalFiles: files.length };
+        console.log(`Scan complete. Processed ${processedCount} files. Found ${newBooksCount} new books.`);
+        return { success: true, newBooks: newBooksCount, totalFiles: processedCount };
     } catch (err) {
         console.error('Error during library scan:', err);
         throw err;

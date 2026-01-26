@@ -205,7 +205,27 @@ app.use('/api/authors', (req, res, next) => {
     authorsRouter(req, res, next);
 });
 app.use('/api/books-authors', createCrudRouter('BooksAuthors', db));
-app.use('/api/publishers', createCrudRouter('Publishers', db));
+const publishersRouter = express.Router();
+publishersRouter.get('/:id/books', (req, res) => {
+    const publisherId = req.params.id;
+    const sql = `
+        SELECT b.*, bu.book_progress_percentage 
+        FROM Books b
+        LEFT JOIN BooksUsers bu ON b.ID = bu.book_id AND bu.user_id = ?
+        WHERE b.book_publisher_id = ?
+    `;
+    db.all(sql, [req.user.user_id, publisherId], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ data: rows });
+    });
+});
+
+// Fallback to CRUD for publishers
+app.use('/api/publishers', (req, res, next) => {
+    const crud = createCrudRouter('Publishers', db);
+    publishersRouter.use('/', crud);
+    publishersRouter(req, res, next);
+});
 app.use('/api/users', createCrudRouter('Users', db));
 app.use('/api/books-users', createCrudRouter('BooksUsers', db));
 app.use('/api/languages', createCrudRouter('Languages', db));
@@ -521,7 +541,7 @@ app.get('/api/library/scan', (req, res) => {
         sendEvent({ type: 'progress', message, count, total });
     })
     .then(result => {
-        sendEvent({ type: 'complete', ...result, message: `Scan complete. Processed ${result.newBooks} books out of ${result.totalFiles}.` });
+        sendEvent({ type: 'complete', ...result, message: `Scan complete: ${result.totalFiles} files processed. ${result.newBooks} new books added.` });
         res.end();
     })
     .catch(err => {
