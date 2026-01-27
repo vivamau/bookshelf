@@ -39,7 +39,7 @@ export const authApi = {
 };
 
 export const booksApi = {
-  getAll: () => api.get('/books'),
+  getAll: (params = {}) => api.get('/books', { params }),
   getById: (id) => api.get(`/books/${id}`),
   getProgress: (id) => api.get(`/books/${id}/progress`),
   updateProgress: (id, data) => api.post(`/books/${id}/progress`, data),

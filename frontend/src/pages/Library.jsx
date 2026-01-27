@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { booksApi } from '../api/api';
 import { 
@@ -9,36 +9,64 @@ import {
   Play,
   Shuffle,
   BookOpen,
-  Check
+  Check,
+  RefreshCw
 } from 'lucide-react';
 import { cn, formatDate } from "@/lib/utils";
 
 export default function Library() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalBooks, setTotalBooks] = useState(0);
   const [viewMode, setViewMode] = useState('grid');
   const [sortBy, setSortBy] = useState('title'); // title, date, year
   const navigate = useNavigate();
+  
+  const observer = useRef();
+  const lastBookElementRef = useCallback(node => {
+    if (loading || loadingMore) return;
+    if (observer.current) observer.current.disconnect();
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore) {
+        setPage(prevPage => prevPage + 1);
+      }
+    });
+    if (node) observer.current.observe(node);
+  }, [loading, loadingMore, hasMore]);
+
+  const fetchBooks = async (pageToFetch) => {
+    try {
+      if (pageToFetch === 1) setLoading(true);
+      else setLoadingMore(true);
+
+      const res = await booksApi.getAll({ page: pageToFetch, limit: 50 });
+      const newBooks = res.data.data || [];
+      
+      setBooks(prev => pageToFetch === 1 ? newBooks : [...prev, ...newBooks]);
+      setTotalBooks(res.data.total || 0);
+      setHasMore(newBooks.length === 50);
+    } catch (err) {
+      console.error("Failed to fetch books", err);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchBooks = async () => {
-      try {
-        const res = await booksApi.getAll();
-        setBooks(res.data.data || []);
-      } catch (err) {
-        console.error("Failed to fetch books", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchBooks();
-  }, []);
+    fetchBooks(page);
+  }, [page]);
 
   const alphaIndex = useMemo(() => {
     return '#ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
   }, []);
 
   const sortedBooks = useMemo(() => {
+    // Note: Filtering/Sorting here only applies to CURRENTLY LOADED books.
+    // In a real paginated app, sorting often happens on the backend.
     return [...books].sort((a, b) => {
         if (sortBy === 'title') {
             return a.book_title.localeCompare(b.book_title);
@@ -82,7 +110,7 @@ export default function Library() {
 
             <div className="h-6 w-px bg-white/10 mx-2" />
             
-            <span className="text-xl font-bold text-foreground">{books.length}</span>
+            <span className="text-xl font-bold text-foreground">{totalBooks}</span>
         </div>
 
         <div className="flex items-center gap-4 text-muted-foreground">
@@ -132,10 +160,11 @@ export default function Library() {
                               </tr>
                           </thead>
                           <tbody>
-                              {sortedBooks.map(book => (
+                              {sortedBooks.map((book, index) => (
                                   <tr 
                                     key={book.ID} 
                                     id={`book-${book.ID}`}
+                                    ref={index === sortedBooks.length - 1 ? lastBookElementRef : null}
                                     onClick={() => navigate(`/book/${book.ID}`)}
                                     className="border-b border-white/5 hover:bg-white/5 cursor-pointer transition-colors group"
                                   >
@@ -171,10 +200,11 @@ export default function Library() {
                   </div>
               ) : (
                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-x-6 gap-y-10 pb-20">
-                       {sortedBooks.map(book => (
+                       {sortedBooks.map((book, index) => (
                            <div 
                              key={book.ID} 
                              id={`book-${book.ID}`}
+                             ref={index === sortedBooks.length - 1 ? lastBookElementRef : null}
                              onClick={() => navigate(`/book/${book.ID}`)}
                              className="group flex flex-col gap-2 cursor-pointer"
                            >
@@ -204,9 +234,27 @@ export default function Library() {
                        ))}
                    </div>
               )}
+
+              {loadingMore && (
+                  <div className="flex justify-center py-10 w-full animate-in fade-in zoom-in duration-300">
+                      <div className="flex items-center gap-3 bg-white/5 px-6 py-3 rounded-full border border-white/10 shadow-xl">
+                          <RefreshCw size={20} className="animate-spin text-primary" />
+                          <span className="text-xs font-black uppercase tracking-widest text-foreground/80">Loading more books...</span>
+                      </div>
+                  </div>
+              )}
+
+              {!hasMore && totalBooks > 0 && !loading && (
+                  <div className="flex justify-center py-20 w-full opacity-40">
+                      <div className="flex flex-col items-center gap-2">
+                        <BookOpen size={24} className="text-muted-foreground" />
+                        <span className="text-[10px] font-black uppercase tracking-[3px]">The end of the library</span>
+                      </div>
+                  </div>
+              )}
           </div>
 
-          {/* Alpha Index Sidebar - Right Aligned as per generic library UI but integrated elegantly */}
+          {/* Alpha Index Sidebar */}
           <div className="w-6 flex flex-col items-center justify-center py-4 z-10 select-none">
               <div className="flex flex-col gap-0.5">
                   {alphaIndex.map(char => (

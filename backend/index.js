@@ -548,17 +548,34 @@ booksRouter.post('/:id/cover-from-url', async (req, res) => {
     }
 });
 
-// Update getAll to include progress
+// Update getAll to include progress and pagination
 booksRouter.get('/', (req, res) => {
     const userId = req.user.user_id;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50; 
+    const offset = (page - 1) * limit;
+
+    const countSql = `SELECT COUNT(*) as total FROM Books`;
     const sql = `
         SELECT b.*, bu.book_progress_percentage 
         FROM Books b
         LEFT JOIN BooksUsers bu ON b.ID = bu.book_id AND bu.user_id = ?
+        ORDER BY b.ID DESC
+        LIMIT ? OFFSET ?
     `;
-    db.all(sql, [userId], (err, rows) => {
+
+    db.get(countSql, [], (err, countRow) => {
         if (err) return res.status(500).json({ error: err.message });
-        res.json({ data: rows });
+
+        db.all(sql, [userId, limit, offset], (err, rows) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ 
+                data: rows,
+                total: countRow.total,
+                page: page,
+                limit: limit
+            });
+        });
     });
 });
 

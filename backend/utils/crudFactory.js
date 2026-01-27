@@ -6,12 +6,27 @@ const createCrudRouter = (tableName, db, primaryKey = 'ID', allowedMethods = ['G
     // GET all
     if (allowedMethods.includes('GET')) {
         router.get('/', (req, res) => {
-            const sql = `SELECT * FROM ${tableName}`;
-            db.all(sql, [], (err, rows) => {
-                if (err) {
-                    return res.status(500).json({ error: err.message });
-                }
-                res.json({ data: rows });
+            const page = parseInt(req.query.page) || 1;
+            const limit = parseInt(req.query.limit) || 1000; // Default to 1000 if not specified
+            const offset = (page - 1) * limit;
+
+            const countSql = `SELECT COUNT(*) as total FROM ${tableName}`;
+            const sql = `SELECT * FROM ${tableName} LIMIT ? OFFSET ?`;
+
+            db.get(countSql, [], (err, countRow) => {
+                if (err) return res.status(500).json({ error: err.message });
+                
+                db.all(sql, [limit, offset], (err, rows) => {
+                    if (err) {
+                        return res.status(500).json({ error: err.message });
+                    }
+                    res.json({ 
+                        data: rows,
+                        total: countRow.total,
+                        page: page,
+                        limit: limit
+                    });
+                });
             });
         });
 
