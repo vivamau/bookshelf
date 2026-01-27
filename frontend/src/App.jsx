@@ -11,9 +11,7 @@ import {
   User as UserIcon,
   ChevronRight,
   Menu,
-  Maximize2,
   Activity,
-  Cast,
   ArrowLeft,
   BookOpen,
   Plus,
@@ -34,6 +32,7 @@ import PublisherDetails from './pages/PublisherDetails';
 import GenreDetails from './pages/GenreDetails';
 import UsersPage from './pages/Users';
 import { booksApi, libraryApi } from './api/api';
+import ProfileModal from './components/ProfileModal';
 
 // UI Components
 const SidebarItem = ({ icon: Icon, label, active, onClick, to, hasMenu, onMenuClick }) => {
@@ -121,6 +120,7 @@ const Layout = ({ children }) => {
   const [scanProgress, setScanProgress] = useState(0);
   const [currentScanningBook, setCurrentScanningBook] = useState('');
   const [isFadingOut, setIsFadingOut] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   const runLibraryTask = async (taskType) => {
     setIsScanning(true);
@@ -306,6 +306,7 @@ const Layout = ({ children }) => {
                   label={item.label} 
                   active={location.pathname === item.to}
                   to={item.to}
+                  onClick={item.label === 'Settings' ? () => setShowProfileModal(true) : undefined}
                 />
               ))}
             </div>
@@ -315,10 +316,10 @@ const Layout = ({ children }) => {
         <div className="p-4 border-t border-border mt-auto">
           <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent cursor-pointer transition-colors group">
             <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center border border-border group-hover:border-primary/50 transition-colors">
-               <img src={user?.user_avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username || 'default'}`} alt="Avatar" className="rounded-full" />
+               <img src={user?.user_avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username || user?.user_username || 'default'}`} alt="Avatar" className="rounded-full" />
             </div>
             <div className="flex flex-col overflow-hidden flex-1">
-              <span className="text-sm font-bold truncate">{user?.username || 'User'}</span>
+              <span className="text-sm font-bold truncate">{(user?.username || user?.user_username) || 'User'}</span>
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter leading-none">Online</span>
             </div>
             <button onClick={logout} className="p-2 text-muted-foreground hover:text-destructive transition-colors">
@@ -350,13 +351,20 @@ const Layout = ({ children }) => {
 
           <div className="flex items-center gap-6 text-muted-foreground">
             <Activity size={20} className="hover:text-foreground cursor-pointer transition-colors" />
-            <Settings size={20} className="hover:text-foreground cursor-pointer transition-colors" />
-            <Cast size={20} className="hover:text-foreground cursor-pointer transition-colors" />
-            <Maximize2 size={18} className="hover:text-foreground cursor-pointer transition-colors text-foreground/80" />
+            <Settings 
+                size={20} 
+                className="hover:text-foreground cursor-pointer transition-colors" 
+                onClick={() => setShowProfileModal(true)}
+            />
           </div>
         </header>
 
         {children}
+        
+        <ProfileModal 
+            isOpen={showProfileModal} 
+            onClose={() => setShowProfileModal(false)} 
+        />
       </div>
     </div>
   );

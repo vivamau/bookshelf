@@ -311,9 +311,7 @@ const checkManageUsers = (req, res, next) => {
     next();
 };
 
-usersRouter.use(checkManageUsers);
-
-usersRouter.get('/', (req, res) => {
+usersRouter.get('/', checkManageUsers, (req, res) => {
     const sql = `
         SELECT u.ID, u.user_username, u.user_email, u.user_name, u.user_lastname, u.user_avatar, u.user_create_date, u.user_update_date, u.userrole_id, 
                r.userrole_name, r.userrole_manageusers, r.userrole_managebooks, r.userrole_readbooks, r.userrole_viewbooks
@@ -341,7 +339,7 @@ usersRouter.get('/:id', (req, res) => {
     });
 });
 
-usersRouter.post('/', async (req, res) => {
+usersRouter.post('/', checkManageUsers, async (req, res) => {
     const { user_username, user_email, user_password, userrole_id, user_name, user_lastname, user_avatar } = req.body;
     
     if (!user_username || !user_email || !user_password) {
@@ -369,18 +367,34 @@ usersRouter.post('/', async (req, res) => {
 
 usersRouter.put('/:id', async (req, res) => {
     const { user_username, user_email, user_password, userrole_id, user_name, user_lastname, user_avatar } = req.body;
-    const userId = req.params.id;
+    const userId = parseInt(req.params.id);
     const now = Date.now();
+
+    // Permission check: admin OR self-edit
+    console.log('PUT /api/users/:id debug:', {
+        paramId: userId,
+        tokenUser: req.user ? { id: req.user.user_id, isAdmin: !!req.user.userrole_manageusers } : 'no user'
+    });
+    const isSelfEdit = req.user && req.user.user_id === userId;
+    const isAdmin = req.user && req.user.userrole_manageusers;
+
+    if (!isSelfEdit && !isAdmin) {
+        console.log('Permission denied:', { isSelfEdit, isAdmin });
+        return res.status(403).json({ error: 'Forbidden: You can only edit your own profile' });
+    }
+
+    // Security: only admin can change roles
+    const targetRoleId = isAdmin ? (userrole_id || 3) : req.user.userrole_id; // Default to old role if not admin
 
     const defaultAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user_username}`;
     let sql = "UPDATE Users SET user_username = ?, user_email = ?, user_name = ?, user_lastname = ?, user_avatar = ?, userrole_id = ?, user_update_date = ?";
-    let params = [user_username, user_email, user_name || null, user_lastname || null, user_avatar || defaultAvatar, userrole_id, now];
+    let params = [user_username, user_email, user_name || null, user_lastname || null, user_avatar || defaultAvatar, targetRoleId, now];
 
     if (user_password && user_password.trim() !== "") {
         try {
             const hashedPassword = await bcrypt.hash(user_password, 10);
             sql = "UPDATE Users SET user_username = ?, user_email = ?, user_password = ?, user_name = ?, user_lastname = ?, user_avatar = ?, userrole_id = ?, user_update_date = ?";
-            params = [user_username, user_email, hashedPassword, user_name || null, user_lastname || null, user_avatar || defaultAvatar, userrole_id, now];
+            params = [user_username, user_email, hashedPassword, user_name || null, user_lastname || null, user_avatar || defaultAvatar, targetRoleId, now];
         } catch (err) {
             return res.status(500).json({ error: err.message });
         }
@@ -396,7 +410,7 @@ usersRouter.put('/:id', async (req, res) => {
     });
 });
 
-usersRouter.delete('/:id', (req, res) => {
+usersRouter.delete('/:id', checkManageUsers, (req, res) => {
     db.run("DELETE FROM Users WHERE ID = ?", [req.params.id], function(err) {
         if (err) return res.status(500).json({ error: err.message });
         if (this.changes === 0) return res.status(404).json({ error: 'User not found' });

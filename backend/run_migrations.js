@@ -36,7 +36,12 @@ db.serialize(() => {
                     console.log(`Applying migration: ${file}`);
                     db.exec(sql, (err) => {
                         if (err) {
-                            console.error(`Error applying migration ${file}:`, err);
+                            if (err.message.includes('duplicate column name')) {
+                                console.log(`Migration ${file} partially applied (duplicate column), recording as applied.`);
+                                db.run("INSERT INTO Migrations (name, applied_at) VALUES (?, ?)", [file, Date.now()]);
+                            } else {
+                                console.error(`Error applying migration ${file}:`, err);
+                            }
                         } else {
                             db.run("INSERT INTO Migrations (name, applied_at) VALUES (?, ?)", [file, Date.now()], (err) => {
                                 if (err) console.error("Error recording migration:", err);
