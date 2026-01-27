@@ -279,7 +279,7 @@ export default function Users() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowModal(false)} />
             
-            <div className="relative w-full max-w-xl bg-card border border-border shadow-2xl rounded-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="relative w-full max-w-4xl bg-card border border-border shadow-2xl rounded-2xl overflow-hidden animate-in zoom-in-95 duration-200">
                 <div className="p-8">
                     <div className="flex items-center justify-between mb-8">
                         <div className="flex items-center gap-4">
@@ -306,205 +306,220 @@ export default function Users() {
                             </div>
                         )}
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Username</label>
-                                <div className="relative">
-                                    <UserIcon size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                                    <input 
-                                        required
-                                        type="text"
-                                        placeholder="johndoe"
-                                        value={formData.user_username}
-                                        onChange={e => setFormData({...formData, user_username: e.target.value})}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-primary transition-all placeholder:opacity-30"
-                                    />
-                                </div>
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Email Address</label>
-                                <div className="relative">
-                                    <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                                    <input 
-                                        required
-                                        type="email"
-                                        placeholder="john@example.com"
-                                        value={formData.user_email}
-                                        onChange={e => setFormData({...formData, user_email: e.target.value})}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-primary transition-all placeholder:opacity-30"
-                                    />
-                                </div>
-                            </div>
-                        </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                            {/* Left Column: General Info */}
+                            <div className="space-y-6">
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className="w-1 h-4 bg-primary rounded-full" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-foreground">General Information</span>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Username</label>
+                                            <div className="relative">
+                                                <UserIcon size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                                <input 
+                                                    required
+                                                    type="text"
+                                                    placeholder="johndoe"
+                                                    value={formData.user_username}
+                                                    onChange={e => setFormData({...formData, user_username: e.target.value})}
+                                                    className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-primary transition-all placeholder:opacity-30"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Email Address</label>
+                                            <div className="relative">
+                                                <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                                <input 
+                                                    required
+                                                    type="email"
+                                                    placeholder="john@example.com"
+                                                    value={formData.user_email}
+                                                    onChange={e => setFormData({...formData, user_email: e.target.value})}
+                                                    className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-primary transition-all placeholder:opacity-30"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">First Name</label>
-                                <input 
-                                    type="text"
-                                    placeholder="John"
-                                    value={formData.user_name}
-                                    onChange={e => setFormData({...formData, user_name: e.target.value})}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-primary transition-all placeholder:opacity-30"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Last Name</label>
-                                <input 
-                                    type="text"
-                                    placeholder="Doe"
-                                    value={formData.user_lastname}
-                                    onChange={e => setFormData({...formData, user_lastname: e.target.value})}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-primary transition-all placeholder:opacity-30"
-                                />
-                            </div>
-                        </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">First Name</label>
+                                            <input 
+                                                type="text"
+                                                placeholder="John"
+                                                value={formData.user_name}
+                                                onChange={e => setFormData({...formData, user_name: e.target.value})}
+                                                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-primary transition-all placeholder:opacity-30"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Last Name</label>
+                                            <input 
+                                                type="text"
+                                                placeholder="Doe"
+                                                value={formData.user_lastname}
+                                                onChange={e => setFormData({...formData, user_lastname: e.target.value})}
+                                                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-primary transition-all placeholder:opacity-30"
+                                            />
+                                        </div>
+                                    </div>
 
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">{modalMode === 'create' ? 'Password' : 'New Password (leave blank to keep current)'}</label>
-                            <input 
-                                required={modalMode === 'create'}
-                                type="password"
-                                placeholder="••••••••"
-                                value={formData.user_password}
-                                onChange={e => setFormData({...formData, user_password: e.target.value})}
-                                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-primary transition-all placeholder:opacity-30"
-                            />
-                        </div>
-
-                        <div className="space-y-4">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Profile Avatar</label>
-                            <div className="flex items-center gap-6 p-4 rounded-2xl bg-white/5 border border-white/10">
-                                <div className="relative group">
-                                    <div className="w-20 h-20 rounded-2xl bg-muted border-2 border-primary/20 overflow-hidden shadow-2xl transition-transform group-hover:scale-105">
-                                        <img 
-                                            src={formData.user_avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.user_username || 'default'}`} 
-                                            alt="Preview" 
-                                            className="w-full h-full object-cover"
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">{modalMode === 'create' ? 'Password' : 'New Password (leave blank to keep current)'}</label>
+                                        <input 
+                                            required={modalMode === 'create'}
+                                            type="password"
+                                            placeholder="••••••••"
+                                            value={formData.user_password}
+                                            onChange={e => setFormData({...formData, user_password: e.target.value})}
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-primary transition-all placeholder:opacity-30"
                                         />
                                     </div>
-                                    <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white shadow-lg cursor-pointer hover:scale-110 transition-all border-2 border-card"
-                                         onClick={() => {
-                                             const randomSeed = Math.random().toString(36).substring(7);
-                                             const currentStyle = formData.user_avatar?.split('/')[4]?.split('?')[0] || 'avataaars';
-                                             setFormData({...formData, user_avatar: `https://api.dicebear.com/7.x/${currentStyle}/svg?seed=${randomSeed}`});
-                                         }}
-                                    >
-                                        <RefreshCw size={14} />
+                                </div>
+                            </div>
+
+                            {/* Right Column: Avatar & Roles */}
+                            <div className="space-y-8">
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className="w-1 h-4 bg-primary rounded-full" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-foreground">Identity & Access</span>
+                                    </div>
+
+                                    <div className="flex items-center gap-6 p-4 rounded-2xl bg-white/5 border border-white/10">
+                                        <div className="relative group shrink-0">
+                                            <div className="w-20 h-20 rounded-2xl bg-muted border-2 border-primary/20 overflow-hidden shadow-2xl transition-transform group-hover:scale-105">
+                                                <img 
+                                                    src={formData.user_avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.user_username || 'default'}`} 
+                                                    alt="Preview" 
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            </div>
+                                            <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white shadow-lg cursor-pointer hover:scale-110 transition-all border-2 border-card"
+                                                 onClick={() => {
+                                                     const randomSeed = Math.random().toString(36).substring(7);
+                                                     const currentStyle = formData.user_avatar?.split('/')[4]?.split('?')[0] || 'avataaars';
+                                                     setFormData({...formData, user_avatar: `https://api.dicebear.com/7.x/${currentStyle}/svg?seed=${randomSeed}`});
+                                                 }}
+                                            >
+                                                <RefreshCw size={14} />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Avatar Style</span>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {['avataaars', 'bottts', 'pixel-art', 'lorelei', 'adventurer'].map(style => (
+                                                    <button
+                                                        key={style}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const seed = formData.user_avatar?.split('seed=')[1] || formData.user_username || 'default';
+                                                            setFormData({...formData, user_avatar: `https://api.dicebear.com/7.x/${style}/svg?seed=${seed}`});
+                                                        }}
+                                                        className={cn(
+                                                            "px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-wider border transition-all",
+                                                            (formData.user_avatar?.includes(style) || (!formData.user_avatar && style === 'avataaars'))
+                                                                ? "bg-primary text-primary-foreground border-primary"
+                                                                : "bg-white/5 border-white/10 text-muted-foreground hover:bg-white/10"
+                                                        )}
+                                                    >
+                                                        {style.replace('-', ' ')}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="flex-1 space-y-3">
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Choose Style</span>
-                                    <div className="flex flex-wrap gap-2">
-                                        {['avataaars', 'bottts', 'pixel-art', 'lorelei', 'adventurer'].map(style => (
-                                            <button
-                                                key={style}
-                                                type="button"
-                                                onClick={() => {
-                                                    const seed = formData.user_avatar?.split('seed=')[1] || formData.user_username || 'default';
-                                                    setFormData({...formData, user_avatar: `https://api.dicebear.com/7.x/${style}/svg?seed=${seed}`});
-                                                }}
+
+                                <div className="space-y-4">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Assign Role</label>
+                                    <div className="grid grid-cols-3 gap-3">
+                                        {roles.map(role => (
+                                            <div 
+                                                key={role.ID} 
+                                                onClick={() => setFormData({...formData, userrole_id: role.ID})}
                                                 className={cn(
-                                                    "px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider border transition-all",
-                                                    (formData.user_avatar?.includes(style) || (!formData.user_avatar && style === 'avataaars'))
-                                                        ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20"
+                                                    "relative cursor-pointer flex flex-col items-center gap-2 p-4 rounded-xl border transition-all",
+                                                    formData.userrole_id === role.ID 
+                                                        ? "bg-primary/10 border-primary text-primary" 
                                                         : "bg-white/5 border-white/10 text-muted-foreground hover:bg-white/10"
                                                 )}
                                             >
-                                                {style.replace('-', ' ')}
-                                            </button>
+                                                <Shield size={20} className={cn(formData.userrole_id === role.ID ? "text-primary" : "text-muted-foreground/50")} />
+                                                <span className="text-[10px] font-black uppercase tracking-wider">{role.userrole_name}</span>
+                                                {formData.userrole_id === role.ID && (
+                                                    <div className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-primary flex items-center justify-center text-white">
+                                                        <Check size={10} />
+                                                    </div>
+                                                )}
+                                            </div>
                                         ))}
                                     </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Assign Role</label>
-                            <div className="grid grid-cols-3 gap-3">
-                                {roles.map(role => (
-                                    <div 
-                                        key={role.ID} 
-                                        onClick={() => setFormData({...formData, userrole_id: role.ID})}
-                                        className={cn(
-                                            "relative cursor-pointer flex flex-col items-center gap-2 p-4 rounded-xl border transition-all",
-                                            formData.userrole_id === role.ID 
-                                                ? "bg-primary/10 border-primary text-primary" 
-                                                : "bg-white/5 border-white/10 text-muted-foreground hover:bg-white/10"
-                                        )}
-                                    >
-                                        <Shield size={20} className={cn(formData.userrole_id === role.ID ? "text-primary" : "text-muted-foreground/50")} />
-                                        <span className="text-[10px] font-black uppercase tracking-wider">{role.userrole_name}</span>
-                                        {formData.userrole_id === role.ID && (
-                                            <div className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-primary flex items-center justify-center text-white">
-                                                <Check size={10} />
+                                    
+                                    {formData.userrole_id && (
+                                        <div className="p-4 rounded-xl bg-white/5 border border-white/10 animate-in fade-in slide-in-from-top-2 duration-300">
+                                            <div className="flex flex-col gap-3">
+                                                <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Active Rights</span>
+                                                    <Shield size={14} className="text-primary/50" />
+                                                </div>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {roles.find(r => r.ID === formData.userrole_id)?.userrole_manageusers ? (
+                                                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                                            <Check size={10} strokeWidth={3} />
+                                                            <span className="text-[9px] font-black uppercase tracking-wider">Manage Users</span>
+                                                        </div>
+                                                    ) : null}
+                                                    {roles.find(r => r.ID === formData.userrole_id)?.userrole_managebooks ? (
+                                                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                                                            <Check size={10} strokeWidth={3} />
+                                                            <span className="text-[9px] font-black uppercase tracking-wider">Manage Books</span>
+                                                        </div>
+                                                    ) : null}
+                                                    {roles.find(r => r.ID === formData.userrole_id)?.userrole_readbooks ? (
+                                                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                                            <Check size={10} strokeWidth={3} />
+                                                            <span className="text-[9px] font-black uppercase tracking-wider">Read & Download</span>
+                                                        </div>
+                                                    ) : null}
+                                                    {roles.find(r => r.ID === formData.userrole_id)?.userrole_viewbooks ? (
+                                                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                                            <Check size={10} strokeWidth={3} />
+                                                            <span className="text-[9px] font-black uppercase tracking-wider">View Library</span>
+                                                        </div>
+                                                    ) : null}
+                                                </div>
                                             </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                            
-                            {formData.userrole_id && (
-                                <div className="mt-4 p-4 rounded-xl bg-white/5 border border-white/10 animate-in fade-in slide-in-from-top-2 duration-300">
-                                    <div className="flex flex-col gap-3">
-                                        <div className="flex items-center justify-between border-b border-white/5 pb-2">
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Active Rights for {roles.find(r => r.ID === formData.userrole_id)?.userrole_name}</span>
-                                            <Shield size={14} className="text-primary/50" />
                                         </div>
-                                        <div className="flex flex-wrap gap-2">
-                                            {roles.find(r => r.ID === formData.userrole_id)?.userrole_manageusers ? (
-                                                <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                                                    <Check size={12} strokeWidth={3} />
-                                                    <span className="text-[10px] font-black uppercase tracking-wider">Manage Users</span>
-                                                </div>
-                                            ) : null}
-                                            {roles.find(r => r.ID === formData.userrole_id)?.userrole_managebooks ? (
-                                                <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                                                    <Check size={12} strokeWidth={3} />
-                                                    <span className="text-[10px] font-black uppercase tracking-wider">Manage Books</span>
-                                                </div>
-                                            ) : null}
-                                            {roles.find(r => r.ID === formData.userrole_id)?.userrole_readbooks ? (
-                                                <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                                    <Check size={12} strokeWidth={3} />
-                                                    <span className="text-[10px] font-black uppercase tracking-wider">Read & Download</span>
-                                                </div>
-                                            ) : null}
-                                            {roles.find(r => r.ID === formData.userrole_id)?.userrole_viewbooks ? (
-                                                <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                                                    <Check size={12} strokeWidth={3} />
-                                                    <span className="text-[10px] font-black uppercase tracking-wider">View Library</span>
-                                                </div>
-                                            ) : null}
-                                            {!(roles.find(r => r.ID === formData.userrole_id)?.userrole_manageusers || 
-                                               roles.find(r => r.ID === formData.userrole_id)?.userrole_managebooks || 
-                                               roles.find(r => r.ID === formData.userrole_id)?.userrole_readbooks || 
-                                               roles.find(r => r.ID === formData.userrole_id)?.userrole_viewbooks) && (
-                                                <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-white/5 text-muted-foreground border border-white/10 italic">
-                                                    <X size={12} strokeWidth={3} />
-                                                    <span className="text-[10px] font-black uppercase tracking-wider">No Permissions</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
+                                    )}
                                 </div>
-                            )}
+                            </div>
                         </div>
 
-                        <div className="flex gap-4 pt-4">
+                        <div className="flex gap-4 pt-8 border-t border-white/5">
                             <button 
                                 type="button" 
                                 onClick={() => setShowModal(false)}
-                                className="flex-1 py-3 px-6 bg-white/5 hover:bg-white/10 text-foreground font-black text-xs uppercase tracking-wider rounded-xl transition-all"
+                                className="flex-1 py-3.5 px-6 bg-white/5 hover:bg-white/10 text-foreground font-black text-xs uppercase tracking-wider rounded-xl transition-all"
                             >
                                 Cancel
                             </button>
                             <button 
                                 type="submit" 
                                 disabled={formLoading}
-                                className="flex-1 py-3 px-6 bg-primary hover:bg-primary/90 text-primary-foreground font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg active:scale-95 disabled:opacity-50 flex items-center justify-center"
+                                className="flex-1 py-3.5 px-6 bg-primary hover:bg-primary/90 text-primary-foreground font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
                             >
-                                {formLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (modalMode === 'create' ? 'Create User' : 'Save Changes')}
+                                {formLoading ? (
+                                    <RefreshCw className="w-4 h-4 animate-spin" />
+                                ) : (
+                                    <Check className="w-4 h-4" />
+                                )}
+                                <span>{modalMode === 'create' ? 'Create User Account' : 'Save Changes'}</span>
                             </button>
                         </div>
                     </form>
