@@ -89,15 +89,18 @@ const BookCard = ({ title, year, cover, progress, id }) => {
   );
 };
 
-const Section = ({ title, children, showAll = true }) => (
+const Section = ({ title, children, showAll = true, to }) => (
   <div className="flex flex-col gap-4 mb-10">
     <div className="flex items-center justify-between">
       <h2 className="text-xl font-bold tracking-tight text-foreground/90">{title}</h2>
       {showAll && (
-        <div className="flex items-center text-muted-foreground hover:text-foreground cursor-pointer transition-colors group">
+        <Link 
+          to={to || "#"} 
+          className="flex items-center text-muted-foreground hover:text-foreground cursor-pointer transition-colors group"
+        >
           <span className="text-xs font-bold mr-1 uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">View All</span>
           <ChevronRight size={18} />
-        </div>
+        </Link>
       )}
     </div>
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-5">
@@ -111,13 +114,15 @@ const Layout = ({ children }) => {
   const { user, logout, hasPermission } = useAuth();
   const [showLibraryMenu, setShowLibraryMenu] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [scanType, setScanType] = useState(''); // 'scan' or 'refresh'
   const [scanMessage, setScanMessage] = useState('');
   const [scanProgress, setScanProgress] = useState(0);
   const [currentScanningBook, setCurrentScanningBook] = useState('');
   const [isFadingOut, setIsFadingOut] = useState(false);
 
-  const scanLibrary = async () => {
+  const runLibraryTask = async (taskType) => {
     setIsScanning(true);
+    setScanType(taskType);
     setScanMessage('');
     setScanProgress(0);
     setCurrentScanningBook('');
@@ -126,7 +131,8 @@ const Layout = ({ children }) => {
     
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3005/api/library/scan', {
+      const endpoint = taskType === 'scan' ? '/api/library/scan' : '/api/library/refresh-covers';
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}${endpoint}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -240,12 +246,20 @@ const Layout = ({ children }) => {
           {showLibraryMenu && (
             <div className="mx-4 mb-2 bg-secondary/50 border border-border rounded-lg overflow-hidden animate-in slide-in-from-top-2 duration-200">
               <button
-                onClick={scanLibrary}
+                onClick={() => runLibraryTask('scan')}
                 disabled={isScanning}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-white/5 transition-colors disabled:opacity-50"
               >
-                <RefreshCw size={16} className={cn(isScanning && "animate-spin")} />
-                <span>{isScanning ? 'Scanning...' : 'Scan Library Files'}</span>
+                <RefreshCw size={16} className={cn(isScanning && scanType === 'scan' && "animate-spin")} />
+                <span>{isScanning && scanType === 'scan' ? 'Scanning...' : 'Scan Library Files'}</span>
+              </button>
+              <button
+                onClick={() => runLibraryTask('refresh')}
+                disabled={isScanning}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-white/5 transition-colors disabled:opacity-50 border-t border-border/50"
+              >
+                <RefreshCw size={16} className={cn(isScanning && scanType === 'refresh' && "animate-spin")} />
+                <span>{isScanning && scanType === 'refresh' ? 'Refreshing...' : 'Refresh Covers'}</span>
               </button>
             </div>
           )}
@@ -259,7 +273,9 @@ const Layout = ({ children }) => {
               {isScanning ? (
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-primary">Scanning Library</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-primary">
+                        {scanType === 'scan' ? 'Scanning Library' : 'Refreshing Covers'}
+                    </span>
                     <span className="text-[10px] font-black text-primary">{scanProgress}%</span>
                   </div>
                   <div className="h-1 w-full bg-primary/10 rounded-full overflow-hidden">
@@ -353,7 +369,8 @@ function Dashboard() {
     const fetchBooks = async () => {
       try {
         const res = await booksApi.getAll();
-        setBooks(res.data.data);
+        const sortedBooks = (res.data.data || []).sort((a, b) => b.ID - a.ID);
+        setBooks(sortedBooks);
       } catch (err) {
         console.error("Failed to fetch books", err);
       } finally {
@@ -398,21 +415,21 @@ function Dashboard() {
                         title={book.book_title} 
                         year={book.book_date ? new Date(book.book_date).getFullYear() : 'N/A'}
                         progress={book.book_progress_percentage} 
-                        cover={book.book_cover_img ? `http://localhost:3005/covers/${book.book_cover_img}` : null} 
+                        cover={book.book_cover_img ? `${import.meta.env.VITE_API_BASE_URL}/covers/${book.book_cover_img}` : null} 
                     />
                   ))}
                 </Section>
               )}
 
-              <Section title="Recently Added Books">
-                {books.map((book) => (
+              <Section title="Recently Added Books" to="/library">
+                {books.slice(0, 24).map((book) => (
                   <BookCard 
                     key={book.ID} 
                     id={book.ID}
                     title={book.book_title} 
                     year={book.book_date ? new Date(book.book_date).getFullYear() : 'N/A'}
                     progress={book.book_progress_percentage}
-                    cover={book.book_cover_img ? `http://localhost:3005/covers/${book.book_cover_img}` : null} 
+                    cover={book.book_cover_img ? `${import.meta.env.VITE_API_BASE_URL}/covers/${book.book_cover_img}` : null} 
                   />
                 ))}
               </Section>

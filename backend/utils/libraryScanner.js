@@ -108,7 +108,8 @@ const walkSync = (dir, filelist = [], baseDir = dir) => {
     return filelist;
 };
 
-const processBook = async (db, filename, formatId, onProgress) => {
+const processBook = async (db, filename, formatId, onProgress, options = {}) => {
+    const { forceRefreshCovers = false } = options;
     return new Promise(async (resolve) => {
         try {
             if (onProgress) onProgress(filename);
@@ -206,11 +207,19 @@ const processBook = async (db, filename, formatId, onProgress) => {
             // Extract cover
             let coverFilename = null;
             const manifest = result.package.manifest ? result.package.manifest[0].item : [];
-            const coverItem = manifest.find(item => 
-                item.$.id === 'cover-image' || 
-                item.$.id === 'cover' ||
-                (item.$['media-type'] && item.$['media-type'].startsWith('image/') && item.$.href.includes('cover'))
-            );
+            const coverItem = manifest.find(item => {
+                const id = item.$.id ? item.$.id.toLowerCase() : '';
+                const href = item.$.href ? item.$.href.toLowerCase() : '';
+                const mediaType = item.$['media-type'] ? item.$['media-type'].toLowerCase() : '';
+                
+                const isImage = mediaType.startsWith('image/') || 
+                               href.endsWith('.jpg') || 
+                               href.endsWith('.jpeg') || 
+                               href.endsWith('.png') || 
+                               href.endsWith('.webp');
+                
+                return isImage && (id === 'cover-image' || id === 'cover' || href.includes('cover'));
+            });
 
             if (coverItem) {
                 const coverHref = coverItem.$.href;
@@ -223,11 +232,11 @@ const processBook = async (db, filename, formatId, onProgress) => {
                     coverFilename = `${uniqueBaseName}${ext}`;
                     const coverOutputPath = path.join(COVERS_DIR, coverFilename);
                     
-                    if (existingBook && fs.existsSync(coverOutputPath)) {
+                    if (!forceRefreshCovers && existingBook && fs.existsSync(coverOutputPath)) {
                         console.log(`  -> Cover already exists: ${coverFilename}`);
                     } else {
                         fs.writeFileSync(coverOutputPath, coverEntry.getData());
-                        console.log(`  -> Cover extracted: ${coverFilename}`);
+                        console.log(`  -> Cover extracted (forced or new): ${coverFilename}`);
                     }
                 }
             }
@@ -434,7 +443,7 @@ const processPdf = async (db, filename, formatId, onProgress) => {
     });
 };
 
-const scanLibrary = async (db, onProgress) => {
+const scanLibrary = async (db, onProgress, options = {}) => {
     try {
         console.log('Starting recursive library scan...');
         
@@ -451,7 +460,7 @@ const scanLibrary = async (db, onProgress) => {
             if (file.toLowerCase().endsWith('.epub')) {
                 isNew = await processBook(db, file, epubFormatId, (msg) => {
                     if (onProgress) onProgress(`Processing: ${msg}`, processedCount + 1, files.length);
-                });
+                }, options);
             } else if (file.toLowerCase().endsWith('.pdf')) {
                 isNew = await processPdf(db, file, pdfFormatId, (msg) => {
                     if (onProgress) onProgress(`Processing: ${msg}`, processedCount + 1, files.length);
@@ -469,4 +478,31 @@ const scanLibrary = async (db, onProgress) => {
     }
 };
 
-module.exports = { scanLibrary };
+const refreshCovers = async (db, onProgress) => {
+    try {
+        console.log('Starting cover refresh...');
+        const epubFormatId = await getOrCreateFormat(db, 'EPUB');
+        const books = await new Promise((res) => {
+            db.all("SELECT ID, book_filename FROM Books WHERE book_format_id = ?", [epubFormatId], (err, rows) => {
+                res(rows || []);
+            });
+        });
+
+        console.log(`Found ${books.length} books to refresh covers for.`);
+        
+        let processedCount = 0;
+        for (const book of books) {
+            await processBook(db, book.book_filename, epubFormatId, (msg) => {
+                if (onProgress) onProgress(`Refreshing: ${msg}`, processedCount + 1, books.length);
+            }, { forceRefreshCovers: true });
+            processedCount++;
+        }
+        
+        return { success: true, totalProcessed: processedCount };
+    } catch (err) {
+        console.error('Error during cover refresh:', err);
+        throw err;
+    }
+};
+
+module.exports = { scanLibrary, refreshCovers };

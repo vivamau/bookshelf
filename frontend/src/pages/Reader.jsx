@@ -90,7 +90,8 @@ export default function Reader() {
 
   // Compute folder name using same logic as backend
   const folderName = book?.book_filename?.replace(/[/\\]/g, '_').replace(/\.epub$/i, '');
-  const readerUrl = `http://localhost:3005/extracted/${folderName}/${spine[currentIndex]}`;
+  const token = localStorage.getItem('token');
+  const readerUrl = `${import.meta.env.VITE_API_BASE_URL}/extracted/${folderName}/${spine[currentIndex]}?token=${token}`;
 
   return (
     <div className="h-screen w-full bg-[#0a0a0a] flex flex-col overflow-hidden animate-in fade-in duration-500">

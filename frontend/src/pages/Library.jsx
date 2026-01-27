@@ -142,7 +142,7 @@ export default function Library() {
                                       <td className="py-3 pl-4">
                                           <div className="w-10 h-14 bg-muted/20 rounded overflow-hidden shrink-0">
                                               <img 
-                                                src={book.book_cover_img ? `http://localhost:3005/covers/${book.book_cover_img}` : `https://api.dicebear.com/7.x/initials/svg?seed=${book.book_title}`} 
+                                                src={book.book_cover_img ? `${import.meta.env.VITE_API_BASE_URL}/covers/${book.book_cover_img}` : `https://api.dicebear.com/7.x/initials/svg?seed=${book.book_title}`} 
                                                 alt={book.book_title}
                                                 className="w-full h-full object-cover"
                                               />
@@ -180,7 +180,7 @@ export default function Library() {
                            >
                                <div className="relative aspect-[2/3] rounded-sm overflow-hidden bg-muted/10 shadow-lg group-hover:shadow-xl transition-all duration-300">
                                    <img 
-                                     src={book.book_cover_img ? `http://localhost:3005/covers/${book.book_cover_img}` : `https://api.dicebear.com/7.x/initials/svg?seed=${book.book_title}`} 
+                                     src={book.book_cover_img ? `${import.meta.env.VITE_API_BASE_URL}/covers/${book.book_cover_img}` : `https://api.dicebear.com/7.x/initials/svg?seed=${book.book_title}`} 
                                      alt={book.book_title}
                                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                                    />

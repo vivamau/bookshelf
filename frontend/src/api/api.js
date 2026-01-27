@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:3005/api';
+const API_URL = `${import.meta.env.VITE_API_BASE_URL}/api`;
 
 const api = axios.create({
   baseURL: API_URL,
@@ -34,8 +34,8 @@ api.interceptors.response.use(
 );
 
 export const authApi = {
-  login: (credentials) => axios.post('http://localhost:3005/login', credentials),
-  register: (userData) => axios.post('http://localhost:3005/register', userData),
+  login: (credentials) => axios.post(`${import.meta.env.VITE_API_BASE_URL}/login`, credentials),
+  register: (userData) => axios.post(`${import.meta.env.VITE_API_BASE_URL}/register`, userData),
 };
 
 export const booksApi = {
@@ -48,6 +48,7 @@ export const booksApi = {
   delete: (id) => api.delete(`/books/${id}`),
   getReviews: (id) => api.get(`/books/${id}/reviews`),
   setCoverFromUrl: (id, coverUrl) => api.post(`/books/${id}/cover-from-url`, { coverUrl }),
+  incrementDownload: (id) => api.post(`/books/${id}/download`),
 };
 
 export const authorsApi = {

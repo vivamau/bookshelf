@@ -477,7 +477,7 @@ export default function BookDetails() {
     );
   }
 
-  const coverUrl = book.book_cover_img ? `http://localhost:3005/covers/${book.book_cover_img}` : `https://api.dicebear.com/7.x/initials/svg?seed=${book.book_title}`;
+  const coverUrl = book.book_cover_img ? `${import.meta.env.VITE_API_BASE_URL}/covers/${book.book_cover_img}` : `https://api.dicebear.com/7.x/initials/svg?seed=${book.book_title}`;
 
   return (
     <div className="flex-1 flex flex-col bg-background relative overflow-hidden animate-in fade-in duration-700">
@@ -644,7 +644,7 @@ export default function BookDetails() {
                   <span className="flex items-center gap-1.5 text-muted-foreground text-xs font-bold bg-white/5 px-2 py-0.5 rounded-full">
                     <Users size={12} className="text-primary" />
                     {book.readers_count || 0} Readers
-                 </span>
+                  </span>
               </div>
               {isEditing ? (
                 <input 
@@ -782,7 +782,8 @@ export default function BookDetails() {
                 disabled={!hasPermission('userrole_readbooks') || !book.file_exists}
                 onClick={() => {
                   if (book.format_name === 'PDF') {
-                    window.open(`http://localhost:3005/books_files/${encodeURIComponent(book.book_filename)}`, '_blank');
+                    const token = localStorage.getItem('token');
+                    window.open(`${import.meta.env.VITE_API_BASE_URL}/api/books/${id}/download-file?token=${token}`, '_blank');
                   } else if (book.book_entry_point) {
                     navigate(`/reader/${id}`);
                   } else {
@@ -812,11 +813,24 @@ export default function BookDetails() {
               <div 
                 className={cn(
                   "h-12 w-12 flex items-center justify-center rounded-full bg-secondary/50 border border-white/5 transition-colors backdrop-blur-sm",
-                  book.file_exists ? "text-muted-foreground hover:text-foreground cursor-pointer" : "text-muted-foreground/30 cursor-not-allowed"
+                  (book.file_exists && hasPermission('userrole_readbooks')) ? "text-muted-foreground hover:text-foreground cursor-pointer" : "text-muted-foreground/30 cursor-not-allowed"
                 )}
-                onClick={() => {
+                title={!hasPermission('userrole_readbooks') ? "Reader access required to download" : "Download book"}
+                onClick={async () => {
+                  if (!hasPermission('userrole_readbooks')) {
+                      return; // Guest cannot download
+                  }
                   if (book.file_exists && book.book_filename) {
-                    window.open(`http://localhost:3005/books_files/${book.book_filename}`, '_blank');
+                    try {
+                      // Trigger download via API endpoint (which also increments counter)
+                      const token = localStorage.getItem('token');
+                      window.open(`${import.meta.env.VITE_API_BASE_URL}/api/books/${id}/download-file?token=${token}`, '_blank');
+                      
+                      // Update local state for immediate feedback
+                      setBook(prev => ({ ...prev, book_downloads: (prev.book_downloads || 0) + 1 }));
+                    } catch (err) {
+                      console.error("Failed to trigger download", err);
+                    }
                   }
                 }}
               >
@@ -1023,6 +1037,12 @@ export default function BookDetails() {
                         style={{ color: book.file_exists ? '#8bad0d' : '#f0194b' }}
                     >
                         {book.file_exists ? 'Available' : 'Missing File'}
+                    </p>
+                </div>
+                <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Downloads</p>
+                    <p className="text-sm font-bold text-foreground">
+                        {book.book_downloads || 0} times
                     </p>
                 </div>
             </div>

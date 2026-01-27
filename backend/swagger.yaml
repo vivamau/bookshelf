@@ -34,6 +34,8 @@ components:
           type: integer
         book_publisher_id:
           type: integer
+        book_downloads:
+          type: integer
         book_create_date:
           type: integer
         book_update_date:
@@ -260,6 +262,27 @@ paths:
       responses:
         200:
           description: Deleted
+  /api/books/{id}/download:
+    post:
+      summary: Increment download counter
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+      responses:
+        200:
+          description: Counter incremented
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
   /api/books/{id}/reviews:
     get:
       summary: Get reviews for a specific book

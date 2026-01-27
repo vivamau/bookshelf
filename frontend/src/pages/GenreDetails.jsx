@@ -10,7 +10,7 @@ const BookItem = ({ id, title, year, cover, progress }) => {
     <div onClick={() => navigate(`/book/${id}`)} className="flex flex-col gap-2 group cursor-pointer animate-in fade-in zoom-in duration-500">
       <div className="relative aspect-[2/3] overflow-hidden rounded-sm bg-accent/50 border border-border group-hover:border-[#3e9cbf]/50 transition-all shadow-md group-hover:shadow-[0_0_15px_rgba(62,156,191,0.3)]">
         <img 
-          src={cover ? `http://localhost:3005/covers/${cover}` : `https://api.dicebear.com/7.x/initials/svg?seed=${title}`} 
+          src={cover ? `${import.meta.env.VITE_API_BASE_URL}/covers/${cover}` : `https://api.dicebear.com/7.x/initials/svg?seed=${title}`} 
           alt={title} 
           className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105" 
         />

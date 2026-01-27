@@ -251,7 +251,7 @@ export default function PublisherDetails() {
                         id={book.ID}
                         title={book.book_title}
                         year={book.book_date}
-                        cover={book.book_cover_img ? `http://localhost:3005/covers/${book.book_cover_img}` : null}
+                        cover={book.book_cover_img ? `${import.meta.env.VITE_API_BASE_URL}/covers/${book.book_cover_img}` : null}
                         progress={book.book_progress_percentage}
                     />
                 ))}

@@ -8,19 +8,16 @@ const bcrypt = require('bcryptjs');
 const axios = require('axios');
 const fs = require('fs');
 
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-
-const path = require('path');
+const PORT = process.env.PORT || 3005;
 
 app.use(cors());
 app.use(express.json());
 app.use('/covers', express.static(path.join(__dirname, 'covers')));
 const BOOKS_DIR = path.join(__dirname, 'books');
-app.use('/books_files', express.static(path.join(__dirname, 'books')));
-app.use('/extracted', express.static(path.join(__dirname, 'extracted')));
 
 const swaggerUi = require('swagger-ui-express');
 const YAML = require('yamljs');
@@ -76,6 +73,10 @@ app.post('/login', (req, res) => {
             );
             user.token = token;
             delete user.user_password; // Don't send password back
+            
+            // Set cookie for automatic sub-resource authentication
+            res.setHeader('Set-Cookie', `token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=7200`);
+            
             return res.status(200).json(user);
         }
         return res.status(400).send("Invalid Credentials");
@@ -111,14 +112,36 @@ app.post('/register', async (req, res) => {
                 { expiresIn: "2h" }
             );
             
+            // Set cookie for automatic sub-resource authentication
+            res.setHeader('Set-Cookie', `token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=7200`);
+            
             res.status(201).json({ id: this.lastID, username, email, token });
         });
     });
 });
 
 
-// Secure all API routes
 app.use('/api', auth);
+
+// Secure static routes
+const checkReadPermission = (req, res, next) => {
+    if (!req.user || !req.user.userrole_readbooks) {
+        return res.status(403).send('Forbidden: Reader access required');
+    }
+    next();
+};
+
+// Help seed the session cookie from query param for reader assets
+const seedCookie = (req, res, next) => {
+    if (req.query.token) {
+        res.setHeader('Set-Cookie', `token=${req.query.token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=7200`);
+    }
+    next();
+};
+
+// REMOVED /books_files static serving to prevent direct links. 
+// Uses seedCookie to ensure reader assets (images/css) have access via the cookie.
+app.use('/extracted', seedCookie, auth, checkReadPermission, express.static(path.join(__dirname, 'extracted')));
 
 // API Routes
 // Custom Generes Routes (Handle timestamps)
@@ -440,6 +463,44 @@ booksRouter.post('/:id/progress', (req, res) => {
     });
 });
 
+// Stream the actual book file (Secure replacement for /books_files static)
+booksRouter.get('/:id/download-file', (req, res) => {
+    const bookId = req.params.id;
+    
+    // Check if user has read permission
+    if (!req.user.userrole_readbooks) {
+        return res.status(403).json({ error: 'Permission denied: Reader access required' });
+    }
+
+    db.get("SELECT book_filename, book_title FROM Books WHERE ID = ?", [bookId], (err, book) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!book) return res.status(404).json({ error: 'Book not found' });
+
+        const filePath = path.join(BOOKS_DIR, book.book_filename);
+        if (fs.existsSync(filePath)) {
+            // Increment counter on real download
+            db.run("UPDATE Books SET book_downloads = COALESCE(book_downloads, 0) + 1 WHERE ID = ?", [bookId]);
+            // Send file
+            res.download(filePath, book.book_filename);
+        } else {
+            res.status(404).json({ error: 'Source file not found' });
+        }
+    });
+});
+
+// Increment download counter (Optional)
+booksRouter.post('/:id/download', (req, res) => {
+    const bookId = req.params.id;
+    db.run(
+        "UPDATE Books SET book_downloads = COALESCE(book_downloads, 0) + 1 WHERE ID = ?",
+        [bookId],
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true, message: 'Download counter incremented' });
+        }
+    );
+});
+
 // Get reviews for a specific book
 booksRouter.get('/:id/reviews', (req, res) => {
     const bookId = req.params.id;
@@ -464,7 +525,7 @@ booksRouter.get('/:id', (req, res) => {
     const sql = `
         SELECT b.ID, b.book_title, b.book_isbn, b.book_isbn_13, b.book_summary, b.book_cover_img, 
                b.book_date, b.book_create_date, b.book_filename, b.book_entry_point, b.book_spine, 
-               b.book_publisher_id, b.language_id, b.book_format_id,
+               b.book_publisher_id, b.language_id, b.book_format_id, b.book_downloads,
                l.language_name, 
                f.format_name, 
                p.publisher_name,
@@ -535,7 +596,7 @@ app.use('/api/userroles', createCrudRouter('UserRoles', db, 'ID', ['GET']));
 app.use('/api/reviews', createCrudRouter('Reviews', db));
 
 // Library scan endpoint
-const { scanLibrary } = require('./utils/libraryScanner');
+const { scanLibrary, refreshCovers } = require('./utils/libraryScanner');
 app.get('/api/debug/files', (req, res) => {
     try {
         const files = fs.readdirSync(BOOKS_DIR);
@@ -571,6 +632,33 @@ app.get('/api/library/scan', (req, res) => {
     })
     .catch(err => {
         console.error('Library scan error:', err);
+        sendEvent({ type: 'error', error: err.message });
+        res.end();
+    });
+});
+
+app.get('/api/library/refresh-covers', (req, res) => {
+    // Set headers for SSE
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders(); 
+
+    const sendEvent = (data) => {
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    console.log('Cover refresh requested by user (SSE):', req.user?.user_username);
+
+    refreshCovers(db, (message, count, total) => {
+        sendEvent({ type: 'progress', message, count, total });
+    })
+    .then(result => {
+        sendEvent({ type: 'complete', ...result, message: `Cover refresh complete: ${result.totalProcessed} covers processed.` });
+        res.end();
+    })
+    .catch(err => {
+        console.error('Cover refresh error:', err);
         sendEvent({ type: 'error', error: err.message });
         res.end();
     });

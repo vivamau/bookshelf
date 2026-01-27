@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { authApi } from '../api/api';
 import { BookOpen, User, Lock, Mail } from 'lucide-react';
@@ -6,13 +7,16 @@ import { cn } from '../lib/utils';
 
 export default function Login() {
   const { login } = useAuth();
+  const navigate = useNavigate();
   const [isRegister, setIsRegister] = useState(false);
   const [formData, setFormData] = useState({ username: '', email: '', password: '' });
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
     try {
       if (isRegister) {
         const res = await authApi.register(formData);
@@ -21,8 +25,11 @@ export default function Login() {
         const res = await authApi.login({ username: formData.username, password: formData.password });
         login(res.data);
       }
+      navigate('/');
     } catch (err) {
       setError(err.response?.data || 'Authentication failed');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -85,8 +92,10 @@ export default function Login() {
 
           <button 
             type="submit"
-            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2.5 rounded-md mt-4 shadow-lg shadow-primary/10 transition-all active:scale-[0.98]"
+            disabled={loading}
+            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2.5 rounded-md mt-4 shadow-lg shadow-primary/10 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
           >
+            {loading && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
             {isRegister ? 'Create Account' : 'Sign In'}
           </button>
         </form>
