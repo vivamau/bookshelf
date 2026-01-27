@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate, useParams, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate, useParams, Link, Navigate, useLocation } from 'react-router-dom';
 import { 
   Home, 
   BookMarked, 
   Library as LibraryIcon, 
   Search, 
   Settings, 
-  Users, 
+  Users as UsersIcon, 
   LogOut, 
   User as UserIcon,
   ChevronRight,
@@ -32,6 +32,7 @@ import Library from './pages/Library';
 import Publishers from './pages/Publishers';
 import PublisherDetails from './pages/PublisherDetails';
 import GenreDetails from './pages/GenreDetails';
+import UsersPage from './pages/Users';
 import { booksApi, libraryApi } from './api/api';
 
 // UI Components
@@ -111,6 +112,7 @@ const Section = ({ title, children, showAll = true, to }) => (
 
 const Layout = ({ children }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout, hasPermission } = useAuth();
   const [showLibraryMenu, setShowLibraryMenu] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -197,13 +199,13 @@ const Layout = ({ children }) => {
   const navItems = [
     { label: 'Home', icon: Home, to: '/' },
     { label: 'Read Lists', icon: BookMarked },
-    { label: 'Authors', icon: Users, to: '/authors' }, // Re-adding authors link too just in case
+    { label: 'Authors', icon: UsersIcon, to: '/authors' }, // Re-adding authors link too just in case
     { label: 'Publishers', icon: Building2, to: '/publishers' },
     { label: 'Library', icon: LibraryIcon, to: '/library' },
   ];
 
   const adminItems = [
-    { label: 'Manage Users', icon: Users, permission: 'userrole_manageusers' },
+    { label: 'Manage Users', icon: UsersIcon, permission: 'userrole_manageusers', to: '/users' },
     { label: 'Add Book', icon: Plus, permission: 'userrole_managebooks' },
     { label: 'Settings', icon: Settings, permission: 'userrole_managebooks' },
   ];
@@ -236,7 +238,7 @@ const Layout = ({ children }) => {
               icon={item.icon} 
               label={item.label} 
               to={item.to}
-              active={window.location.pathname === (item.to || '/_')}
+              active={location.pathname === (item.to || '/_')}
               hasMenu={item.label === 'Library'}
               onMenuClick={() => setShowLibraryMenu(!showLibraryMenu)}
             />
@@ -302,7 +304,8 @@ const Layout = ({ children }) => {
                   key={item.label} 
                   icon={item.icon} 
                   label={item.label} 
-                  active={false}
+                  active={location.pathname === item.to}
+                  to={item.to}
                 />
               ))}
             </div>
@@ -312,7 +315,7 @@ const Layout = ({ children }) => {
         <div className="p-4 border-t border-border mt-auto">
           <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent cursor-pointer transition-colors group">
             <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center border border-border group-hover:border-primary/50 transition-colors">
-               <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username}`} alt="Avatar" className="rounded-full" />
+               <img src={user?.user_avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username || 'default'}`} alt="Avatar" className="rounded-full" />
             </div>
             <div className="flex flex-col overflow-hidden flex-1">
               <span className="text-sm font-bold truncate">{user?.username || 'User'}</span>
@@ -454,26 +457,30 @@ function Dashboard() {
 }
 
 function AuthenticatedApp() {
-  const { user, loading } = useAuth();
+  const { user, loading, hasPermission } = useAuth();
+  
   if (loading) return (
     <div className="h-screen w-full bg-background flex items-center justify-center">
         <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
     </div>
   );
-  
-  if (!user) return <Login />;
 
   return (
     <Routes>
-      <Route path="/" element={<Layout><Dashboard /></Layout>} />
-      <Route path="/book/:id" element={<Layout><BookDetails /></Layout>} />
-      <Route path="/author/:id" element={<Layout><AuthorDetails /></Layout>} />
-      <Route path="/authors" element={<Layout><Authors /></Layout>} />
-      <Route path="/publisher/:id" element={<Layout><PublisherDetails /></Layout>} />
-      <Route path="/publishers" element={<Layout><Publishers /></Layout>} />
-      <Route path="/genre/:id" element={<Layout><GenreDetails /></Layout>} />
-      <Route path="/library" element={<Layout><Library /></Layout>} />
-      <Route path="/reader/:id" element={<Reader />} />
+      <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
+      
+      {/* Protected Routes */}
+      <Route path="/" element={user ? <Layout><Dashboard /></Layout> : <Navigate to="/login" />} />
+      <Route path="/book/:id" element={user ? <Layout><BookDetails /></Layout> : <Navigate to="/login" />} />
+      <Route path="/author/:id" element={user ? <Layout><AuthorDetails /></Layout> : <Navigate to="/login" />} />
+      <Route path="/authors" element={user ? <Layout><Authors /></Layout> : <Navigate to="/login" />} />
+      <Route path="/publisher/:id" element={user ? <Layout><PublisherDetails /></Layout> : <Navigate to="/login" />} />
+      <Route path="/publishers" element={user ? <Layout><Publishers /></Layout> : <Navigate to="/login" />} />
+      <Route path="/genre/:id" element={user ? <Layout><GenreDetails /></Layout> : <Navigate to="/login" />} />
+      <Route path="/library" element={user ? <Layout><Library /></Layout> : <Navigate to="/login" />} />
+      <Route path="/users" element={user ? (hasPermission('userrole_manageusers') ? <Layout><UsersPage /></Layout> : <Navigate to="/" />) : <Navigate to="/login" />} />
+      <Route path="/reader/:id" element={user ? <Reader /> : <Navigate to="/login" />} />
+      <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   );
 }

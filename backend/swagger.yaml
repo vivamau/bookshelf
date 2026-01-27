@@ -68,6 +68,8 @@ components:
           type: string
         user_lastname:
           type: string
+        user_avatar:
+          type: string
     Genere:
       type: object
       properties:

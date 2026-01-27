@@ -71,13 +71,20 @@ app.post('/login', (req, res) => {
                 process.env.TOKEN_KEY || 'default_secret_key',
                 { expiresIn: "2h" }
             );
-            user.token = token;
-            delete user.user_password; // Don't send password back
+            const userInfo = {
+                id: user.ID,
+                username: user.user_username,
+                email: user.user_email,
+                user_avatar: user.user_avatar,
+                userrole_name: user.userrole_name,
+                userrole_manageusers: user.userrole_manageusers,
+                userrole_managebooks: user.userrole_managebooks,
+                userrole_readbooks: user.userrole_readbooks,
+                userrole_viewbooks: user.userrole_viewbooks,
+                token: token
+            };
             
-            // Set cookie for automatic sub-resource authentication
-            res.setHeader('Set-Cookie', `token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=7200`);
-            
-            return res.status(200).json(user);
+            return res.status(200).json(userInfo);
         }
         return res.status(400).send("Invalid Credentials");
     });
@@ -100,14 +107,22 @@ app.post('/register', async (req, res) => {
         // Encrypt password
         const encryptedPassword = await bcrypt.hash(password, 10);
         
-        const insertSql = "INSERT INTO Users (user_username, user_email, user_password, user_create_date) VALUES (?, ?, ?, ?)";
+        const insertSql = "INSERT INTO Users (user_username, user_email, user_password, userrole_id, user_create_date) VALUES (?, ?, ?, ?, ?)";
         const now = Date.now();
+        const defaultRoleId = 3; // Guest
         
-        db.run(insertSql, [username, email, encryptedPassword, now], function(err) {
+        db.run(insertSql, [username, email, encryptedPassword, defaultRoleId, now], function(err) {
             if (err) return res.status(500).send(err.message);
             
              const token = jwt.sign(
-                { user_id: this.lastID, email },
+                { 
+                    user_id: this.lastID, 
+                    email,
+                    userrole_manageusers: 0,
+                    userrole_managebooks: 0,
+                    userrole_readbooks: 0,
+                    userrole_viewbooks: 1
+                },
                 process.env.TOKEN_KEY || 'default_secret_key',
                 { expiresIn: "2h" }
             );
@@ -115,7 +130,19 @@ app.post('/register', async (req, res) => {
             // Set cookie for automatic sub-resource authentication
             res.setHeader('Set-Cookie', `token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=7200`);
             
-            res.status(201).json({ id: this.lastID, username, email, token });
+            const defaultAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`;
+            res.status(201).json({ 
+                id: this.lastID, 
+                username, 
+                email, 
+                user_avatar: defaultAvatar,
+                token,
+                userrole_name: 'guest',
+                userrole_manageusers: 0,
+                userrole_managebooks: 0,
+                userrole_readbooks: 0,
+                userrole_viewbooks: 1
+            });
         });
     });
 });
@@ -274,7 +301,110 @@ app.use('/api/publishers', (req, res, next) => {
     publishersRouter.use('/', crud);
     publishersRouter(req, res, next);
 });
-app.use('/api/users', createCrudRouter('Users', db));
+const usersRouter = express.Router();
+
+// Middleware to check if user can manage users
+const checkManageUsers = (req, res, next) => {
+    if (!req.user.userrole_manageusers) {
+        return res.status(403).json({ error: 'Forbidden: Requires manageusers permission' });
+    }
+    next();
+};
+
+usersRouter.use(checkManageUsers);
+
+usersRouter.get('/', (req, res) => {
+    const sql = `
+        SELECT u.ID, u.user_username, u.user_email, u.user_name, u.user_lastname, u.user_avatar, u.user_create_date, u.user_update_date, u.userrole_id, 
+               r.userrole_name, r.userrole_manageusers, r.userrole_managebooks, r.userrole_readbooks, r.userrole_viewbooks
+        FROM Users u
+        LEFT JOIN UserRoles r ON u.userrole_id = r.ID
+    `;
+    db.all(sql, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ data: rows });
+    });
+});
+
+usersRouter.get('/:id', (req, res) => {
+    const sql = `
+        SELECT u.ID, u.user_username, u.user_email, u.user_name, u.user_lastname, u.user_avatar, u.user_create_date, u.user_update_date, u.userrole_id, 
+               r.userrole_name, r.userrole_manageusers, r.userrole_managebooks, r.userrole_readbooks, r.userrole_viewbooks
+        FROM Users u
+        LEFT JOIN UserRoles r ON u.userrole_id = r.ID
+        WHERE u.ID = ?
+    `;
+    db.get(sql, [req.params.id], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ error: 'User not found' });
+        res.json({ data: row });
+    });
+});
+
+usersRouter.post('/', async (req, res) => {
+    const { user_username, user_email, user_password, userrole_id, user_name, user_lastname, user_avatar } = req.body;
+    
+    if (!user_username || !user_email || !user_password) {
+        return res.status(400).json({ error: 'Username, email and password are required' });
+    }
+
+    try {
+        const hashedPassword = await bcrypt.hash(user_password, 10);
+        const now = Date.now();
+        const sql = `
+            INSERT INTO Users (user_username, user_email, user_password, user_name, user_lastname, user_avatar, userrole_id, user_create_date, user_update_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+        const defaultAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user_username}`;
+        const params = [user_username, user_email, hashedPassword, user_name || null, user_lastname || null, user_avatar || defaultAvatar, userrole_id || 3, now, now];
+        
+        db.run(sql, params, function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.status(201).json({ data: { ID: this.lastID, user_username, user_email, userrole_id } });
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+usersRouter.put('/:id', async (req, res) => {
+    const { user_username, user_email, user_password, userrole_id, user_name, user_lastname, user_avatar } = req.body;
+    const userId = req.params.id;
+    const now = Date.now();
+
+    const defaultAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user_username}`;
+    let sql = "UPDATE Users SET user_username = ?, user_email = ?, user_name = ?, user_lastname = ?, user_avatar = ?, userrole_id = ?, user_update_date = ?";
+    let params = [user_username, user_email, user_name || null, user_lastname || null, user_avatar || defaultAvatar, userrole_id, now];
+
+    if (user_password && user_password.trim() !== "") {
+        try {
+            const hashedPassword = await bcrypt.hash(user_password, 10);
+            sql = "UPDATE Users SET user_username = ?, user_email = ?, user_password = ?, user_name = ?, user_lastname = ?, user_avatar = ?, userrole_id = ?, user_update_date = ?";
+            params = [user_username, user_email, hashedPassword, user_name || null, user_lastname || null, user_avatar || defaultAvatar, userrole_id, now];
+        } catch (err) {
+            return res.status(500).json({ error: err.message });
+        }
+    }
+
+    sql += " WHERE ID = ?";
+    params.push(userId);
+
+    db.run(sql, params, function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        if (this.changes === 0) return res.status(404).json({ error: 'User not found' });
+        res.json({ message: 'User updated' });
+    });
+});
+
+usersRouter.delete('/:id', (req, res) => {
+    db.run("DELETE FROM Users WHERE ID = ?", [req.params.id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        if (this.changes === 0) return res.status(404).json({ error: 'User not found' });
+        res.json({ message: 'User deleted' });
+    });
+});
+
+app.use('/api/users', usersRouter);
 app.use('/api/books-users', createCrudRouter('BooksUsers', db));
 app.use('/api/languages', createCrudRouter('Languages', db));
 // Custom Books Routes (Override default GET to include joins and progress)
