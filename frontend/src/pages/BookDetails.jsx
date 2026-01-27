@@ -16,7 +16,8 @@ import {
   ChevronDown,
   X,
   Trash2,
-  Calendar
+  Calendar,
+  ExternalLink
 } from 'lucide-react';
 import { booksApi, genresApi, booksGenresApi, authorsApi, booksAuthorsApi, publishersApi, reviewsApi } from '../api/api';
 import { useAuth } from '../context/AuthContext';
@@ -160,6 +161,14 @@ export default function BookDetails() {
   const [isAddingReview, setIsAddingReview] = useState(false);
   const [reviewForm, setReviewForm] = useState({ title: '', description: '' });
   const [submittingReview, setSubmittingReview] = useState(false);
+  
+  // Author Books State
+  const [authorBooks, setAuthorBooks] = useState([]);
+  const [loadingAuthorBooks, setLoadingAuthorBooks] = useState(false);
+  const [externalBooks, setExternalBooks] = useState([]);
+  const [loadingExternal, setLoadingExternal] = useState(false);
+  const [similarBooks, setSimilarBooks] = useState([]);
+  const [loadingSimilar, setLoadingSimilar] = useState(false);
 
   const fetchReviews = async () => {
     try {
@@ -167,6 +176,109 @@ export default function BookDetails() {
       setReviews(res.data.data || []);
     } catch (err) {
       console.error("Failed to fetch reviews", err);
+    }
+  };
+
+  const fetchAuthorBooks = async (bookData) => {
+    if (!bookData.authors_data || typeof bookData.authors_data !== 'string') return;
+    
+    setLoadingAuthorBooks(true);
+    try {
+      const authorIds = bookData.authors_data.split('||').map(authorStr => {
+        const parts = authorStr.split('::');
+        return parts.length >= 1 ? parts[0] : null;
+      }).filter(Boolean);
+
+      if (authorIds.length > 0) {
+        // Fetch books from the first author for now, or all if preferred. 
+        // Let's go with the first author to keep the UI clean.
+        const res = await authorsApi.getBooks(authorIds[0]);
+        // Filter out the current book
+        const filteredBooks = (res.data.data || []).filter(b => String(b.ID) !== String(id));
+        setAuthorBooks(filteredBooks);
+
+        // Fetch from Open Library
+        const authorName = bookData.authors_data.split('||')[0]?.split('::')[1];
+        if (authorName) fetchFromOpenLibrary(authorName, filteredBooks.concat(bookData));
+      }
+    } catch (err) {
+      console.error("Failed to fetch author books", err);
+    } finally {
+      setLoadingAuthorBooks(false);
+    }
+  };
+
+  const fetchFromOpenLibrary = async (authorName, existingBooks) => {
+    setLoadingExternal(true);
+    try {
+      const query = encodeURIComponent(authorName);
+      const res = await fetch(`https://openlibrary.org/search.json?author=${query}&limit=20`);
+      const data = await res.json();
+      
+      if (data.docs) {
+        // Create a list of existing titles to filter
+        const existingTitles = existingBooks.map(b => (b.book_title || '').toLowerCase().trim());
+        
+        const external = data.docs
+          .filter(doc => {
+            const title = (doc.title || '').toLowerCase().trim();
+            // Basic filtering: not in existing titles and has a cover
+            return !existingTitles.includes(title) && doc.cover_i;
+          })
+          .slice(0, 8)
+          .map(doc => ({
+            id: doc.key,
+            title: doc.title,
+            year: doc.first_publish_year,
+            cover: `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`,
+            key: doc.key
+          }));
+          
+        setExternalBooks(external);
+      }
+    } catch (err) {
+      console.error("Failed to fetch from Open Library", err);
+    } finally {
+      setLoadingExternal(false);
+    }
+  };
+
+  const fetchSimilarBooks = async (bookData) => {
+    if (!bookData.genres_data || typeof bookData.genres_data !== 'string') return;
+    
+    setLoadingSimilar(true);
+    try {
+      const genreIds = bookData.genres_data.split('||').map(g => {
+        const parts = g.split('::');
+        return parts.length >= 2 ? parts[1] : null;
+      }).filter(Boolean);
+
+      if (genreIds.length > 0) {
+        // Fetch books for each genre and combine
+        const allGenreBooks = await Promise.all(
+          genreIds.map(genreId => genresApi.getBooks(genreId))
+        );
+        
+        // Flatten, unique by ID, and filter out current book
+        const combined = allGenreBooks
+          .flatMap(res => res.data.data || [])
+          .reduce((acc, current) => {
+            const x = acc.find(item => item.ID === current.ID);
+            if (!x && String(current.ID) !== String(id)) {
+              return acc.concat([current]);
+            } else {
+              return acc;
+            }
+          }, [])
+          .sort(() => 0.5 - Math.random()) // Shuffle results
+          .slice(0, 8);
+
+        setSimilarBooks(combined);
+      }
+    } catch (err) {
+      console.error("Failed to fetch similar books", err);
+    } finally {
+      setLoadingSimilar(false);
     }
   };
 
@@ -458,6 +570,13 @@ export default function BookDetails() {
     fetchBook();
     fetchReviews();
   }, [id]);
+
+  useEffect(() => {
+    if (book) {
+      fetchAuthorBooks(book);
+      fetchSimilarBooks(book);
+    }
+  }, [book?.ID, book?.authors_data, book?.genres_data]);
 
   if (loading) {
     return (
@@ -1049,18 +1168,118 @@ export default function BookDetails() {
           </div>
         </div>
 
+        {/* Books from the same author */}
+        {authorBooks.length > 0 && (
+          <div className="mt-24">
+              <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-2xl font-black tracking-tight text-foreground line-clamp-1 uppercase">
+                    Books from {book.authors_data?.split('||')[0]?.split('::')[1] || 'the same author'} in bookshelf
+                  </h3>
+                  <div 
+                    onClick={() => {
+                      const firstAuthorId = book.authors_data?.split('||')[0]?.split('::')[0];
+                      if (firstAuthorId) navigate(`/author/${firstAuthorId}`);
+                    }}
+                    className="flex items-center gap-1 text-primary font-bold text-xs uppercase tracking-widest cursor-pointer hover:underline"
+                  >
+                    View All <ChevronRight size={14} />
+                  </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-6">
+                  {authorBooks.slice(0, 8).map(authorBook => (
+                      <div 
+                        key={authorBook.ID} 
+                        onClick={() => navigate(`/book/${authorBook.ID}`)}
+                        className="group flex flex-col gap-2 cursor-pointer transition-all duration-300 hover:-translate-y-1"
+                      >
+                          <div className="relative aspect-[2/3] rounded-sm overflow-hidden bg-accent/50 border border-border group-hover:border-primary/50 transition-all shadow-md group-hover:shadow-[0_0_15px_rgba(241,24,76,0.3)]">
+                              <img 
+                                src={authorBook.book_cover_img ? `${import.meta.env.VITE_API_BASE_URL}/covers/${authorBook.book_cover_img}` : `https://api.dicebear.com/7.x/initials/svg?seed=${authorBook.book_title}`} 
+                                alt={authorBook.book_title}
+                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              />
+                          </div>
+                          <div className="flex flex-col">
+                              <span className="text-sm font-semibold truncate group-hover:text-primary transition-colors">{authorBook.book_title}</span>
+                              <span className="text-xs text-muted-foreground">{authorBook.book_date ? new Date(authorBook.book_date).getFullYear() : 'N/A'}</span>
+                          </div>
+                      </div>
+                  ))}
+              </div>
+          </div>
+        )}
+
+        {/* Other books not in the library (Open Library) */}
+        {externalBooks.length > 0 && (
+          <div className="mt-20 pt-10 border-t border-white/5">
+              <div className="flex items-center justify-between mb-8">
+                  <div>
+                      <h2 className="text-2xl font-black tracking-tight text-foreground uppercase">Otherbooks</h2>
+                      <p className="text-xs text-muted-foreground font-medium mt-1">Discover more works by {book.authors_data?.split('||')[0]?.split('::')[1]} from Open Library.</p>
+                  </div>
+                  <div className="h-px flex-1 mx-8 bg-gradient-to-r from-white/5 to-transparent hidden md:block" />
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-6">
+                  {externalBooks.map(extBook => (
+                      <a 
+                        key={extBook.id} 
+                        href={`https://openlibrary.org${extBook.key}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group flex flex-col gap-2 cursor-pointer animate-in fade-in zoom-in duration-500"
+                      >
+                          <div className="relative aspect-[2/3] overflow-hidden rounded-sm bg-accent/30 border border-border group-hover:border-primary/30 transition-all shadow-sm">
+                              <img 
+                                src={extBook.cover} 
+                                alt={extBook.title}
+                                className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
+                              />
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                <div className="bg-primary/20 p-2 rounded-full text-primary transform scale-50 group-hover:scale-100 transition-all duration-300">
+                                    <ExternalLink size={20} />
+                                </div>
+                              </div>
+                          </div>
+                          <div className="flex flex-col overflow-hidden">
+                              <span className="text-[12px] font-bold truncate group-hover:text-primary transition-colors leading-tight mb-1">{extBook.title}</span>
+                              <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">{extBook.year || 'N/A'}</span>
+                          </div>
+                      </a>
+                  ))}
+              </div>
+          </div>
+        )}
+
         {/* Similar Books Row */}
-        <div className="mt-24">
-            <div className="flex justify-between items-center mb-6">
-                <h3 className="text-2xl font-black tracking-tight text-foreground">You Might Also Like</h3>
-                <ChevronRight className="text-muted-foreground hover:text-primary cursor-pointer" />
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4 opacity-50">
-                {[1,2,3,4,5,6].map(i => (
-                    <div key={i} className="aspect-[2/3] bg-muted rounded-md animate-pulse"></div>
-                ))}
-            </div>
-        </div>
+        {similarBooks.length > 0 && (
+          <div className="mt-24 mb-20">
+              <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-2xl font-black tracking-tight text-foreground uppercase">You Might Also Like</h3>
+                  <ChevronRight size={24} className="text-muted-foreground hover:text-primary cursor-pointer transition-colors" />
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-6">
+                  {similarBooks.map(similarBook => (
+                      <div 
+                        key={similarBook.ID} 
+                        onClick={() => navigate(`/book/${similarBook.ID}`)}
+                        className="group flex flex-col gap-2 cursor-pointer transition-all duration-300 hover:-translate-y-1"
+                      >
+                          <div className="relative aspect-[2/3] rounded-sm overflow-hidden bg-accent/50 border border-border group-hover:border-primary/50 transition-all shadow-md group-hover:shadow-[0_0_15px_rgba(241,24,76,0.3)]">
+                              <img 
+                                src={similarBook.book_cover_img ? `${import.meta.env.VITE_API_BASE_URL}/covers/${similarBook.book_cover_img}` : `https://api.dicebear.com/7.x/initials/svg?seed=${similarBook.book_title}`} 
+                                alt={similarBook.book_title}
+                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              />
+                          </div>
+                          <div className="flex flex-col">
+                              <span className="text-sm font-semibold truncate group-hover:text-primary transition-colors">{similarBook.book_title}</span>
+                              <span className="text-xs text-muted-foreground">{similarBook.book_date ? new Date(similarBook.book_date).getFullYear() : 'N/A'}</span>
+                          </div>
+                      </div>
+                  ))}
+              </div>
+          </div>
+        )}
 
         {/* Custom Confirmation Modal */}
         {showDeleteModal && (
