@@ -7,6 +7,9 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs'); 
 const axios = require('axios');
 const fs = require('fs');
+const multer = require('multer');
+
+const { scanLibrary, refreshCovers, importFiles, scanSingleFile } = require('./utils/libraryScanner');
 
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
@@ -471,6 +474,52 @@ app.use('/api/languages', createCrudRouter('Languages', db));
 // Custom Books Routes (Override default GET to include joins and progress)
 const booksRouter = createCrudRouter('Books', db, 'ID', ['POST', 'PUT']);
 
+// Multer setup for book uploads
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, BOOKS_DIR);
+    },
+    filename: function (req, file, cb) {
+        // Keep original filename or sanitize
+        cb(null, file.originalname);
+    }
+});
+const upload = multer({ 
+    storage: storage,
+    fileFilter: (req, file, cb) => {
+        if (
+            file.mimetype === 'application/epub+zip' || 
+            file.mimetype === 'application/pdf' || 
+            file.originalname.toLowerCase().endsWith('.epub') || 
+            file.originalname.toLowerCase().endsWith('.pdf')
+        ) {
+            cb(null, true);
+        } else {
+            cb(new Error('Invalid file type. Only EPUB and PDF are allowed.'));
+        }
+    }
+});
+
+// Upload Book Route
+booksRouter.post('/upload', checkManageBooks, upload.single('book'), async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded or invalid format' });
+    
+    try {
+        console.log(`Uploaded file: ${req.file.filename}`);
+        const result = await scanSingleFile(db, req.file.filename);
+        
+        if (result && result.isNew) {
+            res.status(201).json({ message: 'Book uploaded and processed successfully', filename: req.file.filename, bookId: result.bookId });
+        } else {
+            const bookId = result ? result.bookId : null;
+            res.status(200).json({ message: 'Book updated (duplicate found)', filename: req.file.filename, bookId });
+        }
+    } catch (err) {
+        console.error('Upload processing error:', err);
+        res.status(500).json({ error: 'Processing failed: ' + err.message });
+    }
+});
+
 // -----------------------------------------------------------------
 // SPECIFIC ROUTES (MUST BE BEFORE PARAMETRIZED ROUTES)
 // -----------------------------------------------------------------
@@ -533,7 +582,7 @@ booksRouter.get('/most-downloaded', (req, res) => {
 });
 
 // Custom DELETE for books - removes metadata AND files
-booksRouter.delete('/:id', (req, res) => {
+booksRouter.delete('/:id', checkManageBooks, (req, res) => {
     const bookId = req.params.id;
     
     // First, get book details to know which files to delete
@@ -865,7 +914,8 @@ app.use('/api/userroles', createCrudRouter('UserRoles', db, 'ID', ['GET']));
 app.use('/api/reviews', createCrudRouter('Reviews', db));
 
 // Library scan endpoint
-const { scanLibrary, refreshCovers, importFiles } = require('./utils/libraryScanner');
+// Library scan endpoint
+// const { scanLibrary, refreshCovers, importFiles } = require('./utils/libraryScanner'); // Moved to top
 app.get('/api/debug/files', (req, res) => {
     try {
         const files = fs.readdirSync(BOOKS_DIR);

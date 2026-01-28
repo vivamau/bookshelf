@@ -46,6 +46,9 @@ export const booksApi = {
   getProgress: (id) => api.get(`/books/${id}/progress`),
   updateProgress: (id, data) => api.post(`/books/${id}/progress`, data),
   create: (data) => api.post('/books', data),
+  upload: (formData) => api.post('/books/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
   update: (id, data) => api.put(`/books/${id}`, data),
   delete: (id) => api.delete(`/books/${id}`),
   getReviews: (id) => api.get(`/books/${id}/reviews`),

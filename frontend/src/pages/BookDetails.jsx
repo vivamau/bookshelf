@@ -620,9 +620,33 @@ export default function BookDetails() {
         <div className="flex flex-col md:flex-row gap-12 items-start">
           {/* Poster / Cover */}
           <div className="w-full max-w-[300px] shrink-0 self-center md:self-start flex flex-col gap-4">
-            <div className="aspect-[2/3] rounded-lg overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 group relative">
+            <div 
+              onClick={() => {
+                if (!hasPermission('userrole_readbooks') || !book.file_exists) return;
+                
+                if (book.format_name === 'PDF') {
+                  const token = localStorage.getItem('token');
+                  window.open(`${import.meta.env.VITE_API_BASE_URL}/api/books/${id}/download-file?token=${token}`, '_blank');
+                } else if (book.book_entry_point) {
+                  navigate(`/reader/${id}`);
+                }
+              }}
+              className={cn(
+                "aspect-[2/3] rounded-lg overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 group relative transition-transform duration-300",
+                (hasPermission('userrole_readbooks') && book.file_exists) ? "cursor-pointer hover:scale-[1.02] hover:shadow-[0_25px_60px_rgba(0,0,0,0.6)]" : "opacity-80"
+              )}
+            >
                 <img src={coverUrl} alt={book.book_title} className="w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors" />
+                
+                {/* Play overlay icon on hover */}
+                {(hasPermission('userrole_readbooks') && book.file_exists) && (
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 backdrop-blur-[1px]">
+                    <div className="h-16 w-16 rounded-full bg-primary/90 flex items-center justify-center text-primary-foreground shadow-xl scale-90 group-hover:scale-100 transition-transform">
+                      <Play size={32} fill="currentColor" className="ml-1" />
+                    </div>
+                  </div>
+                )}
             </div>
 
             {isEditing && (
@@ -763,6 +787,10 @@ export default function BookDetails() {
                   <span className="flex items-center gap-1.5 text-muted-foreground text-xs font-bold bg-white/5 px-2 py-0.5 rounded-full">
                     <Users size={12} className="text-primary" />
                     {book.readers_count || 0} Readers
+                  </span>
+                  <span className="flex items-center gap-1.5 text-muted-foreground text-xs font-bold bg-white/5 px-2 py-0.5 rounded-full">
+                    <Download size={12} className="text-primary" />
+                    {book.book_downloads || 0} Downloads
                   </span>
               </div>
               {isEditing ? (
@@ -1156,12 +1184,6 @@ export default function BookDetails() {
                         style={{ color: book.file_exists ? '#8bad0d' : '#f0194b' }}
                     >
                         {book.file_exists ? 'Available' : 'Missing File'}
-                    </p>
-                </div>
-                <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Downloads</p>
-                    <p className="text-sm font-bold text-foreground">
-                        {book.book_downloads || 0} times
                     </p>
                 </div>
             </div>

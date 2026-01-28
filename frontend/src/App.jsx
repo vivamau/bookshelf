@@ -33,7 +33,8 @@ import PublisherDetails from './pages/PublisherDetails';
 import GenreDetails from './pages/GenreDetails';
 import UsersPage from './pages/Users';
 import SettingsPage from './pages/Settings';
-import { booksApi, libraryApi } from './api/api';
+import AddBook from './pages/AddBook';
+import { booksApi, libraryApi, genresApi } from './api/api';
 import ProfileModal from './components/ProfileModal';
 
 // UI Components
@@ -219,7 +220,7 @@ const Layout = ({ children }) => {
 
   const adminItems = [
     { label: 'Manage Users', icon: UsersIcon, permission: 'userrole_manageusers', to: '/users' },
-    { label: 'Add Book', icon: Plus, permission: 'userrole_managebooks' },
+    { label: 'Add Book', icon: Plus, permission: 'userrole_managebooks', to: '/add-book' },
     { label: 'Settings', icon: SlidersHorizontal, permission: 'userrole_managebooks', to: '/settings' },
   ];
 
@@ -592,6 +593,7 @@ function AuthenticatedApp() {
       <Route path="/library" element={user ? <Layout><Library /></Layout> : <Navigate to="/login" />} />
       <Route path="/users" element={user ? (hasPermission('userrole_manageusers') ? <Layout><UsersPage /></Layout> : <Navigate to="/" />) : <Navigate to="/login" />} />
       <Route path="/settings" element={user ? (hasPermission('userrole_managebooks') ? <Layout><SettingsPage /></Layout> : <Navigate to="/" />) : <Navigate to="/login" />} />
+      <Route path="/add-book" element={user ? (hasPermission('userrole_managebooks') ? <Layout><AddBook /></Layout> : <Navigate to="/" />) : <Navigate to="/login" />} />
       <Route path="/reader/:id" element={user ? <Reader /> : <Navigate to="/login" />} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>

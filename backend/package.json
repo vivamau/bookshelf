@@ -14,16 +14,17 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "adm-zip": "^0.5.10",
     "axios": "^1.13.2",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
     "sqlite3": "^5.1.7",
-    "adm-zip": "^0.5.10",
-    "xml2js": "^0.6.2",
     "swagger-ui-express": "^5.0.1",
+    "xml2js": "^0.6.2",
     "yamljs": "^0.3.0"
   },
   "overrides": {
