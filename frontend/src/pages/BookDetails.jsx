@@ -829,7 +829,9 @@ export default function BookDetails() {
                             }).filter(Boolean);
                             // Exclude current authors
                             return !currentAuthorIds.includes(String(author.ID));
-                          }).map(author => (
+                          })
+                          .sort((a, b) => (a.author_name + ' ' + a.author_lastname).localeCompare(b.author_name + ' ' + b.author_lastname))
+                          .map(author => (
                             <option key={author.ID} value={author.ID}>
                               {author.author_name} {author.author_lastname}
                             </option>

@@ -127,4 +127,8 @@ export const settingsApi = {
 };
 
 
+export const searchApi = {
+  search: (query) => api.get('/search', { params: { q: query } }),
+};
+
 export default api;

@@ -34,7 +34,7 @@ import GenreDetails from './pages/GenreDetails';
 import UsersPage from './pages/Users';
 import SettingsPage from './pages/Settings';
 import AddBook from './pages/AddBook';
-import { booksApi, libraryApi, genresApi } from './api/api';
+import { booksApi, libraryApi, genresApi, searchApi } from './api/api';
 import ProfileModal from './components/ProfileModal';
 
 // UI Components
@@ -124,6 +124,28 @@ const Layout = ({ children }) => {
   const [currentScanningBook, setCurrentScanningBook] = useState('');
   const [isFadingOut, setIsFadingOut] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState(null);
+  const [showResults, setShowResults] = useState(false);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+      if (searchQuery.length >= 2) {
+        try {
+          const res = await searchApi.search(searchQuery);
+          setSearchResults(res.data.data);
+          setShowResults(true);
+        } catch (err) {
+          console.error("Search failed", err);
+        }
+      } else {
+        setSearchResults(null);
+        setShowResults(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
 
   const handleShuffle = async () => {
     try {
@@ -348,17 +370,102 @@ const Layout = ({ children }) => {
         <header className="h-20 flex items-center px-8 gap-8 justify-between sticky top-0 bg-background/60 backdrop-blur-xl z-[30] border-b border-border/40">
           <div className="flex items-center gap-6 flex-1">
             <div className="flex items-center gap-3">
-                <Menu size={20} className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
                 <ArrowLeft onClick={() => navigate(-1)} size={20} className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
             </div>
             
-            <div className="flex-1 max-w-2xl relative group">
+            <div className="flex-1 max-w-2xl relative group z-50">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={20} />
               <input 
                 type="text" 
                 placeholder="Search for books, authors, genres..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => { if(searchQuery.length >= 2) setShowResults(true); }}
+                onBlur={() => setTimeout(() => setShowResults(false), 200)}
                 className="w-full bg-secondary/30 border border-transparent focus:border-primary/20 focus:bg-secondary/50 rounded-full py-2.5 pl-12 pr-6 text-sm transition-all outline-none"
               />
+              
+              {showResults && searchResults && (
+                  <div className="absolute top-full mt-2 left-0 right-0 bg-card/95 backdrop-blur-xl border border-border/50 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1 flex flex-col max-h-[70vh] overflow-y-auto custom-scrollbar">
+                      {/* Books */}
+                      {searchResults.books && searchResults.books.length > 0 && (
+                          <div className="p-2 border-b border-border/40 last:border-0">
+                              <h4 className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-muted-foreground">Books</h4>
+                              {searchResults.books.map(book => (
+                                  <div 
+                                    key={book.ID} 
+                                    onClick={() => { navigate(`/book/${book.ID}`); setShowResults(false); setSearchQuery(''); }}
+                                    className="flex items-center gap-3 p-2 hover:bg-primary/10 rounded-lg cursor-pointer transition-colors group"
+                                  >
+                                      <div className="h-10 w-7 bg-muted rounded overflow-hidden flex-shrink-0 border border-border/50 group-hover:border-primary/50">
+                                          {book.book_cover_img ? (
+                                              <img src={`${import.meta.env.VITE_API_BASE_URL}/covers/${book.book_cover_img}`} className="w-full h-full object-cover" />
+                                          ) : (
+                                              <div className="w-full h-full flex items-center justify-center bg-secondary text-[8px] text-muted-foreground font-bold">N/A</div>
+                                          )}
+                                      </div>
+                                      <div className="flex flex-col overflow-hidden">
+                                          <span className="text-sm font-bold truncate text-foreground group-hover:text-primary transition-colors">{book.book_title}</span>
+                                          <span className="text-[10px] text-muted-foreground">{new Date(book.book_create_date).getFullYear()}</span>
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      )}
+
+                      {/* Authors */}
+                      {searchResults.authors && searchResults.authors.length > 0 && (
+                          <div className="p-2 border-b border-border/40 last:border-0">
+                               <h4 className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-muted-foreground">Authors</h4>
+                               {searchResults.authors.map(author => (
+                                   <div 
+                                      key={author.ID}
+                                      onClick={() => { navigate(`/author/${author.ID}`); setShowResults(false); setSearchQuery(''); }}
+                                      className="flex items-center gap-3 p-2 hover:bg-primary/10 rounded-lg cursor-pointer transition-colors group"
+                                   >
+                                       <div className="h-8 w-8 rounded-full bg-secondary overflow-hidden flex-shrink-0 border border-border/50 group-hover:border-primary/50">
+                                            <img 
+                                                src={author.author_avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${author.author_name}${author.author_lastname}`} 
+                                                className="w-full h-full object-cover" 
+                                            />
+                                       </div>
+                                       <span className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">
+                                           {author.author_name} {author.author_lastname}
+                                       </span>
+                                   </div>
+                               ))}
+                          </div>
+                      )}
+
+                      {/* Genres */}
+                      {searchResults.genres && searchResults.genres.length > 0 && (
+                          <div className="p-2 border-b border-border/40 last:border-0">
+                               <h4 className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-muted-foreground">Genres</h4>
+                               {searchResults.genres.map(genre => (
+                                   <div 
+                                      key={genre.ID}
+                                      onClick={() => { navigate(`/genre/${genre.ID}`); setShowResults(false); setSearchQuery(''); }}
+                                      className="flex items-center gap-3 p-2 hover:bg-primary/10 rounded-lg cursor-pointer transition-colors group"
+                                   >
+                                       <div className="h-8 w-8 rounded bg-secondary/50 flex items-center justify-center text-muted-foreground group-hover:text-primary">
+                                            <Shuffle size={14} />
+                                       </div>
+                                       <span className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">
+                                           {genre.genere_title}
+                                       </span>
+                                   </div>
+                               ))}
+                          </div>
+                      )}
+                      
+                      {(!searchResults.books?.length && !searchResults.authors?.length && !searchResults.genres?.length) && (
+                          <div className="p-8 text-center text-muted-foreground flex flex-col items-center gap-2">
+                             <Search size={24} className="opacity-20" />
+                             <span className="text-xs font-medium">No results found for "{searchQuery}"</span>
+                          </div>
+                      )}
+                  </div>
+              )}
             </div>
           </div>
 

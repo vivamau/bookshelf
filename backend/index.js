@@ -276,6 +276,43 @@ generesRouter.get('/:id', (req, res) => {
 });
 
 generesRouter.use('/', createCrudRouter('Generes', db));
+app.get('/api/search', async (req, res) => {
+    const query = req.query.q;
+    if (!query || query.length < 2) return res.json({ data: { books: [], authors: [], genres: [] } });
+
+    const searchParams = `%${query}%`;
+
+    try {
+        const booksPromise = new Promise((resolve, reject) => {
+             db.all("SELECT ID, book_title, book_cover_img, book_create_date FROM Books WHERE book_title LIKE ? LIMIT 5", [searchParams], (err, rows) => {
+                 if (err) reject(err);
+                 else resolve(rows || []);
+             });
+        });
+
+        const authorsPromise = new Promise((resolve, reject) => {
+             db.all("SELECT ID, author_name, author_lastname, author_avatar FROM Authors WHERE author_name LIKE ? OR author_lastname LIKE ? LIMIT 5", [searchParams, searchParams], (err, rows) => {
+                 if (err) reject(err);
+                 else resolve(rows || []);
+             });
+        });
+
+         const genresPromise = new Promise((resolve, reject) => {
+             db.all("SELECT ID, genere_title FROM Generes WHERE genere_title LIKE ? LIMIT 5", [searchParams], (err, rows) => {
+                 if (err) reject(err);
+                 else resolve(rows || []);
+             });
+        });
+
+        const [books, authors, genres] = await Promise.all([booksPromise, authorsPromise, genresPromise]);
+        res.json({ data: { books, authors, genres } });
+
+    } catch (err) {
+        console.error('Search error:', err);
+        res.status(500).json({ error: 'Search failed' });
+    }
+});
+
 app.use('/api/generes', generesRouter);
 
 app.use('/api/formats', createCrudRouter('Formats', db));
@@ -711,20 +748,33 @@ booksRouter.get('/', (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 50; 
     const offset = (page - 1) * limit;
+    const search = req.query.search || '';
 
-    const countSql = `SELECT COUNT(*) as total FROM Books`;
-    const sql = `
+    let countSql = `SELECT COUNT(*) as total FROM Books`;
+    let sql = `
         SELECT b.*, bu.book_progress_percentage 
         FROM Books b
         LEFT JOIN BooksUsers bu ON b.ID = bu.book_id AND bu.user_id = ?
-        ORDER BY b.ID DESC
-        LIMIT ? OFFSET ?
     `;
+    
+    const params = [userId];
+    const countParams = [];
 
-    db.get(countSql, [], (err, countRow) => {
+    if (search) {
+        const searchClause = " WHERE b.book_title LIKE ?";
+        countSql += " WHERE book_title LIKE ?";
+        sql += searchClause;
+        params.push(`%${search}%`);
+        countParams.push(`%${search}%`);
+    }
+
+    sql += ` ORDER BY b.ID DESC LIMIT ? OFFSET ?`;
+    params.push(limit, offset);
+
+    db.get(countSql, countParams, (err, countRow) => {
         if (err) return res.status(500).json({ error: err.message });
 
-        db.all(sql, [userId, limit, offset], (err, rows) => {
+        db.all(sql, params, (err, rows) => {
             if (err) return res.status(500).json({ error: err.message });
             res.json({ 
                 data: rows,

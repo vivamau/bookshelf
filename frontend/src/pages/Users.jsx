@@ -12,7 +12,8 @@ import {
   X,
   AlertCircle,
   RefreshCw,
-  Camera
+  Camera,
+  Plus
 } from 'lucide-react';
 import { usersApi, rolesApi } from '../api/api';
 import { cn, formatDate } from "@/lib/utils";
@@ -153,7 +154,7 @@ export default function Users() {
                 onClick={handleOpenCreate}
                 className="flex items-center gap-2 px-6 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full font-black text-xs uppercase tracking-wider transition-all shadow-lg active:scale-95"
             >
-                <UserPlus size={16} />
+                <Plus size={16} />
                 Create User
             </button>
         </div>

@@ -1,3 +1,6 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { authorsApi } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 import { 
   User, 
@@ -115,10 +118,10 @@ export default function Authors() {
             {hasPermission('userrole_managebooks') && (
                 <button 
                     onClick={() => setIsAddingAuthor(true)}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-xs font-black uppercase tracking-wider transition-all border border-primary/20 hover:border-primary/50"
+                    className="flex items-center gap-2 px-6 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full font-black text-xs uppercase tracking-wider transition-all shadow-lg active:scale-95"
                 >
-                    <Plus size={14} />
-                    Add Author
+                    <Plus size={16} />
+                    Create Author
                 </button>
             )}
         </div>

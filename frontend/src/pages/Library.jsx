@@ -8,7 +8,8 @@ import {
   SlidersHorizontal,
   BookOpen,
   Check,
-  RefreshCw
+  RefreshCw,
+  Search
 } from 'lucide-react';
 import { cn, formatDate } from "@/lib/utils";
 
@@ -21,6 +22,7 @@ export default function Library() {
   const [totalBooks, setTotalBooks] = useState(0);
   const [viewMode, setViewMode] = useState('grid');
   const [sortBy, setSortBy] = useState('title'); // title, date, year
+  const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
   
   const observer = useRef();
@@ -35,12 +37,12 @@ export default function Library() {
     if (node) observer.current.observe(node);
   }, [loading, loadingMore, hasMore]);
 
-  const fetchBooks = async (pageToFetch) => {
+  const fetchBooks = async (pageToFetch, search = '') => {
     try {
       if (pageToFetch === 1) setLoading(true);
       else setLoadingMore(true);
 
-      const res = await booksApi.getAll({ page: pageToFetch, limit: 50 });
+      const res = await booksApi.getAll({ page: pageToFetch, limit: 50, search });
       const newBooks = res.data.data || [];
       
       setBooks(prev => pageToFetch === 1 ? newBooks : [...prev, ...newBooks]);
@@ -54,8 +56,21 @@ export default function Library() {
     }
   };
 
+  // Debounce search
   useEffect(() => {
-    fetchBooks(page);
+    const delayDebounceFn = setTimeout(() => {
+        setPage(1);
+        fetchBooks(1, searchTerm);
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchTerm]);
+
+  // Handle pagination (only if not searching, or searching same term)
+  useEffect(() => {
+    if (page > 1) {
+        fetchBooks(page, searchTerm);
+    }
   }, [page]);
 
   const alphaIndex = useMemo(() => {
@@ -112,6 +127,16 @@ export default function Library() {
         </div>
 
         <div className="flex items-center gap-4 text-muted-foreground">
+            <div className="relative">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input 
+                    placeholder="Search library..." 
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    className="bg-white/5 border border-white/10 rounded-full pl-9 pr-4 py-1.5 text-sm outline-none focus:border-primary/50 transition-all w-48 focus:w-64"
+                />
+            </div>
+
             <SlidersHorizontal size={20} className="hover:text-foreground cursor-pointer transition-colors" />
             
             <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1">
