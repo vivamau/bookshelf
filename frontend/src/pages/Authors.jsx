@@ -1,6 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { authorsApi } from '../api/api';
+import { useAuth } from '../context/AuthContext';
 import { 
   User, 
   Search,
@@ -9,16 +7,27 @@ import {
   List, 
   SlidersHorizontal,
   Play,
-  Shuffle
+  Shuffle,
+  Plus,
+  X,
+  Loader,
+  AlertCircle
 } from 'lucide-react';
 import { cn, formatDate } from "@/lib/utils";
 
 export default function Authors() {
+  const { hasPermission } = useAuth();
   const [authors, setAuthors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState('grid');
   const navigate = useNavigate();
+
+  // Add Author State
+  const [isAddingAuthor, setIsAddingAuthor] = useState(false);
+  const [newAuthor, setNewAuthor] = useState({ author_name: '', author_lastname: '' });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchAuthors = async () => {
@@ -34,6 +43,42 @@ export default function Authors() {
     };
     fetchAuthors();
   }, []);
+
+  const handleAddAuthor = async (e) => {
+    e.preventDefault();
+    if (!newAuthor.author_name) {
+        setError('First Name is required');
+        return;
+    }
+    
+    setSubmitting(true);
+    setError('');
+
+    try {
+        const res = await authorsApi.create({
+            author_name: newAuthor.author_name,
+            author_lastname: newAuthor.author_lastname,
+            author_create_date: Date.now(),
+            author_update_date: Date.now()
+        });
+        
+        // Refresh list or add directly
+        const createdAuthor = res.data.data ? { ...newAuthor, ...res.data.data } : null;
+        if (createdAuthor) {
+            // Need to reload to get ID if not returned fully, but usually create returns ID
+            // Let's just reload for safety or append if we trust return
+            const refreshRes = await authorsApi.getAll();
+            setAuthors(refreshRes.data.data || []);
+            setIsAddingAuthor(false);
+            setNewAuthor({ author_name: '', author_lastname: '' });
+        }
+    } catch (err) {
+        console.error("Failed to create author", err);
+        setError(err.response?.data?.error || 'Failed to create author');
+    } finally {
+        setSubmitting(false);
+    }
+  };
 
   const filteredAuthors = authors.filter(author => {
     const fullName = `${author.author_name} ${author.author_lastname}`.toLowerCase();
@@ -66,12 +111,28 @@ export default function Authors() {
             <div className="h-6 w-px bg-white/10 mx-2" />
             
             <span className="text-xl font-bold text-foreground">{filteredAuthors.length}</span>
+            
+            {hasPermission('userrole_managebooks') && (
+                <button 
+                    onClick={() => setIsAddingAuthor(true)}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-xs font-black uppercase tracking-wider transition-all border border-primary/20 hover:border-primary/50"
+                >
+                    <Plus size={14} />
+                    Add Author
+                </button>
+            )}
         </div>
 
         <div className="flex items-center gap-4 text-muted-foreground">
-            <Play size={20} className="hover:text-foreground cursor-pointer transition-colors" />
-            <Shuffle size={20} className="hover:text-foreground cursor-pointer transition-colors" />
-            <SlidersHorizontal size={20} className="hover:text-foreground cursor-pointer transition-colors" />
+            <div className="relative">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input 
+                    placeholder="Search authors..." 
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    className="bg-white/5 border border-white/10 rounded-full pl-9 pr-4 py-1.5 text-sm outline-none focus:border-primary/50 transition-all w-48 focus:w-64"
+                />
+            </div>
             
             <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1">
                 <button 
@@ -174,6 +235,71 @@ export default function Authors() {
              </div>
           )}
        </div>
+
+       {/* Add Author Modal */}
+       {isAddingAuthor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-card border border-white/10 rounded-2xl p-8 w-full max-w-md shadow-2xl relative animate-in zoom-in-95 duration-200">
+                <button 
+                    onClick={() => setIsAddingAuthor(false)}
+                    className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                    <X size={20} />
+                </button>
+                
+                <h2 className="text-2xl font-black tracking-tight mb-2">Add New Author</h2>
+                <p className="text-muted-foreground text-sm mb-6">Create a new author profile manually.</p>
+                
+                <form onSubmit={handleAddAuthor} className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">First Name</label>
+                        <input 
+                            autoFocus
+                            value={newAuthor.author_name}
+                            onChange={e => setNewAuthor({...newAuthor, author_name: e.target.value})}
+                            placeholder="e.g. Stephen"
+                            className="bg-black/20 border border-white/10 rounded-lg px-4 py-3 text-sm font-medium outline-none focus:border-primary/50 transition-all"
+                        />
+                    </div>
+                    
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Last Name</label>
+                        <input 
+                            value={newAuthor.author_lastname}
+                            onChange={e => setNewAuthor({...newAuthor, author_lastname: e.target.value})}
+                            placeholder="e.g. King"
+                            className="bg-black/20 border border-white/10 rounded-lg px-4 py-3 text-sm font-medium outline-none focus:border-primary/50 transition-all"
+                        />
+                    </div>
+
+                    {error && (
+                        <div className="bg-destructive/10 text-destructive text-xs font-bold px-4 py-3 rounded-lg flex items-center gap-2">
+                            <AlertCircle size={14} />
+                            {error}
+                        </div>
+                    )}
+
+                    <div className="flex items-center gap-3 mt-4">
+                         <button 
+                            type="button"
+                            onClick={() => setIsAddingAuthor(false)}
+                            className="flex-1 py-3 rounded-xl font-bold text-sm bg-secondary/50 hover:bg-secondary text-foreground transition-colors"
+                         >
+                            Cancel
+                         </button>
+                         <button 
+                            type="submit"
+                            disabled={submitting || !newAuthor.author_name}
+                            className="flex-1 py-3 rounded-xl font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 disabled:opacity-50 flex items-center justify-center gap-2"
+                         >
+                            {submitting ? <Loader size={16} className="animate-spin" /> : <Plus size={16} />}
+                            Create Author
+                         </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+       )}
     </div>
   );
 }
