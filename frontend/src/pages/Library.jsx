@@ -6,8 +6,6 @@ import {
   LayoutGrid, 
   List, 
   SlidersHorizontal,
-  Play,
-  Shuffle,
   BookOpen,
   Check,
   RefreshCw
@@ -114,8 +112,6 @@ export default function Library() {
         </div>
 
         <div className="flex items-center gap-4 text-muted-foreground">
-            <Play size={20} className="hover:text-foreground cursor-pointer transition-colors" />
-            <Shuffle size={20} className="hover:text-foreground cursor-pointer transition-colors" />
             <SlidersHorizontal size={20} className="hover:text-foreground cursor-pointer transition-colors" />
             
             <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1">

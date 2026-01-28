@@ -11,13 +11,14 @@ import {
   User as UserIcon,
   ChevronRight,
   Menu,
-  Activity,
+  Shuffle, // Changed from Activity
   ArrowLeft,
   BookOpen,
   Plus,
   MoreVertical,
   RefreshCw,
-  Building2
+  Building2,
+  SlidersHorizontal
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -31,6 +32,7 @@ import Publishers from './pages/Publishers';
 import PublisherDetails from './pages/PublisherDetails';
 import GenreDetails from './pages/GenreDetails';
 import UsersPage from './pages/Users';
+import SettingsPage from './pages/Settings';
 import { booksApi, libraryApi } from './api/api';
 import ProfileModal from './components/ProfileModal';
 
@@ -122,6 +124,17 @@ const Layout = ({ children }) => {
   const [isFadingOut, setIsFadingOut] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
 
+  const handleShuffle = async () => {
+    try {
+      const res = await booksApi.getRandom();
+      if (res.data.data && res.data.data.ID) {
+        navigate(`/book/${res.data.data.ID}`);
+      }
+    } catch (err) {
+      console.error('Failed to get random book:', err);
+    }
+  };
+
   const runLibraryTask = async (taskType) => {
     setIsScanning(true);
     setScanType(taskType);
@@ -207,7 +220,7 @@ const Layout = ({ children }) => {
   const adminItems = [
     { label: 'Manage Users', icon: UsersIcon, permission: 'userrole_manageusers', to: '/users' },
     { label: 'Add Book', icon: Plus, permission: 'userrole_managebooks' },
-    { label: 'Settings', icon: Settings, permission: 'userrole_managebooks' },
+    { label: 'Settings', icon: SlidersHorizontal, permission: 'userrole_managebooks', to: '/settings' },
   ];
 
   return (
@@ -286,7 +299,7 @@ const Layout = ({ children }) => {
                       style={{ width: `${scanProgress}%` }} 
                     />
                   </div>
-                  <p className="text-[9px] text-muted-foreground truncate italic">{currentScanningBook}</p>
+                  <p className="text-[9px] text-muted-foreground italic break-all overflow-hidden whitespace-pre-wrap" style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>{currentScanningBook}</p>
                 </div>
               ) : (
                 <p className="text-[10px] font-bold text-foreground leading-tight">{scanMessage}</p>
@@ -306,7 +319,6 @@ const Layout = ({ children }) => {
                   label={item.label} 
                   active={location.pathname === item.to}
                   to={item.to}
-                  onClick={item.label === 'Settings' ? () => setShowProfileModal(true) : undefined}
                 />
               ))}
             </div>
@@ -350,7 +362,11 @@ const Layout = ({ children }) => {
           </div>
 
           <div className="flex items-center gap-6 text-muted-foreground">
-            <Activity size={20} className="hover:text-foreground cursor-pointer transition-colors" />
+            <Shuffle 
+                size={20} 
+                className="hover:text-foreground cursor-pointer transition-colors" 
+                onClick={handleShuffle}
+            />
             <Settings 
                 size={20} 
                 className="hover:text-foreground cursor-pointer transition-colors" 
@@ -370,26 +386,48 @@ const Layout = ({ children }) => {
   );
 }
 
+
 function Dashboard() {
   const { user, hasPermission } = useAuth();
   const [books, setBooks] = useState([]);
+  const [continueReading, setContinueReading] = useState([]);
+  const [mostRead, setMostRead] = useState([]);
+  const [mostDownloaded, setMostDownloaded] = useState([]);
+  const [genresWithBooks, setGenresWithBooks] = useState([]);
+  const [activeTab, setActiveTab] = useState('Explore'); // 'Explore', 'Trending', etc.
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchBooks = async () => {
+    const fetchData = async () => {
+      setLoading(true);
       try {
-        const res = await booksApi.getAll();
-        const sortedBooks = (res.data.data || []).sort((a, b) => b.ID - a.ID);
-        setBooks(sortedBooks);
+        if (activeTab === 'Explore') {
+          const [booksRes, continueRes] = await Promise.all([
+              booksApi.getAll(),
+              booksApi.getContinueReading()
+          ]);
+          setBooks((booksRes.data.data || []).sort((a, b) => b.ID - a.ID));
+          setContinueReading(continueRes.data.data || []);
+        } else if (activeTab === 'Trending') {
+          const [readRes, downloadRes] = await Promise.all([
+              booksApi.getMostRead(),
+              booksApi.getMostDownloaded()
+          ]);
+          setMostRead(readRes.data.data || []);
+          setMostDownloaded(downloadRes.data.data || []);
+        } else if (activeTab === 'Genres') {
+          const res = await genresApi.getWithBooks();
+          setGenresWithBooks(res.data.data || []);
+        }
       } catch (err) {
-        console.error("Failed to fetch books", err);
+        console.error(`Failed to fetch ${activeTab} data`, err);
       } finally {
         setLoading(false);
       }
     };
-    fetchBooks();
-  }, []);
+    fetchData();
+  }, [activeTab]);
 
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden">
@@ -398,12 +436,25 @@ function Dashboard() {
 
         {/* Tabs */}
         <div className="flex items-center gap-8 px-10 pt-8 pb-4 text-xs font-black uppercase tracking-[2px] text-muted-foreground overflow-x-auto whitespace-nowrap hide-scrollbar z-10">
-          <span className="text-primary border-b-2 border-primary pb-1 cursor-pointer">Explore</span>
-          <span className="hover:text-foreground cursor-pointer transition-colors">Trending</span>
+          <span 
+            onClick={() => setActiveTab('Explore')}
+            className={cn("pb-1 cursor-pointer transition-all", activeTab === 'Explore' ? "text-primary border-b-2 border-primary" : "hover:text-foreground")}
+          >
+            Explore
+          </span>
+          <span 
+            onClick={() => setActiveTab('Trending')}
+            className={cn("pb-1 cursor-pointer transition-all", activeTab === 'Trending' ? "text-primary border-b-2 border-primary" : "hover:text-foreground")}
+          >
+            Trending
+          </span>
           <span className="hover:text-foreground cursor-pointer transition-colors">Recommended</span>
-          <span className="hover:text-foreground cursor-pointer transition-colors">New arrivals</span>
-          <span onClick={() => navigate('/authors')} className="hover:text-foreground cursor-pointer transition-colors">Authors</span>
-          <span className="hover:text-foreground cursor-pointer transition-colors">Genres</span>
+          <span 
+            onClick={() => setActiveTab('Genres')}
+            className={cn("pb-1 cursor-pointer transition-all", activeTab === 'Genres' ? "text-primary border-b-2 border-primary" : "hover:text-foreground")}
+          >
+            Genres
+          </span>
         </div>
 
         {/* Scrollable Content */}
@@ -417,33 +468,86 @@ function Dashboard() {
              </div>
           ) : (
             <>
-              {books.length > 0 && hasPermission('userrole_readbooks') && (
-                <Section title="Continue Reading">
-                  {books.filter(b => b.book_progress_percentage > 0).slice(0, 5).map((book, idx) => (
-                    <BookCard 
+              {activeTab === 'Explore' && (
+                <>
+                  {continueReading.length > 0 && hasPermission('userrole_readbooks') && (
+                    <Section title="Continue Reading" showAll={false}>
+                      {continueReading.map((book) => (
+                        <BookCard 
+                            key={book.ID} 
+                            id={book.ID}
+                            title={book.book_title} 
+                            year={book.book_date ? new Date(book.book_date).getFullYear() : 'N/A'}
+                            progress={book.book_progress_percentage} 
+                            cover={book.book_cover_img ? `${import.meta.env.VITE_API_BASE_URL}/covers/${book.book_cover_img}` : null} 
+                        />
+                      ))}
+                    </Section>
+                  )}
+
+                  <Section title="Recently Added Books" to="/library">
+                    {books.slice(0, 24).map((book) => (
+                      <BookCard 
                         key={book.ID} 
                         id={book.ID}
                         title={book.book_title} 
                         year={book.book_date ? new Date(book.book_date).getFullYear() : 'N/A'}
-                        progress={book.book_progress_percentage} 
+                        progress={book.book_progress_percentage}
                         cover={book.book_cover_img ? `${import.meta.env.VITE_API_BASE_URL}/covers/${book.book_cover_img}` : null} 
-                    />
-                  ))}
-                </Section>
+                      />
+                    ))}
+                  </Section>
+                </>
               )}
 
-              <Section title="Recently Added Books" to="/library">
-                {books.slice(0, 24).map((book) => (
-                  <BookCard 
-                    key={book.ID} 
-                    id={book.ID}
-                    title={book.book_title} 
-                    year={book.book_date ? new Date(book.book_date).getFullYear() : 'N/A'}
-                    progress={book.book_progress_percentage}
-                    cover={book.book_cover_img ? `${import.meta.env.VITE_API_BASE_URL}/covers/${book.book_cover_img}` : null} 
-                  />
-                ))}
-              </Section>
+              {activeTab === 'Trending' && (
+                <>
+                  <Section title="MOST READ" showAll={false}>
+                    {mostRead.map((book) => (
+                      <BookCard 
+                        key={book.ID} 
+                        id={book.ID}
+                        title={book.book_title} 
+                        year={book.book_date ? new Date(book.book_date).getFullYear() : 'N/A'}
+                        progress={book.book_progress_percentage}
+                        cover={book.book_cover_img ? `${import.meta.env.VITE_API_BASE_URL}/covers/${book.book_cover_img}` : null} 
+                      />
+                    ))}
+                  </Section>
+
+                  <Section title="MOST DOWNLOADED" showAll={false}>
+                    {mostDownloaded.map((book) => (
+                      <BookCard 
+                        key={book.ID} 
+                        id={book.ID}
+                        title={book.book_title} 
+                        year={book.book_date ? new Date(book.book_date).getFullYear() : 'N/A'}
+                        progress={book.book_progress_percentage}
+                        cover={book.book_cover_img ? `${import.meta.env.VITE_API_BASE_URL}/covers/${book.book_cover_img}` : null} 
+                      />
+                    ))}
+                  </Section>
+                </>
+              )}
+
+              {activeTab === 'Genres' && (
+                <div className="flex flex-col gap-2">
+                    {genresWithBooks.map(genre => (
+                        <Section key={genre.ID} title={genre.genere_title} to={`/genre/${genre.ID}`}>
+                            {genre.books.map(book => (
+                                <BookCard 
+                                    key={book.ID} 
+                                    id={book.ID}
+                                    title={book.book_title} 
+                                    year={book.book_date ? new Date(book.book_date).getFullYear() : 'N/A'}
+                                    progress={book.book_progress_percentage}
+                                    cover={book.book_cover_img ? `${import.meta.env.VITE_API_BASE_URL}/covers/${book.book_cover_img}` : null} 
+                                />
+                            ))}
+                        </Section>
+                    ))}
+                </div>
+              )}
 
               {!hasPermission('userrole_readbooks') && !loading && books.length > 0 && (
                 <div className="bg-primary/5 border border-primary/20 rounded-xl p-8 mb-10 flex flex-col items-center text-center max-w-2xl mx-auto">
@@ -487,6 +591,7 @@ function AuthenticatedApp() {
       <Route path="/genre/:id" element={user ? <Layout><GenreDetails /></Layout> : <Navigate to="/login" />} />
       <Route path="/library" element={user ? <Layout><Library /></Layout> : <Navigate to="/login" />} />
       <Route path="/users" element={user ? (hasPermission('userrole_manageusers') ? <Layout><UsersPage /></Layout> : <Navigate to="/" />) : <Navigate to="/login" />} />
+      <Route path="/settings" element={user ? (hasPermission('userrole_managebooks') ? <Layout><SettingsPage /></Layout> : <Navigate to="/" />) : <Navigate to="/login" />} />
       <Route path="/reader/:id" element={user ? <Reader /> : <Navigate to="/login" />} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>

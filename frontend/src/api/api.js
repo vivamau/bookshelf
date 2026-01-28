@@ -40,6 +40,8 @@ export const authApi = {
 
 export const booksApi = {
   getAll: (params = {}) => api.get('/books', { params }),
+  getContinueReading: () => api.get('/books/continue-reading'),
+  getRandom: () => api.get('/books/random'),
   getById: (id) => api.get(`/books/${id}`),
   getProgress: (id) => api.get(`/books/${id}/progress`),
   updateProgress: (id, data) => api.post(`/books/${id}/progress`, data),
@@ -49,6 +51,8 @@ export const booksApi = {
   getReviews: (id) => api.get(`/books/${id}/reviews`),
   setCoverFromUrl: (id, coverUrl) => api.post(`/books/${id}/cover-from-url`, { coverUrl }),
   incrementDownload: (id) => api.post(`/books/${id}/download`),
+  getMostRead: () => api.get('/books/most-read'),
+  getMostDownloaded: () => api.get('/books/most-downloaded'),
 };
 
 export const authorsApi = {
@@ -66,6 +70,7 @@ export const rolesApi = {
 
 export const genresApi = {
   getAll: () => api.get('/generes'),
+  getWithBooks: () => api.get('/generes/with-books'),
   getById: (id) => api.get(`/generes/${id}`),
   getBooks: (id) => api.get(`/generes/${id}/books`),
   create: (data) => api.post('/generes', data),
@@ -109,6 +114,13 @@ export const reviewsApi = {
   create: (data) => api.post('/reviews', data),
   update: (id, data) => api.put(`/reviews/${id}`, data),
   delete: (id) => api.delete(`/reviews/${id}`),
+};
+
+export const settingsApi = {
+  getDirectories: () => api.get('/settings/directories'),
+  addDirectory: (path) => api.post('/settings/directories', { path }),
+  deleteDirectory: (id) => api.delete(`/settings/directories/${id}`),
+  browseFilesystem: (path) => api.get('/settings/browse', { params: { path } }),
 };
 
 

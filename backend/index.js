@@ -12,6 +12,7 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const app = express();
+const os = require('os');
 const PORT = process.env.PORT || 3005;
 
 app.use(cors());
@@ -158,6 +159,13 @@ const checkReadPermission = (req, res, next) => {
     next();
 };
 
+const checkManageBooks = (req, res, next) => {
+    if (!req.user || !req.user.userrole_managebooks) {
+        return res.status(403).send('Forbidden: Manage Books access required');
+    }
+    next();
+};
+
 // Help seed the session cookie from query param for reader assets
 const seedCookie = (req, res, next) => {
     if (req.query.token) {
@@ -173,6 +181,45 @@ app.use('/extracted', seedCookie, auth, checkReadPermission, express.static(path
 // API Routes
 // Custom Generes Routes (Handle timestamps)
 const generesRouter = express.Router();
+// Get all genres with a sample of books for each
+generesRouter.get('/with-books', (req, res) => {
+    const userId = req.user.user_id;
+    // Get all genres first
+    db.all("SELECT * FROM Generes ORDER BY genere_title ASC", [], (err, genres) => {
+        if (err) return res.status(500).json({ error: err.message });
+        
+        
+        // For each genre, get its books
+        // We use a complex query or just map them. Since genres are usually few, 
+        // a simple Promise.all with db.all works well.
+        const genrePromises = genres.map(genre => {
+            return new Promise((resolve, reject) => {
+                const sql = `
+                    SELECT b.*, bu.book_progress_percentage 
+                    FROM Books b
+                    JOIN BooksGeneres bg ON b.ID = bg.book_id
+                    LEFT JOIN BooksUsers bu ON b.ID = bu.book_id AND bu.user_id = ?
+                    WHERE bg.genere_id = ?
+                    LIMIT 8
+                `;
+                db.all(sql, [userId, genre.ID], (err, books) => {
+                    if (err) reject(err);
+                    else resolve({ ...genre, books });
+                });
+            });
+        });
+
+        Promise.all(genrePromises)
+            .then(results => {
+                // Filter out genres with no books
+                res.json({ data: results.filter(g => g.books.length > 0) });
+            })
+            .catch(error => {
+                res.status(500).json({ error: error.message });
+            });
+    });
+});
+
 generesRouter.post('/', (req, res) => {
     let { genere_title } = req.body;
     if (!genere_title) return res.status(400).json({ error: 'Title required' });
@@ -423,6 +470,67 @@ app.use('/api/books-users', createCrudRouter('BooksUsers', db));
 app.use('/api/languages', createCrudRouter('Languages', db));
 // Custom Books Routes (Override default GET to include joins and progress)
 const booksRouter = createCrudRouter('Books', db, 'ID', ['POST', 'PUT']);
+
+// -----------------------------------------------------------------
+// SPECIFIC ROUTES (MUST BE BEFORE PARAMETRIZED ROUTES)
+// -----------------------------------------------------------------
+
+// Get a random book ID
+booksRouter.get('/random', (req, res) => {
+    db.get("SELECT ID FROM Books ORDER BY RANDOM() LIMIT 1", [], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ error: 'No books found' });
+        res.json({ data: row });
+    });
+});
+
+// Get books with progress for Continue Reading section
+booksRouter.get('/continue-reading', (req, res) => {
+    const userId = req.user.user_id;
+    const sql = `
+        SELECT b.*, bu.book_progress_percentage 
+        FROM Books b
+        INNER JOIN BooksUsers bu ON b.ID = bu.book_id
+        WHERE bu.user_id = ? AND bu.book_progress_percentage > 0 AND bu.book_progress_percentage < 100
+        ORDER BY bu.booksusers_update_date DESC
+        LIMIT 10
+    `;
+    db.all(sql, [userId], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ data: rows });
+    });
+});
+
+// Most Read Books (ranked by unique readers)
+booksRouter.get('/most-read', (req, res) => {
+    const sql = `
+        SELECT b.*, COUNT(DISTINCT bu.user_id) as reader_count
+        FROM Books b
+        LEFT JOIN BooksUsers bu ON b.ID = bu.book_id
+        GROUP BY b.ID
+        HAVING reader_count > 0
+        ORDER BY reader_count DESC
+        LIMIT 16
+    `;
+    db.all(sql, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ data: rows });
+    });
+});
+
+// Most Downloaded Books
+booksRouter.get('/most-downloaded', (req, res) => {
+    const sql = `
+        SELECT * FROM Books 
+        WHERE book_downloads > 0
+        ORDER BY book_downloads DESC 
+        LIMIT 16
+    `;
+    db.all(sql, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ data: rows });
+    });
+});
 
 // Custom DELETE for books - removes metadata AND files
 booksRouter.delete('/:id', (req, res) => {
@@ -757,7 +865,7 @@ app.use('/api/userroles', createCrudRouter('UserRoles', db, 'ID', ['GET']));
 app.use('/api/reviews', createCrudRouter('Reviews', db));
 
 // Library scan endpoint
-const { scanLibrary, refreshCovers } = require('./utils/libraryScanner');
+const { scanLibrary, refreshCovers, importFiles } = require('./utils/libraryScanner');
 app.get('/api/debug/files', (req, res) => {
     try {
         const files = fs.readdirSync(BOOKS_DIR);
@@ -771,6 +879,66 @@ app.get('/api/debug/files', (req, res) => {
     }
 });
 
+// Settings / Scan Directories Routes
+const settingsRouter = express.Router();
+
+settingsRouter.get('/browse', (req, res) => {
+    let dirPath = req.query.path || os.homedir();
+    
+    try {
+        if (!fs.existsSync(dirPath)) {
+             return res.status(404).json({ error: 'Directory not found' });
+        }
+        
+        const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+        const folders = entries
+            .filter(dirent => dirent.isDirectory() && !dirent.name.startsWith('.'))
+            .map(dirent => dirent.name)
+            .sort();
+            
+        res.json({
+            path: dirPath,
+            parent: path.dirname(dirPath),
+            folders: folders,
+            separator: path.sep
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+settingsRouter.get('/directories', (req, res) => {
+    db.all("SELECT * FROM ScanDirectories ORDER BY created_at DESC", [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ data: rows });
+    });
+});
+
+settingsRouter.post('/directories', (req, res) => {
+    const { path: dirPath } = req.body;
+    if (!dirPath) return res.status(400).json({ error: 'Path is required' });
+    
+    const now = Date.now();
+    db.run("INSERT INTO ScanDirectories (path, created_at) VALUES (?, ?)", [dirPath, now], function(err) {
+        if (err) {
+            if (err.message.includes('UNIQUE constraint failed')) {
+               return res.status(400).json({ error: 'Directory already added' });
+            }
+            return res.status(500).json({ error: err.message });
+        }
+        res.json({ id: this.lastID, path: dirPath });
+    });
+});
+
+settingsRouter.delete('/directories/:id', (req, res) => {
+    db.run("DELETE FROM ScanDirectories WHERE ID = ?", [req.params.id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ message: 'Deleted' });
+    });
+});
+
+app.use('/api/settings', auth, checkManageBooks, settingsRouter);
+
 app.get('/api/library/scan', (req, res) => {
     // Set headers for SSE
     res.setHeader('Content-Type', 'text/event-stream');
@@ -783,9 +951,16 @@ app.get('/api/library/scan', (req, res) => {
     };
 
     console.log('Library scan requested by user (SSE):', req.user?.user_username);
-
-    scanLibrary(db, (message, count, total) => {
-        sendEvent({ type: 'progress', message, count, total });
+    
+    // First, run import from directories
+    importFiles(db, (message) => {
+        sendEvent({ type: 'progress', message, count: 0, total: 100 }); // Indeterminate progress for import
+    })
+    .then(() => {
+        // Then run scan
+        return scanLibrary(db, (message, count, total) => {
+            sendEvent({ type: 'progress', message, count, total });
+        });
     })
     .then(result => {
         sendEvent({ type: 'complete', ...result, message: `Scan complete: ${result.totalFiles} files processed. ${result.newBooks} new books added.` });

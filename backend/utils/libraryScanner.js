@@ -505,4 +505,87 @@ const refreshCovers = async (db, onProgress) => {
     }
 };
 
-module.exports = { scanLibrary, refreshCovers };
+const importFiles = async (db, onProgress) => {
+    try {
+        console.log('Starting import from external directories...');
+        
+        // Custom recursive walk that follows symlinks or just standard dirs
+        // We reuse or adapt walkSync but for specific list of dirs
+        
+        const directories = await new Promise((resolve, reject) => {
+            db.all("SELECT path FROM ScanDirectories", [], (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows.map(r => r.path));
+            });
+        });
+
+        if (directories.length === 0) {
+            console.log('No import directories configured.');
+            return { success: true, importedCount: 0 };
+        }
+
+        console.log(`Checking ${directories.length} import directories...`);
+        let importedCount = 0;
+
+        for (const dir of directories) {
+            try {
+                if (onProgress) {
+                    onProgress(`Scanning folder: ${dir}...`);
+                    // Yield to event loop to allow flush
+                    await new Promise(resolve => setTimeout(resolve, 1200));
+                }
+
+                if (!fs.existsSync(dir)) {
+                    console.log(`Skipping missing directory: ${dir}`);
+                    continue;
+                }
+
+                // We need a recursive walk for this dir
+                const files = [];
+                const getFiles = (d) => {
+                    try {
+                        const list = fs.readdirSync(d);
+                        list.forEach(file => {
+                            const fullPath = path.join(d, file);
+                            const stat = fs.statSync(fullPath);
+                            if (stat && stat.isDirectory()) {
+                                getFiles(fullPath);
+                            } else {
+                                if (file.toLowerCase().endsWith('.epub') || file.toLowerCase().endsWith('.pdf')) {
+                                    files.push(fullPath);
+                                }
+                            }
+                        });
+                    } catch (e) {
+                         console.error(`Error reading dir ${d}:`, e.message);
+                    }
+                };
+                getFiles(dir);
+
+                for (const srcPath of files) {
+                    const filename = path.basename(srcPath);
+                    const destPath = path.join(BOOKS_DIR, filename);
+
+                    // Duplicate check based on filename presence in destination
+                    if (!fs.existsSync(destPath)) {
+                        if (onProgress) onProgress(`Scanning folder: ${dir}\nImporting: ${filename}`);
+                        console.log(`Importing ${filename} from ${dir}`);
+                        fs.copyFileSync(srcPath, destPath);
+                        importedCount++;
+                    }
+                }
+
+            } catch (err) {
+                console.error(`Error processing directory ${dir}:`, err.message);
+            }
+        }
+        
+        console.log(`Import complete. Copied ${importedCount} new files.`);
+        return { success: true, importedCount };
+    } catch (err) {
+        console.error('Error during import:', err);
+        throw err;
+    }
+};
+
+module.exports = { scanLibrary, refreshCovers, importFiles };
