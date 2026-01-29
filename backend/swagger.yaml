@@ -142,6 +142,30 @@ components:
           type: integer
         review_update_date:
           type: integer
+    Readlist:
+      type: object
+      properties:
+        ID:
+          type: integer
+        user_id:
+          type: integer
+        readlist_title:
+          type: string
+        readlist_create_date:
+          type: integer
+        readlist_update_date:
+          type: integer
+    BooksReadlist:
+      type: object
+      properties:
+        ID:
+          type: integer
+        book_id:
+          type: integer
+        readlist_id:
+          type: integer
+        booksreadlists_create_date:
+          type: integer
 security:
   - bearerAuth: []
 paths:
@@ -597,3 +621,145 @@ paths:
       responses:
         200:
           description: Deleted
+  /api/readlists:
+    get:
+      summary: Get user's readlists
+      responses:
+        200:
+          description: List of readlists
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Readlist'
+    post:
+      summary: Create a readlist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                readlist_title:
+                   type: string
+      responses:
+         201:
+           description: Created
+  /api/readlists/{id}:
+    get: 
+      summary: Get readlist by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Readlist'
+    put:
+      summary: Update readlist
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+             schema:
+               type: object
+               properties:
+                 readlist_title:
+                   type: string
+      responses:
+        200:
+          description: Updated
+    delete: 
+      summary: Delete readlist
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+           description: Deleted
+  /api/readlists/{id}/books:
+    get:
+      summary: Get books in readlist
+      parameters:
+         - in: path
+           name: id
+           required: true
+           schema:
+             type: integer
+      responses:
+        200:
+          description: List of books
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Book'
+    post:
+      summary: Add book to readlist
+      parameters:
+         - in: path
+           name: id
+           required: true
+           schema:
+             type: integer
+      requestBody:
+         content:
+           application/json:
+             schema:
+               type: object
+               properties:
+                 book_id:
+                   type: integer
+      responses:
+         201:
+            description: Added
+  /api/readlists/{id}/books/{bookId}:
+    delete:
+      summary: Remove book from readlist
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: bookId
+          required: true
+          schema:
+            type: integer
+      responses:
+         200:
+           description: Removed
+  /api/books-readlists:
+    get:
+      summary: Get all books-readlists relations (raw)
+      responses:
+        200:
+          description: List
+

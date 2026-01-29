@@ -1207,6 +1207,169 @@ settingsRouter.delete('/directories/:id', (req, res) => {
 
 app.use('/api/settings', auth, checkManageBooks, settingsRouter);
 
+// -----------------------------------------------------------------
+// READLISTS ROUTES
+// -----------------------------------------------------------------
+const readlistsRouter = express.Router();
+
+// Get user's readlists
+readlistsRouter.get('/', (req, res) => {
+    const userId = req.user.user_id;
+    db.all("SELECT * FROM Readlists WHERE user_id = ? ORDER BY readlist_update_date DESC", [userId], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ data: rows });
+    });
+});
+
+// Get specific readlist
+readlistsRouter.get('/:id', (req, res) => {
+    const userId = req.user.user_id;
+    const readlistId = req.params.id;
+    db.get("SELECT * FROM Readlists WHERE ID = ? AND user_id = ?", [readlistId, userId], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ error: 'Readlist not found' });
+        res.json({ data: row });
+    });
+});
+
+// Create readlist
+readlistsRouter.post('/', (req, res) => {
+    const userId = req.user.user_id;
+    const { readlist_title, readlist_description } = req.body;
+    
+    if (!readlist_title) return res.status(400).json({ error: 'Title is required' });
+    
+    const now = Date.now();
+    // readlist_description not in original schema I saw earlier (only title, dates), 
+    // but useful to accept if user adds it later or if table has it (schema check showed ID, user_id, title, dates).
+    // I will stick to schema I saw: ID, user_id, readlist_title, dates.
+    
+    db.run(
+        "INSERT INTO Readlists (user_id, readlist_title, readlist_create_date, readlist_update_date) VALUES (?, ?, ?, ?)",
+        [userId, readlist_title, now, now],
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.status(201).json({ data: { ID: this.lastID, user_id: userId, readlist_title, readlist_create_date: now, readlist_update_date: now } });
+        }
+    );
+});
+
+// Update readlist
+readlistsRouter.put('/:id', (req, res) => {
+    const userId = req.user.user_id;
+    const readlistId = req.params.id;
+    const { readlist_title } = req.body;
+    
+    const now = Date.now();
+    
+    db.run(
+        "UPDATE Readlists SET readlist_title = ?, readlist_update_date = ? WHERE ID = ? AND user_id = ?",
+        [readlist_title, now, readlistId, userId],
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            if (this.changes === 0) return res.status(404).json({ error: 'Readlist not found' });
+            res.json({ message: 'Readlist updated' });
+        }
+    );
+});
+
+// Delete readlist
+readlistsRouter.delete('/:id', (req, res) => {
+    const userId = req.user.user_id;
+    const readlistId = req.params.id;
+    
+    // First delete relations
+    db.run("DELETE FROM BooksReadlists WHERE readlist_id = ?", [readlistId], (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        
+        // Then delete list
+        db.run("DELETE FROM Readlists WHERE ID = ? AND user_id = ?", [readlistId, userId], function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            if (this.changes === 0) return res.status(404).json({ error: 'Readlist not found' });
+            res.json({ message: 'Readlist deleted' });
+        });
+    });
+});
+
+// Get books in readlist
+readlistsRouter.get('/:id/books', (req, res) => {
+    const userId = req.user.user_id;
+    const readlistId = req.params.id;
+    
+    // Verify ownership first
+    db.get("SELECT ID FROM Readlists WHERE ID = ? AND user_id = ?", [readlistId, userId], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ error: 'Readlist not found' });
+        
+        const sql = `
+            SELECT b.*, bu.book_progress_percentage 
+            FROM Books b
+            JOIN BooksReadlists br ON b.ID = br.book_id
+            LEFT JOIN BooksUsers bu ON b.ID = bu.book_id AND bu.user_id = ?
+            WHERE br.readlist_id = ?
+        `;
+        db.all(sql, [userId, readlistId], (err, rows) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ data: rows });
+        });
+    });
+});
+
+// Add book to readlist
+readlistsRouter.post('/:id/books', (req, res) => {
+    const userId = req.user.user_id;
+    const readlistId = req.params.id;
+    const { book_id } = req.body;
+    
+    if (!book_id) return res.status(400).json({ error: 'Book ID is required' });
+    
+    // Verify ownership
+    db.get("SELECT ID FROM Readlists WHERE ID = ? AND user_id = ?", [readlistId, userId], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ error: 'Readlist not found' });
+        
+        const now = Date.now();
+        db.run(
+            "INSERT INTO BooksReadlists (book_id, readlist_id, booksreadlists_create_date) VALUES (?, ?, ?)",
+            [book_id, readlistId, now],
+            function(err) {
+                if (err) {
+                    if (err.message.includes('UNIQUE constraint failed')) {
+                        return res.status(400).json({ error: 'Book already in readlist' });
+                    }
+                    return res.status(500).json({ error: err.message });
+                }
+                res.status(201).json({ message: 'Book added to readlist', id: this.lastID });
+            }
+        );
+    });
+});
+
+// Remove book from readlist
+readlistsRouter.delete('/:id/books/:bookId', (req, res) => {
+    const userId = req.user.user_id;
+    const readlistId = req.params.id;
+    const bookId = req.params.bookId;
+    
+    // Verify ownership
+    db.get("SELECT ID FROM Readlists WHERE ID = ? AND user_id = ?", [readlistId, userId], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ error: 'Readlist not found' });
+        
+        db.run(
+            "DELETE FROM BooksReadlists WHERE readlist_id = ? AND book_id = ?",
+            [readlistId, bookId],
+            function(err) {
+                if (err) return res.status(500).json({ error: err.message });
+                res.json({ message: 'Book removed from readlist' });
+            }
+        );
+    });
+});
+
+app.use('/api/readlists', auth, readlistsRouter);
+app.use('/api/books-readlists', createCrudRouter('BooksReadlists', db));
+
 app.get('/api/library/scan', (req, res) => {
     // Set headers for SSE
     res.setHeader('Content-Type', 'text/event-stream');
