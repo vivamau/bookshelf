@@ -856,6 +856,96 @@ booksRouter.get('/:id/download-file', (req, res) => {
     });
 });
 
+// On-demand EPUB extraction for reader
+const AdmZip = require('adm-zip');
+const EXTRACTED_DIR = path.join(__dirname, 'extracted');
+
+// Ensure extracted directory exists
+if (!fs.existsSync(EXTRACTED_DIR)) {
+    fs.mkdirSync(EXTRACTED_DIR, { recursive: true });
+}
+
+booksRouter.post('/:id/prepare-reader', async (req, res) => {
+    const bookId = req.params.id;
+    
+    // Check read permission
+    if (!req.user.userrole_readbooks) {
+        return res.status(403).json({ error: 'Permission denied: Reader access required' });
+    }
+
+    try {
+        // Get book details
+        const book = await new Promise((resolve, reject) => {
+            db.get("SELECT book_filename, book_title FROM Books WHERE ID = ?", [bookId], (err, row) => {
+                if (err) reject(err);
+                else resolve(row);
+            });
+        });
+
+        if (!book) {
+            return res.status(404).json({ error: 'Book not found' });
+        }
+
+        if (!book.book_filename) {
+            return res.status(400).json({ error: 'Book file not available' });
+        }
+
+        // Check if it's an EPUB
+        if (!book.book_filename.toLowerCase().endsWith('.epub')) {
+            return res.status(400).json({ error: 'Only EPUB files can be read in browser' });
+        }
+
+        // Compute folder name (same logic as frontend)
+        const folderName = book.book_filename.replace(/[/\\]/g, '_').replace(/\.epub$/i, '');
+        const extractPath = path.join(EXTRACTED_DIR, folderName);
+        const epubPath = path.join(BOOKS_DIR, book.book_filename);
+
+        // Check if already extracted
+        if (fs.existsSync(extractPath)) {
+            // Check if folder has content
+            const files = fs.readdirSync(extractPath);
+            if (files.length > 0) {
+                console.log(`Book ${bookId} already extracted at ${extractPath}`);
+                return res.json({ 
+                    success: true, 
+                    message: 'Book already prepared',
+                    folderName: folderName
+                });
+            }
+        }
+
+        // Check if source EPUB exists
+        if (!fs.existsSync(epubPath)) {
+            return res.status(404).json({ error: 'Source EPUB file not found on server' });
+        }
+
+        console.log(`Extracting book ${bookId}: ${book.book_filename}`);
+
+        // Extract the EPUB
+        const zip = new AdmZip(epubPath);
+        
+        // Create extraction directory
+        if (!fs.existsSync(extractPath)) {
+            fs.mkdirSync(extractPath, { recursive: true });
+        }
+
+        // Extract all contents
+        zip.extractAllTo(extractPath, true);
+
+        console.log(`Book ${bookId} extracted successfully to ${extractPath}`);
+
+        res.json({ 
+            success: true, 
+            message: 'Book extracted successfully',
+            folderName: folderName
+        });
+
+    } catch (err) {
+        console.error(`Error preparing book ${bookId} for reader:`, err);
+        res.status(500).json({ error: 'Failed to prepare book: ' + err.message });
+    }
+});
+
 // Increment download counter (Optional)
 booksRouter.post('/:id/download', (req, res) => {
     const bookId = req.params.id;

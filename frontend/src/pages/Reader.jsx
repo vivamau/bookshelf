@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, X, Maximize2, RotateCcw, ChevronLeft, ChevronRight, List } from 'lucide-react';
+import { ArrowLeft, X, Maximize2, RotateCcw, ChevronLeft, ChevronRight, List, Loader2 } from 'lucide-react';
 import { booksApi } from '../api/api';
 
 export default function Reader() {
@@ -10,11 +10,14 @@ export default function Reader() {
   const [spine, setSpine] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [preparing, setPreparing] = useState(false);
+  const [error, setError] = useState(null);
   const isInitialized = React.useRef(false);
 
   useEffect(() => {
-    const fetchBook = async () => {
+    const fetchAndPrepareBook = async () => {
       try {
+        // First, get book details
         const res = await booksApi.getById(id);
         const bookData = res.data.data;
         console.log("Reader loaded book data:", bookData);
@@ -34,15 +37,25 @@ export default function Reader() {
                 setCurrentIndex(idx !== -1 ? idx : 0);
             }
         }
+
+        // Now prepare (extract) the book for reading
+        setPreparing(true);
+        console.log("Preparing book for reader...");
+        const prepareRes = await booksApi.prepareReader(id);
+        console.log("Book preparation result:", prepareRes.data);
+        setPreparing(false);
+
         // Mark as initialized after a short delay to bridge the state update
         setTimeout(() => { isInitialized.current = true; }, 300);
       } catch (err) {
-        console.error("Failed to load book for reader", err);
+        console.error("Failed to load/prepare book for reader", err);
+        setError(err.response?.data?.error || err.message || 'Failed to prepare book');
+        setPreparing(false);
       } finally {
         setLoading(false);
       }
     };
-    fetchBook();
+    fetchAndPrepareBook();
   }, [id]);
 
   // Save progress when index changes
@@ -69,10 +82,24 @@ export default function Reader() {
     }
   }, [currentIndex]);
 
-  if (loading || currentIndex === null) {
+  if (loading || preparing || currentIndex === null) {
     return (
-      <div className="h-screen w-full bg-[#001e38] flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-[#f1184c] border-t-transparent rounded-full animate-spin"></div>
+      <div className="h-screen w-full bg-[#001e38] flex flex-col items-center justify-center">
+        <div className="w-12 h-12 border-4 border-[#f1184c] border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-white/70 text-sm">
+          {preparing ? 'Preparing book for reading...' : 'Loading...'}
+        </p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-screen w-full bg-[#001e38] flex flex-col items-center justify-center text-white p-8 text-center">
+         <X size={64} className="text-[#f1184c] mb-4" />
+         <h2 className="text-2xl font-bold mb-2">Failed to Load Book</h2>
+         <p className="text-muted-foreground mb-6 max-w-md">{error}</p>
+         <button onClick={() => navigate(`/book/${id}`)} className="px-6 py-2 bg-[#f1184c] rounded-full font-bold">Return to Details</button>
       </div>
     );
   }

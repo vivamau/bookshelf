@@ -45,6 +45,7 @@ export const booksApi = {
   getById: (id) => api.get(`/books/${id}`),
   getProgress: (id) => api.get(`/books/${id}/progress`),
   updateProgress: (id, data) => api.post(`/books/${id}/progress`, data),
+  prepareReader: (id) => api.post(`/books/${id}/prepare-reader`),
   create: (data) => api.post('/books', data),
   upload: (formData) => api.post('/books/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
