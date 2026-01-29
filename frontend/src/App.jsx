@@ -34,8 +34,13 @@ import GenreDetails from './pages/GenreDetails';
 import UsersPage from './pages/Users';
 import SettingsPage from './pages/Settings';
 import AddBook from './pages/AddBook';
+import Readlists from './pages/Readlists';
+import ReadlistDetails from './pages/ReadlistDetails';
 import { booksApi, libraryApi, genresApi, searchApi } from './api/api';
 import ProfileModal from './components/ProfileModal';
+
+// UI Components
+// ... (rest)
 
 // UI Components
 const SidebarItem = ({ icon: Icon, label, active, onClick, to, hasMenu, onMenuClick }) => {
@@ -234,8 +239,8 @@ const Layout = ({ children }) => {
   };
   const navItems = [
     { label: 'Home', icon: Home, to: '/' },
-    { label: 'Read Lists', icon: BookMarked },
-    { label: 'Authors', icon: UsersIcon, to: '/authors' }, // Re-adding authors link too just in case
+    { label: 'Read Lists', icon: BookMarked, to: '/readlists' },
+    { label: 'Authors', icon: UsersIcon, to: '/authors' },
     { label: 'Publishers', icon: Building2, to: '/publishers' },
     { label: 'Library', icon: LibraryIcon, to: '/library' },
   ];
@@ -696,6 +701,8 @@ function AuthenticatedApp() {
       <Route path="/authors" element={user ? <Layout><Authors /></Layout> : <Navigate to="/login" />} />
       <Route path="/publisher/:id" element={user ? <Layout><PublisherDetails /></Layout> : <Navigate to="/login" />} />
       <Route path="/publishers" element={user ? <Layout><Publishers /></Layout> : <Navigate to="/login" />} />
+      <Route path="/readlists" element={user ? <Layout><Readlists /></Layout> : <Navigate to="/login" />} />
+      <Route path="/readlist/:id" element={user ? <Layout><ReadlistDetails /></Layout> : <Navigate to="/login" />} />
       <Route path="/genre/:id" element={user ? <Layout><GenreDetails /></Layout> : <Navigate to="/login" />} />
       <Route path="/library" element={user ? <Layout><Library /></Layout> : <Navigate to="/login" />} />
       <Route path="/users" element={user ? (hasPermission('userrole_manageusers') ? <Layout><UsersPage /></Layout> : <Navigate to="/" />) : <Navigate to="/login" />} />

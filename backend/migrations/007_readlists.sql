@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS Readlists (
 );
 
 CREATE TABLE IF NOT EXISTS BooksReadlists (
-    ID INTEGER PRIMARY KEY UNIQUE NOT NULL, 
+    ID INTEGER PRIMARY KEY AUTOINCREMENT, 
     book_id INTEGER REFERENCES Books (ID), 
     readlist_id INTEGER REFERENCES Readlists (ID), 
     booksreadlists_create_date INTEGER

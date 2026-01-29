@@ -1215,7 +1215,15 @@ const readlistsRouter = express.Router();
 // Get user's readlists
 readlistsRouter.get('/', (req, res) => {
     const userId = req.user.user_id;
-    db.all("SELECT * FROM Readlists WHERE user_id = ? ORDER BY readlist_update_date DESC", [userId], (err, rows) => {
+    const sql = `
+        SELECT r.*, COUNT(br.book_id) as book_count 
+        FROM Readlists r 
+        LEFT JOIN BooksReadlists br ON r.ID = br.readlist_id 
+        WHERE r.user_id = ? 
+        GROUP BY r.ID 
+        ORDER BY r.readlist_update_date DESC
+    `;
+    db.all(sql, [userId], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ data: rows });
     });
@@ -1233,23 +1241,33 @@ readlistsRouter.get('/:id', (req, res) => {
 });
 
 // Create readlist
+// Create readlist
+// Create readlist
 readlistsRouter.post('/', (req, res) => {
     const userId = req.user.user_id;
-    const { readlist_title, readlist_description } = req.body;
+    const { readlist_title, readlist_visible, readlist_background } = req.body;
     
     if (!readlist_title) return res.status(400).json({ error: 'Title is required' });
     
     const now = Date.now();
-    // readlist_description not in original schema I saw earlier (only title, dates), 
-    // but useful to accept if user adds it later or if table has it (schema check showed ID, user_id, title, dates).
-    // I will stick to schema I saw: ID, user_id, readlist_title, dates.
+    const visible = readlist_visible !== undefined ? readlist_visible : 1;
     
     db.run(
-        "INSERT INTO Readlists (user_id, readlist_title, readlist_create_date, readlist_update_date) VALUES (?, ?, ?, ?)",
-        [userId, readlist_title, now, now],
+        "INSERT INTO Readlists (user_id, readlist_title, readlist_visible, readlist_background, readlist_create_date, readlist_update_date) VALUES (?, ?, ?, ?, ?, ?)",
+        [userId, readlist_title, visible, readlist_background || null, now, now],
         function(err) {
             if (err) return res.status(500).json({ error: err.message });
-            res.status(201).json({ data: { ID: this.lastID, user_id: userId, readlist_title, readlist_create_date: now, readlist_update_date: now } });
+            res.status(201).json({ 
+                data: { 
+                    ID: this.lastID, 
+                    user_id: userId, 
+                    readlist_title, 
+                    readlist_visible: visible,
+                    readlist_background,
+                    readlist_create_date: now, 
+                    readlist_update_date: now 
+                } 
+            });
         }
     );
 });
@@ -1258,13 +1276,18 @@ readlistsRouter.post('/', (req, res) => {
 readlistsRouter.put('/:id', (req, res) => {
     const userId = req.user.user_id;
     const readlistId = req.params.id;
-    const { readlist_title } = req.body;
+    const { readlist_title, readlist_visible, readlist_background } = req.body;
     
     const now = Date.now();
     
     db.run(
-        "UPDATE Readlists SET readlist_title = ?, readlist_update_date = ? WHERE ID = ? AND user_id = ?",
-        [readlist_title, now, readlistId, userId],
+        `UPDATE Readlists SET 
+            readlist_title = COALESCE(?, readlist_title), 
+            readlist_visible = COALESCE(?, readlist_visible), 
+            readlist_background = COALESCE(?, readlist_background), 
+            readlist_update_date = ? 
+        WHERE ID = ? AND user_id = ?`,
+        [readlist_title, readlist_visible, readlist_background, now, readlistId, userId],
         function(err) {
             if (err) return res.status(500).json({ error: err.message });
             if (this.changes === 0) return res.status(404).json({ error: 'Readlist not found' });

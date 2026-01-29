@@ -151,6 +151,12 @@ components:
           type: integer
         readlist_title:
           type: string
+        readlist_visible:
+          type: integer
+          description: 1 for visible, 0 for hidden
+        readlist_background:
+          type: string
+          description: URL or hex code for background
         readlist_create_date:
           type: integer
         readlist_update_date:
@@ -647,6 +653,10 @@ paths:
               properties:
                 readlist_title:
                    type: string
+                readlist_visible:
+                   type: integer
+                readlist_background:
+                   type: string
       responses:
          201:
            description: Created
@@ -684,6 +694,10 @@ paths:
                type: object
                properties:
                  readlist_title:
+                   type: string
+                 readlist_visible:
+                   type: integer
+                 readlist_background:
                    type: string
       responses:
         200:

@@ -132,4 +132,19 @@ export const searchApi = {
   search: (query) => api.get('/search', { params: { q: query } }),
 };
 
+export const readlistsApi = {
+  getAll: () => api.get('/readlists'),
+  getById: (id) => api.get(`/readlists/${id}`),
+  create: (data) => api.post('/readlists', data),
+  update: (id, data) => api.put(`/readlists/${id}`, data),
+  delete: (id) => api.delete(`/readlists/${id}`),
+  getBooks: (id) => api.get(`/readlists/${id}/books`),
+  addBook: (id, bookId) => api.post(`/readlists/${id}/books`, { book_id: bookId }),
+  removeBook: (id, bookId) => api.delete(`/readlists/${id}/books/${bookId}`),
+};
+
+export const booksReadlistsApi = {
+    getAll: () => api.get('/books-readlists'),
+};
+
 export default api;

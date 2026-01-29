@@ -17,9 +17,10 @@ import {
   X,
   Trash2,
   Calendar,
-  ExternalLink
+  ExternalLink,
+  ListPlus
 } from 'lucide-react';
-import { booksApi, genresApi, booksGenresApi, authorsApi, booksAuthorsApi, publishersApi, reviewsApi } from '../api/api';
+import { booksApi, genresApi, booksGenresApi, authorsApi, booksAuthorsApi, publishersApi, reviewsApi, readlistsApi } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../lib/utils';
 
@@ -169,6 +170,60 @@ export default function BookDetails() {
   const [loadingExternal, setLoadingExternal] = useState(false);
   const [similarBooks, setSimilarBooks] = useState([]);
   const [loadingSimilar, setLoadingSimilar] = useState(false);
+
+  // Readlist State
+  const [showReadlistModal, setShowReadlistModal] = useState(false);
+  const [userReadlists, setUserReadlists] = useState([]);
+  const [newReadlistName, setNewReadlistName] = useState('');
+  const [creatingReadlist, setCreatingReadlist] = useState(false);
+
+  const fetchUserReadlists = async () => {
+      try {
+          const res = await readlistsApi.getAll();
+          setUserReadlists(res.data.data || []);
+      } catch (err) {
+          console.error("Failed to fetch readlists", err);
+      }
+  };
+
+  const handleOpenReadlistModal = () => {
+      fetchUserReadlists();
+      setShowReadlistModal(true);
+  };
+
+  const handleAddToReadlist = async (readlistId) => {
+      try {
+          await readlistsApi.addBook(readlistId, id);
+          setShowReadlistModal(false);
+      } catch (err) {
+          console.error("Failed to add to readlist", err);
+          if (err.response && err.response.data && err.response.data.error) {
+              alert(err.response.data.error);
+          }
+      }
+  };
+
+  const handleCreateReadlist = async () => {
+      if (!newReadlistName.trim()) return;
+      setCreatingReadlist(true);
+      try {
+          const createRes = await readlistsApi.create({ readlist_title: newReadlistName });
+          const newReadlistId = createRes.data.data.ID || createRes.data.data.id;
+          
+          // Automatically add book to new list
+          await readlistsApi.addBook(newReadlistId, id);
+          
+          // Refresh list of readlists
+          await fetchUserReadlists();
+
+          setShowReadlistModal(false);
+          setNewReadlistName('');
+      } catch (err) {
+          console.error("Failed to create readlist", err);
+      } finally {
+          setCreatingReadlist(false);
+      }
+  };
 
   const fetchReviews = async () => {
     try {
@@ -950,8 +1005,11 @@ export default function BookDetails() {
                 {book.book_progress_percentage > 0 ? `Continue (${Math.floor(book.book_progress_percentage)}%)` : 'Read Now'}
               </button>
               
-              <button className="flex items-center gap-3 px-8 py-3 bg-secondary/80 hover:bg-secondary text-foreground rounded-full font-black text-sm uppercase tracking-wider transition-all border border-white/5 active:scale-95 backdrop-blur-sm">
-                <Plus size={18} />
+              <button 
+                onClick={handleOpenReadlistModal}
+                className="flex items-center gap-3 px-8 py-3 bg-secondary/80 hover:bg-secondary text-foreground rounded-full font-black text-sm uppercase tracking-wider transition-all border border-white/5 active:scale-95 backdrop-blur-sm"
+              >
+                <ListPlus size={18} />
                 Read List
               </button>
 
@@ -1367,6 +1425,58 @@ export default function BookDetails() {
                             {deleting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                             {deleting ? 'Deleting...' : 'Delete Forever'}
                         </button>
+                    </div>
+                </div>
+            </div>
+        )}
+        {/* Readlist Modal */}
+        {showReadlistModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="bg-card border border-border rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] max-w-md w-full p-6 animate-in zoom-in-95 duration-200 flex flex-col max-h-[80vh]">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-xl font-bold">Add to Read List</h3>
+                        <button onClick={() => setShowReadlistModal(false)} className="text-muted-foreground hover:text-foreground">
+                            <X size={20} />
+                        </button>
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto custom-scrollbar mb-4 -mx-2 px-2">
+                        {userReadlists.length > 0 ? (
+                            <div className="space-y-2">
+                                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2">Select List</p>
+                                {userReadlists.map(list => (
+                                    <button
+                                        key={list.ID}
+                                        onClick={() => handleAddToReadlist(list.ID)}
+                                        className="w-full text-left p-3 rounded-lg bg-secondary/30 hover:bg-secondary/60 transition-colors flex justify-between items-center group"
+                                    >
+                                        <span className="font-bold text-sm">{list.readlist_title}</span>
+                                        <Plus size={16} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-center text-muted-foreground text-sm py-4 italic">No readlists found. Create one below!</p>
+                        )}
+                    </div>
+
+                    <div className="pt-4 border-t border-border mt-auto">
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2">Create New List</p>
+                        <div className="flex gap-2">
+                            <input 
+                                value={newReadlistName}
+                                onChange={(e) => setNewReadlistName(e.target.value)}
+                                placeholder="New list name..."
+                                className="flex-1 bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                            <button 
+                                onClick={handleCreateReadlist}
+                                disabled={!newReadlistName.trim() || creatingReadlist}
+                                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-bold text-sm disabled:opacity-50"
+                            >
+                                {creatingReadlist ? 'Creating...' : 'Create'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
