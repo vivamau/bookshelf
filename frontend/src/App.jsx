@@ -280,13 +280,13 @@ const Layout = ({ children }) => {
               label={item.label} 
               to={item.to}
               active={location.pathname === (item.to || '/_')}
-              hasMenu={item.label === 'Library'}
+              hasMenu={item.label === 'Library' && hasPermission('userrole_managebooks')}
               onMenuClick={() => setShowLibraryMenu(!showLibraryMenu)}
             />
           ))}
           
           {/* Library Menu Dropdown */}
-          {showLibraryMenu && (
+          {showLibraryMenu && hasPermission('userrole_managebooks') && (
             <div className="mx-4 mb-2 bg-secondary/50 border border-border rounded-lg overflow-hidden animate-in slide-in-from-top-2 duration-200">
               <button
                 onClick={() => runLibraryTask('scan')}

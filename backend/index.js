@@ -1393,7 +1393,15 @@ readlistsRouter.delete('/:id/books/:bookId', (req, res) => {
 app.use('/api/readlists', auth, readlistsRouter);
 app.use('/api/books-readlists', createCrudRouter('BooksReadlists', db));
 
-app.get('/api/library/scan', (req, res) => {
+app.get('/api/library/scan', auth, (req, res) => {
+    // Check for librarian/managebooks permission
+    if (!req.user.userrole_managebooks) {
+        // Since this is SSE, we can't just return 403 easily if the header is not written, 
+        // but typically express middleware handles it before we get here.
+        // However, if we do get here, we must verify.
+        return res.status(403).json({ error: 'Permission denied: Librarian access required' });
+    }
+
     // Set headers for SSE
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
@@ -1427,7 +1435,11 @@ app.get('/api/library/scan', (req, res) => {
     });
 });
 
-app.get('/api/library/refresh-covers', (req, res) => {
+app.get('/api/library/refresh-covers', auth, (req, res) => {
+    // Check for librarian/managebooks permission
+    if (!req.user.userrole_managebooks) {
+        return res.status(403).json({ error: 'Permission denied: Librarian access required' });
+    }
     // Set headers for SSE
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
