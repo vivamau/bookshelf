@@ -360,6 +360,45 @@ app.use('/api/authors', (req, res, next) => {
         });
     });
 
+    // List authors (Pagination, Search, Sort)
+    authorsRouter.get('/', (req, res) => {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 50; 
+        const offset = (page - 1) * limit;
+        const search = req.query.search || '';
+
+        let countSql = `SELECT COUNT(*) as total FROM Authors`;
+        let sql = `SELECT * FROM Authors`;
+        
+        const params = [];
+        const countParams = [];
+
+        if (search) {
+            const searchClause = " WHERE author_name LIKE ? OR author_lastname LIKE ?";
+            countSql += searchClause;
+            sql += searchClause;
+            params.push(`%${search}%`, `%${search}%`);
+            countParams.push(`%${search}%`, `%${search}%`);
+        }
+
+        sql += ` ORDER BY author_name ASC, author_lastname ASC LIMIT ? OFFSET ?`;
+        params.push(limit, offset);
+
+        db.get(countSql, countParams, (err, countRow) => {
+            if (err) return res.status(500).json({ error: err.message });
+
+            db.all(sql, params, (err, rows) => {
+                if (err) return res.status(500).json({ error: err.message });
+                res.json({ 
+                    data: rows,
+                    total: countRow.total,
+                    page: page,
+                    limit: limit
+                });
+            });
+        });
+    });
+
     // Fallback to CRUD for other author methods
     const crud = createCrudRouter('Authors', db);
     authorsRouter.use('/', crud);
@@ -384,6 +423,45 @@ publishersRouter.get('/:id/books', (req, res) => {
 
 // Fallback to CRUD for publishers
 app.use('/api/publishers', (req, res, next) => {
+    // List publishers (Pagination, Search, Sort)
+    publishersRouter.get('/', (req, res) => {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 50; 
+        const offset = (page - 1) * limit;
+        const search = req.query.search || '';
+
+        let countSql = `SELECT COUNT(*) as total FROM Publishers`;
+        let sql = `SELECT * FROM Publishers`;
+        
+        const params = [];
+        const countParams = [];
+
+        if (search) {
+            const searchClause = " WHERE publisher_name LIKE ?";
+            countSql += searchClause;
+            sql += searchClause;
+            params.push(`%${search}%`);
+            countParams.push(`%${search}%`);
+        }
+
+        sql += ` ORDER BY publisher_name ASC LIMIT ? OFFSET ?`;
+        params.push(limit, offset);
+
+        db.get(countSql, countParams, (err, countRow) => {
+            if (err) return res.status(500).json({ error: err.message });
+
+            db.all(sql, params, (err, rows) => {
+                if (err) return res.status(500).json({ error: err.message });
+                res.json({ 
+                    data: rows,
+                    total: countRow.total,
+                    page: page,
+                    limit: limit
+                });
+            });
+        });
+    });
+
     const crud = createCrudRouter('Publishers', db);
     publishersRouter.use('/', crud);
     publishersRouter(req, res, next);

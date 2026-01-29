@@ -60,7 +60,7 @@ export const booksApi = {
 };
 
 export const authorsApi = {
-  getAll: () => api.get('/authors'),
+  getAll: (params = {}) => api.get('/authors', { params }),
   getById: (id) => api.get(`/authors/${id}`),
   getBooks: (id) => api.get(`/authors/${id}/books`),
   create: (data) => api.post('/authors', data),
@@ -96,7 +96,7 @@ export const libraryApi = {
 };
 
 export const publishersApi = {
-  getAll: () => api.get('/publishers'),
+  getAll: (params = {}) => api.get('/publishers', { params }),
   getById: (id) => api.get(`/publishers/${id}`),
   getBooks: (id) => api.get(`/publishers/${id}/books`),
   create: (data) => api.post('/publishers', data),

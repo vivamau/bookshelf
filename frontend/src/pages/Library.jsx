@@ -9,50 +9,33 @@ import {
   BookOpen,
   Check,
   RefreshCw,
-  Search
+  Search,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { cn, formatDate } from "@/lib/utils";
 
 export default function Library() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
+  const [limit, setLimit] = useState(50);
   const [totalBooks, setTotalBooks] = useState(0);
   const [viewMode, setViewMode] = useState('grid');
   const [sortBy, setSortBy] = useState('title'); // title, date, year
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
-  
-  const observer = useRef();
-  const lastBookElementRef = useCallback(node => {
-    if (loading || loadingMore) return;
-    if (observer.current) observer.current.disconnect();
-    observer.current = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && hasMore) {
-        setPage(prevPage => prevPage + 1);
-      }
-    });
-    if (node) observer.current.observe(node);
-  }, [loading, loadingMore, hasMore]);
 
-  const fetchBooks = async (pageToFetch, search = '') => {
+  const fetchBooks = async (pageToFetch, search = '', limitToFetch = 50) => {
     try {
-      if (pageToFetch === 1) setLoading(true);
-      else setLoadingMore(true);
-
-      const res = await booksApi.getAll({ page: pageToFetch, limit: 50, search });
-      const newBooks = res.data.data || [];
-      
-      setBooks(prev => pageToFetch === 1 ? newBooks : [...prev, ...newBooks]);
+      setLoading(true);
+      const res = await booksApi.getAll({ page: pageToFetch, limit: limitToFetch, search });
+      setBooks(res.data.data || []);
       setTotalBooks(res.data.total || 0);
-      setHasMore(newBooks.length === 50);
     } catch (err) {
       console.error("Failed to fetch books", err);
     } finally {
       setLoading(false);
-      setLoadingMore(false);
     }
   };
 
@@ -60,26 +43,19 @@ export default function Library() {
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
         setPage(1);
-        fetchBooks(1, searchTerm);
+        fetchBooks(1, searchTerm, limit);
     }, 500);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm]);
+  }, [searchTerm, limit]);
 
-  // Handle pagination (only if not searching, or searching same term)
+  // Handle pagination
   useEffect(() => {
-    if (page > 1) {
-        fetchBooks(page, searchTerm);
-    }
+    fetchBooks(page, searchTerm, limit);
   }, [page]);
 
-  const alphaIndex = useMemo(() => {
-    return '#ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-  }, []);
-
   const sortedBooks = useMemo(() => {
-    // Note: Filtering/Sorting here only applies to CURRENTLY LOADED books.
-    // In a real paginated app, sorting often happens on the backend.
+    // Note: Filtering/Sorting here only applies to CURRENTLY LOADED books (current page).
     return [...books].sort((a, b) => {
         if (sortBy === 'title') {
             return a.book_title.localeCompare(b.book_title);
@@ -88,18 +64,7 @@ export default function Library() {
     });
   }, [books, sortBy]);
 
-  const scrollToLetter = (char) => {
-    const target = sortedBooks.find(b => {
-        const firstChar = b.book_title.charAt(0).toUpperCase();
-        if (char === '#') return !/[A-Z]/.test(firstChar);
-        return firstChar === char;
-    });
-    
-    if (target) {
-        const el = document.getElementById(`book-${target.ID}`);
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  };
+  const totalPages = Math.ceil(totalBooks / limit);
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-background">
@@ -156,7 +121,7 @@ export default function Library() {
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden relative">
+      <div className="flex flex-1 overflow-hidden relative flex-col">
           {/* Main Content Area */}
           <div className="flex-1 overflow-y-auto px-8 py-8 custom-scrollbar">
               {loading ? (
@@ -181,11 +146,10 @@ export default function Library() {
                               </tr>
                           </thead>
                           <tbody>
-                              {sortedBooks.map((book, index) => (
+                              {sortedBooks.map((book) => (
                                   <tr 
                                     key={book.ID} 
                                     id={`book-${book.ID}`}
-                                    ref={index === sortedBooks.length - 1 ? lastBookElementRef : null}
                                     onClick={() => navigate(`/book/${book.ID}`)}
                                     className="border-b border-white/5 hover:bg-white/5 cursor-pointer transition-colors group"
                                   >
@@ -220,12 +184,11 @@ export default function Library() {
                       </table>
                   </div>
               ) : (
-                   <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-x-6 gap-y-10 pb-20">
-                       {sortedBooks.map((book, index) => (
+                   <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-x-6 gap-y-10 pb-4">
+                       {sortedBooks.map((book) => (
                            <div 
                              key={book.ID} 
                              id={`book-${book.ID}`}
-                             ref={index === sortedBooks.length - 1 ? lastBookElementRef : null}
                              onClick={() => navigate(`/book/${book.ID}`)}
                              className="group flex flex-col gap-2 cursor-pointer"
                            >
@@ -256,37 +219,99 @@ export default function Library() {
                    </div>
               )}
 
-              {loadingMore && (
-                  <div className="flex justify-center py-10 w-full animate-in fade-in zoom-in duration-300">
-                      <div className="flex items-center gap-3 bg-white/5 px-6 py-3 rounded-full border border-white/10 shadow-xl">
-                          <RefreshCw size={20} className="animate-spin text-primary" />
-                          <span className="text-xs font-black uppercase tracking-widest text-foreground/80">Loading more books...</span>
-                      </div>
-                  </div>
-              )}
-
-              {!hasMore && totalBooks > 0 && !loading && (
-                  <div className="flex justify-center py-20 w-full opacity-40">
-                      <div className="flex flex-col items-center gap-2">
-                        <BookOpen size={24} className="text-muted-foreground" />
-                        <span className="text-[10px] font-black uppercase tracking-[3px]">The end of the library</span>
-                      </div>
+              {sortedBooks.length === 0 && !loading && (
+                  <div className="flex flex-col items-center justify-center py-20 opacity-50">
+                      <BookOpen size={48} className="mb-4 text-muted-foreground" />
+                      <p className="text-xl font-bold">No books found</p>
                   </div>
               )}
           </div>
 
-          {/* Alpha Index Sidebar */}
-          <div className="w-6 flex flex-col items-center justify-center py-4 z-10 select-none">
-              <div className="flex flex-col gap-0.5">
-                  {alphaIndex.map(char => (
-                      <span 
-                        key={char} 
-                        onClick={() => scrollToLetter(char)}
-                        className="text-[9px] font-bold text-muted-foreground hover:text-primary cursor-pointer w-4 h-3.5 flex items-center justify-center transition-colors hover:scale-110"
+          {/* Pagination Footer */}
+          <div className="px-8 py-4 border-t border-white/5 bg-background/95 backdrop-blur z-20 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
+                  <span>Rows per page:</span>
+                  <select 
+                      value={limit} 
+                      onChange={(e) => {
+                          setLimit(Number(e.target.value));
+                          setPage(1); // Reset to page 1 when changing limit
+                      }}
+                      className="bg-white/5 border border-white/10 rounded px-2 py-1 outline-none focus:border-primary/50 text-foreground cursor-pointer"
+                  >
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                  </select>
+              </div>
+
+              <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-1">
+                      <button 
+                          onClick={() => setPage(p => Math.max(1, p - 1))}
+                          disabled={page === 1}
+                          className="p-1.5 rounded-lg hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent transition-colors text-muted-foreground"
                       >
-                          {char}
-                      </span>
-                  ))}
+                          <ChevronLeft size={18} />
+                      </button>
+
+                      {/* Page Numbers */}
+                      <div className="flex items-center gap-1">
+                        {(() => {
+                            const pages = [];
+                            const maxVisible = 5;
+                            
+                            if (totalPages <= 7) {
+                                for (let i = 1; i <= totalPages; i++) pages.push(i);
+                            } else {
+                                if (page <= 4) {
+                                    for (let i = 1; i <= 5; i++) pages.push(i);
+                                    pages.push('...');
+                                    pages.push(totalPages);
+                                } else if (page >= totalPages - 3) {
+                                    pages.push(1);
+                                    pages.push('...');
+                                    for (let i = totalPages - 4; i <= totalPages; i++) pages.push(i);
+                                } else {
+                                    pages.push(1);
+                                    pages.push('...');
+                                    pages.push(page - 1);
+                                    pages.push(page);
+                                    pages.push(page + 1);
+                                    pages.push('...');
+                                    pages.push(totalPages);
+                                }
+                            }
+
+                            return pages.map((p, i) => (
+                                <button
+                                    key={i}
+                                    onClick={() => typeof p === 'number' && setPage(p)}
+                                    disabled={p === '...'}
+                                    className={cn(
+                                        "w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-all",
+                                        p === page 
+                                            ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-110" 
+                                            : p === '...' 
+                                                ? "text-muted-foreground cursor-default" 
+                                                : "hover:bg-white/10 text-muted-foreground hover:text-foreground"
+                                    )}
+                                >
+                                    {p}
+                                </button>
+                            ));
+                        })()}
+                      </div>
+
+                      <button 
+                          onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                          disabled={page >= totalPages}
+                          className="p-1.5 rounded-lg hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent transition-colors text-muted-foreground"
+                      >
+                          <ChevronRight size={18} />
+                      </button>
+                  </div>
               </div>
           </div>
       </div>
