@@ -116,6 +116,13 @@ const processBook = async (db, filename, formatId, onProgress, options = {}) => 
             console.log(`\nProcessing: ${filename}`);
             
             const filePath = path.join(BOOKS_DIR, filename);
+
+            // SECURITY: Check for path traversal
+            if (!path.resolve(filePath).startsWith(path.resolve(BOOKS_DIR))) {
+                 console.error(`Security Warning: Attempted path traversal with filename: ${filename}`);
+                 return resolve({ isNew: false, bookId: null, error: 'Invalid path' });
+            }
+
             const zip = new AdmZip(filePath);
             const zipEntries = zip.getEntries();
 
@@ -368,6 +375,13 @@ const processPdf = async (db, filename, formatId, onProgress) => {
         try {
             if (onProgress) onProgress(filename);
             console.log(`\nProcessing PDF: ${filename}`);
+
+            // SECURITY: Check for path traversal
+            const filePath = path.join(BOOKS_DIR, filename);
+            if (!path.resolve(filePath).startsWith(path.resolve(BOOKS_DIR))) {
+                 console.error(`Security Warning: Attempted path traversal with filename: ${filename}`);
+                 return resolve({ isNew: false, bookId: null, error: 'Invalid path' });
+            }
             
             // Simple metadata extraction from filename
             const baseName = path.basename(filename, '.pdf');
