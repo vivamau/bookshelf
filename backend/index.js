@@ -14,6 +14,15 @@ const { scanLibrary, refreshCovers, importFiles, scanSingleFile } = require('./u
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
+// Security: Ensure TOKEN_KEY is set or generate one
+let TOKEN_KEY = process.env.TOKEN_KEY;
+if (!TOKEN_KEY) {
+    console.warn("WARNING: TOKEN_KEY not set in environment. Using a random secret for this session. Tokens will be invalidated on restart.");
+    const crypto = require('crypto');
+    TOKEN_KEY = crypto.randomBytes(64).toString('hex');
+    process.env.TOKEN_KEY = TOKEN_KEY;
+}
+
 const app = express();
 const os = require('os');
 const PORT = process.env.PORT || 3005;
@@ -72,7 +81,7 @@ app.post('/login', (req, res) => {
                     userrole_readbooks: user.userrole_readbooks,
                     userrole_viewbooks: user.userrole_viewbooks
                 },
-                process.env.TOKEN_KEY || 'default_secret_key',
+                TOKEN_KEY,
                 { expiresIn: "2h" }
             );
             const userInfo = {
@@ -127,7 +136,7 @@ app.post('/register', async (req, res) => {
                     userrole_readbooks: 0,
                     userrole_viewbooks: 1
                 },
-                process.env.TOKEN_KEY || 'default_secret_key',
+                TOKEN_KEY,
                 { expiresIn: "2h" }
             );
             
@@ -595,8 +604,9 @@ const storage = multer.diskStorage({
         cb(null, BOOKS_DIR);
     },
     filename: function (req, file, cb) {
-        // Keep original filename or sanitize
-        cb(null, file.originalname);
+        // Sanitize filename: remove traversal and potentially dangerous characters
+        const safeName = path.basename(file.originalname).replace(/[^a-zA-Z0-9._-]/g, '_');
+        cb(null, safeName);
     }
 });
 const upload = multer({ 
@@ -769,6 +779,37 @@ booksRouter.delete('/:id', checkManageBooks, (req, res) => {
     });
 });
 
+const isSafeUrl = (urlString) => {
+    try {
+        const parsed = new URL(urlString);
+        if (!['http:', 'https:'].includes(parsed.protocol)) return false;
+
+        const hostname = parsed.hostname;
+
+        // Localhost checks
+        if (hostname === 'localhost' || hostname.endsWith('.localhost')) return false;
+
+        // IP Checks (IPv4)
+        // 127.0.0.0/8
+        if (hostname.match(/^127\./)) return false;
+        // 10.0.0.0/8
+        if (hostname.match(/^10\./)) return false;
+        // 192.168.0.0/16
+        if (hostname.match(/^192\.168\./)) return false;
+        // 172.16.0.0/12 -> 172.16. - 172.31.
+        if (hostname.match(/^172\.(1[6-9]|2[0-9]|3[0-1])\./)) return false;
+        // 0.0.0.0/8
+        if (hostname.match(/^0\./)) return false;
+
+        // IPv6 (simplified)
+        if (hostname === '[::1]' || hostname === '::1') return false;
+
+        return true;
+    } catch (e) {
+        return false;
+    }
+};
+
 // Download cover from URL and set it for a book
 booksRouter.post('/:id/cover-from-url', async (req, res) => {
     const bookId = req.params.id;
@@ -776,6 +817,10 @@ booksRouter.post('/:id/cover-from-url', async (req, res) => {
 
     if (!coverUrl) {
         return res.status(400).json({ error: 'Cover URL is required' });
+    }
+
+    if (!isSafeUrl(coverUrl)) {
+        return res.status(400).json({ error: 'Invalid or unsafe URL' });
     }
 
     try {
