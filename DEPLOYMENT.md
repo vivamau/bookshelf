@@ -92,9 +92,7 @@ sudo chown -R bookshelf:bookshelf /var/www/bookshelf/backend/extracted
 
 ## 7. Configure the Database
 
-```bash
-cp backend/data/booksshelf.sample.db backend/data/booksshelf.db
-```
+The application automatically creates and initializes the SQLite database (`backend/data/booksshelf.db`) on the first run. No manual configuration is required.
 
 ---
 
@@ -143,18 +141,15 @@ npm run build
 
 ---
 
-## 10. Run Database Migrations
+## 10. Database Initialization
 
-```bash
-cd /var/www/bookshelf/backend
-sudo -u bookshelf node run_migrations.js
-```
+Database migrations and initial user seeding (admin, reader, guest) are **handled automatically** when the backend starts. No manual action is needed here.
 
 ---
 
 ## 11. Start Backend with PM2
 
-Start the application as the `bookshelf` user:
+Start the application as the `bookshelf` user. On the first run, this will create the database and the default **admin** user (`admin` / `adminpassword`).
 
 ```bash
 sudo -u bookshelf PM2_HOME=/home/bookshelf/.pm2 pm2 start /var/www/bookshelf/backend/index.js --name "bookshelf-backend"
