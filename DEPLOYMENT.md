@@ -81,11 +81,13 @@ The application needs folders for uploaded books, covers, and extracted content:
 sudo mkdir -p /var/www/bookshelf/backend/books
 sudo mkdir -p /var/www/bookshelf/backend/covers
 sudo mkdir -p /var/www/bookshelf/backend/extracted
+sudo mkdir -p /var/www/bookshelf/backend/data
 
 # Set ownership
 sudo chown -R bookshelf:bookshelf /var/www/bookshelf/backend/books
 sudo chown -R bookshelf:bookshelf /var/www/bookshelf/backend/covers
 sudo chown -R bookshelf:bookshelf /var/www/bookshelf/backend/extracted
+sudo chown -R bookshelf:bookshelf /var/www/bookshelf/backend/data
 ```
 
 ---
