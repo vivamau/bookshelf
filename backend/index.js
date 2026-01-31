@@ -38,6 +38,11 @@ const swaggerDocument = YAML.load('./swagger.yaml');
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
+// Health check
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'ok' });
+});
+
 // Auth Routes (Public)
 app.post('/login', (req, res) => {
     // Simplified login logic
@@ -891,7 +896,13 @@ booksRouter.get('/', (req, res) => {
         countParams.push(`%${search}%`);
     }
 
-    sql += ` ORDER BY b.ID DESC LIMIT ? OFFSET ?`;
+    const sort = req.query.sort || 'title';
+    
+    let orderBy = 'b.book_title ASC'; // Default to alphabetical
+    if (sort === 'latest') orderBy = 'b.ID DESC';
+    else if (sort === 'year') orderBy = 'b.book_date DESC'; /* Assuming book_date stores the publication year/date */
+    
+    sql += ` ORDER BY ${orderBy} LIMIT ? OFFSET ?`;
     params.push(limit, offset);
 
     db.get(countSql, countParams, (err, countRow) => {
@@ -1511,6 +1522,10 @@ app.get('/api/library/refresh-covers', auth, (req, res) => {
     });
 });
 
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-});
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`Server is running on port ${PORT}`);
+    });
+}
+
+module.exports = app;

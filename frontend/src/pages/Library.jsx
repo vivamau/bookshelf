@@ -11,7 +11,8 @@ import {
   RefreshCw,
   Search,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Trash2
 } from 'lucide-react';
 import { cn, formatDate } from "@/lib/utils";
 
@@ -26,10 +27,10 @@ export default function Library() {
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
 
-  const fetchBooks = async (pageToFetch, search = '', limitToFetch = 50) => {
+    const fetchBooks = async (pageToFetch, search = '', limitToFetch = 50, sortParam = 'title') => {
     try {
       setLoading(true);
-      const res = await booksApi.getAll({ page: pageToFetch, limit: limitToFetch, search });
+      const res = await booksApi.getAll({ page: pageToFetch, limit: limitToFetch, search, sort: sortParam });
       setBooks(res.data.data || []);
       setTotalBooks(res.data.total || 0);
     } catch (err) {
@@ -39,19 +40,19 @@ export default function Library() {
     }
   };
 
-  // Debounce search
+  // Debounce search and handle sort/limit changes
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
         setPage(1);
-        fetchBooks(1, searchTerm, limit);
+        fetchBooks(1, searchTerm, limit, sortBy);
     }, 500);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm, limit]);
+  }, [searchTerm, limit, sortBy]);
 
   // Handle pagination
   useEffect(() => {
-    fetchBooks(page, searchTerm, limit);
+    fetchBooks(page, searchTerm, limit, sortBy);
   }, [page]);
 
   const sortedBooks = useMemo(() => {
@@ -63,6 +64,33 @@ export default function Library() {
         return 0;
     });
   }, [books, sortBy]);
+  
+  const [bookToDelete, setBookToDelete] = useState(null);
+  const user = useMemo(() => {
+      try {
+          return JSON.parse(localStorage.getItem('user'));
+      } catch (e) {
+          return null;
+      }
+  }, []);
+  
+  const canDelete = user?.userrole_managebooks === 1;
+
+  const confirmDelete = (e, book) => {
+      e.stopPropagation();
+      setBookToDelete(book);
+  };
+
+  const handleDelete = async () => {
+      if (!bookToDelete) return;
+      try {
+          await booksApi.delete(bookToDelete.ID);
+          fetchBooks(page, searchTerm, limit, sortBy);
+          setBookToDelete(null);
+      } catch (err) {
+          console.error("Failed to delete book", err);
+      }
+  };
 
   const totalPages = Math.ceil(totalBooks / limit);
 
@@ -143,6 +171,7 @@ export default function Library() {
                                   <th className="py-4">Year</th>
                                   <th className="py-4">Progress</th>
                                   <th className="py-4">Added</th>
+                                  {canDelete && <th className="py-4 w-10"></th>}
                               </tr>
                           </thead>
                           <tbody>
@@ -178,6 +207,17 @@ export default function Library() {
                                       <td className="py-3 text-sm text-muted-foreground">
                                           {formatDate(book.book_create_date)}
                                       </td>
+                                      {canDelete && (
+                                          <td className="py-3 pr-4">
+                                              <button 
+                                                  onClick={(e) => confirmDelete(e, book)}
+                                                  className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full transition-all opacity-0 group-hover:opacity-100"
+                                                  title="Delete Book"
+                                              >
+                                                  <Trash2 size={16} />
+                                              </button>
+                                          </td>
+                                      )}
                                   </tr>
                               ))}
                           </tbody>
@@ -208,6 +248,17 @@ export default function Library() {
 
                                    {/* Hover Overlay */}
                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+
+                                   {/* Delete Button (Librarian) */}
+                                   {canDelete && (
+                                       <button 
+                                           onClick={(e) => confirmDelete(e, book)}
+                                           className="absolute bottom-2 right-2 p-1.5 bg-destructive text-white rounded-md opacity-0 group-hover:opacity-100 transition-all hover:scale-110 shadow-lg z-20"
+                                           title="Delete Book"
+                                       >
+                                           <Trash2 size={14} />
+                                       </button>
+                                   )}
                                </div>
                                
                                <div className="flex flex-col">
@@ -315,6 +366,35 @@ export default function Library() {
               </div>
           </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {bookToDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-[2px] animate-in fade-in duration-200">
+              <div className="bg-card w-full max-w-md rounded-xl border border-border shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                  <div className="p-6">
+                      <h3 className="text-xl font-bold mb-2">Delete Book?</h3>
+                      <p className="text-muted-foreground text-sm">
+                          Are you sure you want to delete <span className="font-bold text-foreground">"{bookToDelete.book_title}"</span>? 
+                          This action cannot be undone and will remove the file from your library.
+                      </p>
+                  </div>
+                  <div className="bg-secondary/50 p-4 flex justify-end gap-3 border-t border-border/50">
+                      <button 
+                          onClick={() => setBookToDelete(null)}
+                          className="px-4 py-2 text-sm font-medium rounded-lg hover:bg-white/5 transition-colors"
+                      >
+                          Cancel
+                      </button>
+                      <button 
+                          onClick={handleDelete}
+                          className="px-4 py-2 text-sm font-bold bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 transition-colors shadow-lg shadow-destructive/20"
+                      >
+                          Delete Book
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
     </div>
   );
 }
