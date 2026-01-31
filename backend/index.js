@@ -1523,9 +1523,28 @@ app.get('/api/library/refresh-covers', auth, (req, res) => {
 });
 
 if (require.main === module) {
-    app.listen(PORT, () => {
-        console.log(`Server is running on port ${PORT}`);
-    });
+    const runMigrations = require('./run_migrations');
+    const seedUserRoles = require('./seed_userroles');
+    const seedUsers = require('./seed_users');
+
+    const startServer = async () => {
+        try {
+            console.log("Initializing database...");
+            await runMigrations(db);
+            await seedUserRoles(db);
+            await seedUsers(db);
+            console.log("Database initialized.");
+
+            app.listen(PORT, () => {
+                console.log(`Server is running on port ${PORT}`);
+            });
+        } catch (err) {
+            console.error("Failed to start server:", err);
+            process.exit(1);
+        }
+    };
+
+    startServer();
 }
 
 module.exports = app;

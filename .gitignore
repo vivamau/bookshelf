@@ -52,7 +52,7 @@ tmp/
 temp/
 
 # Backend Assets (Ignore contents, preserve folders)
-data/booksshelf.db
+backend/data/*
 backend/books/*
 !backend/books/.gitkeep
 backend/covers/*

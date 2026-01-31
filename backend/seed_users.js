@@ -1,16 +1,4 @@
-const sqlite3 = require('sqlite3').verbose();
-const bcrypt = require('bcryptjs');
-const path = require('path');
-
-const DB_PATH = path.join(__dirname, 'data', 'booksshelf.db');
-
-const db = new sqlite3.Database(DB_PATH, (err) => {
-    if (err) {
-        console.error('Error opening database', err);
-        process.exit(1);
-    }
-    console.log('Connected to the SQLite database.');
-});
+const defaultDb = require('./config/db');
 
 const users = [
     {
@@ -33,32 +21,59 @@ const users = [
     }
 ];
 
-const seedUsers = async () => {
-    const now = Date.now();
-    
-    // Clear existing test users if any
-    db.run("DELETE FROM Users WHERE user_username IN ('admin', 'reader1', 'guest1')");
-
-    for (const user of users) {
-        const hashedPassword = await bcrypt.hash(user.password, 10);
-        db.run(
-            `INSERT INTO Users (user_username, user_email, user_password, userrole_id, user_create_date, user_update_date) 
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [user.username, user.email, hashedPassword, user.role_id, now, now],
-            (err) => {
-                if (err) {
-                    console.error(`Error seeding user ${user.username}:`, err.message);
-                } else {
-                    console.log(`User ${user.username} seeded successfully.`);
+const seedUsers = (dbInstance) => {
+    const db = dbInstance || defaultDb;
+    return new Promise((resolve, reject) => {
+        const now = Date.now();
+        
+        db.serialize(async () => {
+            // Check if admin exists to avoid re-seeding if not needed, or just use INSERT OR IGNORE if username is unique
+            // But passwords are hashed, so checking existence is better.
+            
+            // For simplicity in this "startup" context, let's only Insert if NOT exists.
+            // Using a simple check for 'admin'
+            
+            db.get("SELECT ID FROM Users WHERE user_username = 'admin'", async (err, row) => {
+                if (err) return reject(err);
+                if (row) {
+                    // Admin exists, assume seeded
+                    // console.log('Users already seeded.');
+                    return resolve();
                 }
-            }
-        );
-    }
+
+                console.log('Seeding initial users...');
+                
+                try {
+                    for (const user of users) {
+                        const hashedPassword = await bcrypt.hash(user.password, 10);
+                        await new Promise((res, rej) => {
+                            db.run(
+                                `INSERT INTO Users (user_username, user_email, user_password, userrole_id, user_create_date, user_update_date) 
+                                 VALUES (?, ?, ?, ?, ?, ?)`,
+                                [user.username, user.email, hashedPassword, user.role_id, now, now],
+                                (err) => {
+                                    if (err) rej(err);
+                                    else {
+                                        console.log(`User ${user.username} seeded successfully.`);
+                                        res();
+                                    }
+                                }
+                            );
+                        });
+                    }
+                    resolve();
+                } catch (e) {
+                    reject(e);
+                }
+            });
+        });
+    });
 };
 
-db.serialize(() => {
-    seedUsers().then(() => {
-        // Give some time for async operations to finish before closing
-        setTimeout(() => db.close(), 1000);
-    });
-});
+if (require.main === module) {
+    seedUsers(defaultDb).then(() => {
+        setTimeout(() => defaultDb.close(), 1000);
+    }).catch(console.error);
+}
+
+module.exports = seedUsers;
