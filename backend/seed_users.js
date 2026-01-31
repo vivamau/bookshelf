@@ -1,4 +1,5 @@
 const defaultDb = require('./config/db');
+const bcrypt = require('bcryptjs');
 
 const users = [
     {
