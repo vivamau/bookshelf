@@ -147,6 +147,22 @@ npm run build
 
 Database migrations and initial user seeding (admin, reader, guest) are **handled automatically** when the backend starts. No manual action is needed here.
 
+### Manual Troubleshooting (Optional)
+
+If for any reason you need to run migrations manually or re-seed the database:
+
+```bash
+cd /var/www/bookshelf/backend
+# Run migrations
+sudo -u bookshelf node run_migrations.js
+
+# Seed user roles (if needed separately)
+sudo -u bookshelf node seed_userroles.js
+
+# Seed users (if needed separately)
+sudo -u bookshelf node seed_users.js
+```
+
 ---
 
 ## 11. Start Backend with PM2
