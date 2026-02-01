@@ -7,7 +7,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs'); 
 const axios = require('axios');
 const fs = require('fs');
-const multer = require('multer');
+const fileUpload = require('express-fileupload');
 
 const { scanLibrary, refreshCovers, importFiles, scanSingleFile } = require('./utils/libraryScanner');
 
@@ -29,12 +29,18 @@ const PORT = process.env.PORT || 3005;
 
 app.use(cors());
 app.use(express.json());
+app.use(fileUpload({
+    createParentPath: true,
+    limits: { 
+        fileSize: 100 * 1024 * 1024 // 100MB max file size
+    },
+}));
 app.use('/covers', express.static(path.join(__dirname, 'covers')));
 const BOOKS_DIR = path.join(__dirname, 'books');
 
 const swaggerUi = require('swagger-ui-express');
-const YAML = require('yamljs');
-const swaggerDocument = YAML.load(path.join(__dirname, 'swagger.yaml'));
+const yaml = require('js-yaml');
+const swaggerDocument = yaml.load(fs.readFileSync(path.join(__dirname, 'swagger.yaml'), 'utf8'));
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
@@ -603,51 +609,44 @@ app.use('/api/languages', createCrudRouter('Languages', db));
 // Custom Books Routes (Override default GET to include joins and progress)
 const booksRouter = createCrudRouter('Books', db, 'ID', ['POST', 'PUT']);
 
-// Multer setup for book uploads
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, BOOKS_DIR);
-    },
-    filename: function (req, file, cb) {
-        // Sanitize filename: remove traversal and potentially dangerous characters
-        const safeName = path.basename(file.originalname).replace(/[^a-zA-Z0-9._-]/g, '_');
-        cb(null, safeName);
-    }
-});
-const upload = multer({ 
-    storage: storage,
-    fileFilter: (req, file, cb) => {
-        if (
-            file.mimetype === 'application/epub+zip' || 
-            file.mimetype === 'application/pdf' || 
-            file.originalname.toLowerCase().endsWith('.epub') || 
-            file.originalname.toLowerCase().endsWith('.pdf')
-        ) {
-            cb(null, true);
-        } else {
-            cb(new Error('Invalid file type. Only EPUB and PDF are allowed.'));
-        }
-    }
-});
-
 // Upload Book Route
-booksRouter.post('/upload', checkManageBooks, upload.single('book'), async (req, res) => {
-    if (!req.file) return res.status(400).json({ error: 'No file uploaded or invalid format' });
-    
-    try {
-        console.log(`Uploaded file: ${req.file.filename}`);
-        const result = await scanSingleFile(db, req.file.filename);
-        
-        if (result && result.isNew) {
-            res.status(201).json({ message: 'Book uploaded and processed successfully', filename: req.file.filename, bookId: result.bookId });
-        } else {
-            const bookId = result ? result.bookId : null;
-            res.status(200).json({ message: 'Book updated (duplicate found)', filename: req.file.filename, bookId });
-        }
-    } catch (err) {
-        console.error('Upload processing error:', err);
-        res.status(500).json({ error: 'Processing failed: ' + err.message });
+booksRouter.post('/upload', checkManageBooks, async (req, res) => {
+    if (!req.files || !req.files.book) {
+        return res.status(400).json({ error: 'No book file uploaded' });
     }
+
+    const bookFile = req.files.book;
+    const safeName = path.basename(bookFile.name).replace(/[^a-zA-Z0-9._-]/g, '_');
+    
+    // File Filter Logic
+    const isEpub = bookFile.mimetype === 'application/epub+zip' || safeName.toLowerCase().endsWith('.epub');
+    const isPdf = bookFile.mimetype === 'application/pdf' || safeName.toLowerCase().endsWith('.pdf');
+
+    if (!isEpub && !isPdf) {
+         return res.status(400).json({ error: 'Invalid file type. Only EPUB and PDF are allowed.' });
+    }
+
+    const uploadPath = path.join(BOOKS_DIR, safeName);
+
+    bookFile.mv(uploadPath, async (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+
+        console.log(`Uploaded file: ${safeName}`);
+        
+        try {
+            const result = await scanSingleFile(db, safeName);
+            
+            if (result && result.isNew) {
+                res.status(201).json({ message: 'Book uploaded and processed successfully', filename: safeName, bookId: result.bookId });
+            } else {
+                const bookId = result ? result.bookId : null;
+                res.status(200).json({ message: 'Book updated (duplicate found)', filename: safeName, bookId });
+            }
+        } catch (scanError) {
+             console.error('Upload processing error:', scanError);
+             res.status(500).json({ error: 'Processing failed: ' + scanError.message });
+        }
+    });
 });
 
 // -----------------------------------------------------------------
