@@ -25,7 +25,7 @@ export default function Publishers() {
 
   // Pagination State
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(50);
+  const [limit, setLimit] = useState(48);
   const [totalPublishers, setTotalPublishers] = useState(0);
 
   const fetchPublishers = async (pageToFetch, search = '', limitToFetch = 50) => {
@@ -196,10 +196,10 @@ export default function Publishers() {
                       }}
                       className="bg-white/5 border border-white/10 rounded px-2 py-1 outline-none focus:border-primary/50 text-foreground cursor-pointer"
                   >
-                      <option value={10}>10</option>
-                      <option value={20}>20</option>
-                      <option value={50}>50</option>
-                      <option value={100}>100</option>
+                      <option value={24}>24</option>
+                      <option value={48}>48</option>
+                      <option value={72}>72</option>
+                      <option value={96}>96</option>
                   </select>
               </div>
 
