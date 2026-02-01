@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Plus, X, User } from 'lucide-react';
-import { authorsApi } from '../api/api';
-import { cn } from '../lib/utils'; // Assuming this exists based on BookDetails usage
+import { Search, Plus, X, Building2 } from 'lucide-react';
+import { publishersApi } from '../api/api';
+import { cn } from '../lib/utils';
 
-const AuthorSearch = ({ onSelect, selectedAuthor, className, placeholder }) => {
+const PublisherSearch = ({ onSelect, selectedPublisher, className, placeholder }) => {
     const [query, setQuery] = useState('');
     const [suggestions, setSuggestions] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -11,8 +11,7 @@ const AuthorSearch = ({ onSelect, selectedAuthor, className, placeholder }) => {
     const [isCreating, setIsCreating] = useState(false);
     
     // Create Mode State
-    const [newFirstName, setNewFirstName] = useState('');
-    const [newLastName, setNewLastName] = useState('');
+    const [newPublisherName, setNewPublisherName] = useState('');
     const [creating, setCreating] = useState(false);
 
     const wrapperRef = useRef(null);
@@ -21,7 +20,7 @@ const AuthorSearch = ({ onSelect, selectedAuthor, className, placeholder }) => {
     useEffect(() => {
         const timer = setTimeout(() => {
             if (query.trim()) {
-                fetchAuthors(query);
+                fetchPublishers(query);
             } else {
                 setSuggestions([]);
             }
@@ -41,10 +40,10 @@ const AuthorSearch = ({ onSelect, selectedAuthor, className, placeholder }) => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const fetchAuthors = async (searchTerm) => {
+    const fetchPublishers = async (searchTerm) => {
         setLoading(true);
         try {
-            const res = await authorsApi.getAll({ search: searchTerm, limit: 10 });
+            const res = await publishersApi.getAll({ search: searchTerm, limit: 10 });
             setSuggestions(res.data.data || []);
             setIsOpen(true);
         } catch (err) {
@@ -55,39 +54,38 @@ const AuthorSearch = ({ onSelect, selectedAuthor, className, placeholder }) => {
     };
 
     const handleCreate = async () => {
-        if (!newFirstName || !newLastName) return;
+        if (!newPublisherName) return;
         setCreating(true);
         try {
-            const res = await authorsApi.create({
-                author_name: newFirstName,
-                author_lastname: newLastName,
-                author_create_date: Date.now()
+            const res = await publishersApi.create({
+                publisher_name: newPublisherName,
+                publisher_create_date: Date.now()
             });
             
             // Result structure from crudFactory is { data: { id: ..., ... } }
-            const newAuthor = res.data.data;
+            const newPublisher = res.data.data;
             // Normalize ID for frontend consistency
-            if (!newAuthor.ID && newAuthor.id) newAuthor.ID = newAuthor.id;
-
-            onSelect(newAuthor);
+            if (!newPublisher.ID && newPublisher.id) newPublisher.ID = newPublisher.id;
+            
+            onSelect(newPublisher);
             
             // Reset
             setIsCreating(false);
             setQuery('');
             setIsOpen(false);
         } catch (err) {
-            console.error("Failed to create author", err);
+            console.error("Failed to create publisher", err);
         } finally {
             setCreating(false);
         }
     };
 
-    if (selectedAuthor) {
+    if (selectedPublisher) {
         return (
             <div className={cn("flex items-center gap-2 bg-white/10 px-3 py-2 rounded-lg border border-white/20", className)}>
-                <User size={16} className="text-primary" />
+                <Building2 size={16} className="text-primary" />
                 <span className="text-sm font-bold text-foreground">
-                    {selectedAuthor.author_name} {selectedAuthor.author_lastname}
+                    {selectedPublisher.publisher_name}
                 </span>
                 <button 
                     onClick={() => onSelect(null)} 
@@ -102,20 +100,14 @@ const AuthorSearch = ({ onSelect, selectedAuthor, className, placeholder }) => {
     if (isCreating) {
         return (
             <div className={cn("flex flex-col gap-2 p-3 bg-white/5 border border-white/10 rounded-lg animate-in fade-in zoom-in duration-200", className)}>
-                <p className="text-[10px] font-black uppercase text-primary tracking-widest">Create New Author</p>
+                <p className="text-[10px] font-black uppercase text-primary tracking-widest">Create New Publisher</p>
                 <div className="flex gap-2">
                     <input 
-                        placeholder="First Name"
-                        value={newFirstName}
-                        onChange={e => setNewFirstName(e.target.value)}
+                        placeholder="Publisher Name"
+                        value={newPublisherName}
+                        onChange={e => setNewPublisherName(e.target.value)}
                         className="flex-1 bg-black/20 border border-white/10 rounded px-2 py-1 text-sm text-foreground outline-none focus:border-primary"
                         autoFocus
-                    />
-                    <input 
-                        placeholder="Last Name"
-                        value={newLastName}
-                        onChange={e => setNewLastName(e.target.value)}
-                        className="flex-1 bg-black/20 border border-white/10 rounded px-2 py-1 text-sm text-foreground outline-none focus:border-primary"
                     />
                 </div>
                 <div className="flex justify-end gap-2 mt-1">
@@ -127,7 +119,7 @@ const AuthorSearch = ({ onSelect, selectedAuthor, className, placeholder }) => {
                     </button>
                     <button 
                         onClick={handleCreate}
-                        disabled={!newFirstName || !newLastName || creating}
+                        disabled={!newPublisherName || creating}
                         className="px-3 py-1 bg-primary text-primary-foreground text-xs font-bold rounded hover:bg-primary/90 disabled:opacity-50"
                     >
                         {creating ? 'Creating...' : 'Create'}
@@ -147,7 +139,7 @@ const AuthorSearch = ({ onSelect, selectedAuthor, className, placeholder }) => {
                         setIsOpen(true);
                     }}
                     onFocus={() => query && setIsOpen(true)}
-                    placeholder={placeholder || "Search or add author..."}
+                    placeholder={placeholder || "Search or add publisher..."}
                     className="w-full bg-white/10 border border-white/20 rounded-lg pl-9 pr-4 py-2 text-sm font-bold text-foreground outline-none focus:border-primary focus:bg-white/15 transition-all placeholder:font-normal"
                 />
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
@@ -156,34 +148,31 @@ const AuthorSearch = ({ onSelect, selectedAuthor, className, placeholder }) => {
             {isOpen && (query || suggestions.length > 0) && (
                 <div className="absolute z-50 top-full left-0 right-0 mt-2 bg-slate-900 border border-white/10 rounded-lg shadow-xl overflow-hidden max-h-60 flex flex-col">
                     <div className="overflow-y-auto max-h-[200px] custom-scrollbar">
-                        {suggestions.map(author => (
+                        {suggestions.map(publisher => (
                             <button
-                                key={author.ID}
+                                key={publisher.ID}
                                 onClick={() => {
-                                    onSelect(author);
+                                    onSelect(publisher);
                                     setQuery('');
                                     setIsOpen(false);
                                 }}
                                 className="w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-primary/20 hover:text-white transition-colors flex items-center gap-2"
                             >
-                                <User size={14} className="opacity-50" />
-                                <span className="font-bold">{author.author_name} {author.author_lastname}</span>
+                                <Building2 size={14} className="opacity-50" />
+                                <span className="font-bold">{publisher.publisher_name}</span>
                             </button>
                         ))}
                         {loading && (
                             <div className="px-4 py-2 text-xs text-muted-foreground italic">Searching...</div>
                         )}
                         {!loading && suggestions.length === 0 && query && (
-                             <div className="px-4 py-2 text-xs text-muted-foreground italic">No authors found</div>
+                             <div className="px-4 py-2 text-xs text-muted-foreground italic">No publishers found</div>
                         )}
                     </div>
                     {query && (
                         <button
                             onClick={() => {
-                                // Pre-fill with query if it looks like a name
-                                const parts = query.split(' ');
-                                if (parts.length > 0) setNewFirstName(parts[0]);
-                                if (parts.length > 1) setNewLastName(parts.slice(1).join(' '));
+                                setNewPublisherName(query);
                                 setIsCreating(true);
                                 setIsOpen(false);
                             }}
@@ -199,4 +188,4 @@ const AuthorSearch = ({ onSelect, selectedAuthor, className, placeholder }) => {
     );
 };
 
-export default AuthorSearch;
+export default PublisherSearch;

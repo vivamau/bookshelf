@@ -18,12 +18,14 @@ import {
   Trash2,
   Calendar,
   ExternalLink,
-  ListPlus
+  ListPlus,
+  Building2
 } from 'lucide-react';
 import { booksApi, genresApi, booksGenresApi, authorsApi, booksAuthorsApi, publishersApi, reviewsApi, readlistsApi } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../lib/utils';
 import AuthorSearch from '../components/AuthorSearch';
+import PublisherSearch from '../components/PublisherSearch';
 
 const formatDateForInput = (dateValue) => {
   if (!dateValue) return '';
@@ -429,9 +431,14 @@ export default function BookDetails() {
     setSaving(true);
     try {
       // 1. Update basic book info (title, summary, ISBN)
+      const stripHtml = (html) => {
+        if (!html) return '';
+        return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+      };
+
       const updateData = {
         book_title: editForm.book_title,
-        book_summary: editForm.book_summary,
+        book_summary: stripHtml(editForm.book_summary),
         book_isbn: editForm.book_isbn,
         book_isbn_13: editForm.book_isbn_13,
         book_date: editForm.book_date ? new Date(editForm.book_date).getTime() : null,
@@ -1201,18 +1208,44 @@ export default function BookDetails() {
                 <div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Publisher</p>
                     {isEditing ? (
-                      <div className="flex flex-col gap-2 items-start">
-                        <span className="text-xs font-bold text-foreground opacity-60 bg-white/5 px-2 py-1 rounded italic">{book.publisher_name || 'Unknown'}</span>
-                        <select 
-                          value={editForm.book_publisher_id || ''}
-                          onChange={e => setEditForm({...editForm, book_publisher_id: e.target.value})}
-                          className="bg-white/10 border border-white/20 rounded-lg px-2 py-1.5 text-xs font-bold text-primary outline-none focus:border-primary transition-all shadow-inner w-full"
-                        >
-                          <option value="">Change publisher...</option>
-                          {allPublishers.map(p => (
-                            <option key={p.ID} value={p.ID}>{p.publisher_name}</option>
-                          ))}
-                        </select>
+                      <div className="flex flex-col gap-3 items-start w-full bg-white/5 p-3 rounded-xl border border-white/10 shadow-inner">
+                        <div className="flex flex-wrap gap-2 items-center">
+                          {editForm.book_publisher_id ? (
+                            <div className="flex items-center gap-2 bg-primary/20 text-primary px-3 py-1.5 rounded-lg text-xs font-black border border-primary/30 animate-in fade-in zoom-in duration-200">
+                              <Building2 size={12} />
+                              <span>{(
+                                allPublishers.find(p => p.ID === Number(editForm.book_publisher_id))?.publisher_name || 
+                                (String(editForm.book_publisher_id) === String(book.book_publisher_id) ? book.publisher_name : 'Selected')
+                              ).toUpperCase()}</span>
+                              <button 
+                                onClick={() => setEditForm({...editForm, book_publisher_id: null})}
+                                className="ml-1 p-0.5 hover:bg-primary/20 rounded-full transition-colors"
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] font-bold text-muted-foreground italic px-2">No publisher selected</span>
+                          )}
+                        </div>
+                        
+                        <PublisherSearch 
+                          onSelect={(publisher) => {
+                              if (publisher) {
+                                  // Ensure the new publisher is in our local list so the UI can resolve its name
+                                  setAllPublishers(prev => {
+                                      if (prev.find(p => p.ID === publisher.ID)) return prev;
+                                      return [...prev, publisher];
+                                  });
+                                  setEditForm({
+                                      ...editForm,
+                                      book_publisher_id: publisher.ID
+                                  });
+                              }
+                          }}
+                          placeholder="Change publisher..."
+                          className="w-full"
+                        />
                       </div>
                     ) : (
                       book.book_publisher_id ? (
