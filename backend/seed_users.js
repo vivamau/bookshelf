@@ -34,11 +34,10 @@ const seedUsers = (dbInstance) => {
             // For simplicity in this "startup" context, let's only Insert if NOT exists.
             // Using a simple check for 'admin'
             
-            db.get("SELECT ID FROM Users WHERE user_username = 'admin'", async (err, row) => {
+            db.get("SELECT COUNT(*) as count FROM Users", async (err, row) => {
                 if (err) return reject(err);
-                if (row) {
-                    // Admin exists, assume seeded
-                    // console.log('Users already seeded.');
+                if (row && row.count > 0) {
+                    // Users exist, skip seeding
                     return resolve();
                 }
 

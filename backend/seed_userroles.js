@@ -31,43 +31,52 @@ const seedUserRoles = (dbInstance) => {
         ];
 
         db.serialize(() => {
-            const now = Date.now();
-            const stmt = db.prepare(`
-                INSERT OR IGNORE INTO UserRoles (
-                    userrole_name,
-                    userrole_description,
-                    userrole_manageusers,
-                    userrole_managebooks,
-                    userrole_readbooks,
-                    userrole_viewbooks,
-                    userrole_create_date,
-                    userrole_update_date
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            `, (err) => {
+            // Check if ANY roles exist
+            db.get("SELECT COUNT(*) as count FROM UserRoles", (err, row) => {
                 if (err) return reject(err);
-            });
-
-            db.run("BEGIN TRANSACTION");
-            roles.forEach(role => {
-                stmt.run(
-                    role.userrole_name,
-                    role.userrole_description,
-                    role.userrole_manageusers,
-                    role.userrole_managebooks,
-                    role.userrole_readbooks,
-                    role.userrole_viewbooks,
-                    now,
-                    now
-                );
-            });
-
-            db.run("COMMIT", (err) => {
-                stmt.finalize();
-                if (err) reject(err);
-                else {
-                    console.log('User roles seeded successfully.');
-                    resolve();
+                if (row && row.count > 0) {
+                     // console.log('User roles already seeded.');
+                     return resolve();
                 }
+
+                const now = Date.now();
+                const stmt = db.prepare(`
+                    INSERT INTO UserRoles (
+                        userrole_name,
+                        userrole_description,
+                        userrole_manageusers,
+                        userrole_managebooks,
+                        userrole_readbooks,
+                        userrole_viewbooks,
+                        userrole_create_date,
+                        userrole_update_date
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                `, (err) => {
+                    if (err) return reject(err);
+                });
+
+                db.run("BEGIN TRANSACTION");
+                roles.forEach(role => {
+                    stmt.run(
+                        role.userrole_name,
+                        role.userrole_description,
+                        role.userrole_manageusers,
+                        role.userrole_managebooks,
+                        role.userrole_readbooks,
+                        role.userrole_viewbooks,
+                        now,
+                        now
+                    );
+                });
+
+                db.run("COMMIT", (err) => {
+                    stmt.finalize();
+                    if (err) reject(err);
+                    else {
+                        console.log('User roles seeded successfully.');
+                        resolve();
+                    }
+                });
             });
         });
     });

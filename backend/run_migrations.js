@@ -34,9 +34,12 @@ const runMigrations = (dbInstance) => {
                     }
 
                     const migrationFiles = files.filter(f => f.endsWith('.sql')).sort();
+                    
+                    console.log(`Checking migrations... Found ${migrationFiles.length} files.`);
 
                     // Execute migrations sequentially using promises
                     let migrationChain = Promise.resolve();
+                    let appliedCount = 0;
 
                     migrationFiles.forEach(file => {
                         if (!appliedMigrations.has(file)) {
@@ -65,6 +68,7 @@ const runMigrations = (dbInstance) => {
                                                     rej(e);
                                                 } else {
                                                     console.log(`Migration ${file} applied successfully.`);
+                                                    appliedCount++;
                                                     res();
                                                 }
                                             });
@@ -76,6 +80,11 @@ const runMigrations = (dbInstance) => {
                     });
 
                     migrationChain.then(() => {
+                        if (appliedCount === 0) {
+                            console.log("No new migrations to apply.");
+                        } else {
+                            console.log(`Successfully applied ${appliedCount} migrations.`);
+                        }
                         resolve();
                     }).catch(error => {
                         reject(error);

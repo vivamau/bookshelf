@@ -27,11 +27,7 @@ cd bookshelf
 
 ### 2. Set Up the Database
 
-The project includes a sample SQLite database. Copy and rename it:
-
-```bash
-cp backend/data/booksshelf.sample.db backend/data/booksshelf.db
-```
+The project automatically creates and initializes a SQLite database (`backend/data/booksshelf.db`) on the first run.
 
 ### 3. Configure Environment Variables
 
@@ -104,7 +100,18 @@ npm start
 
 This will:
 1. Run database migrations
-2. Start the Express server on the configured port (default: `http://localhost:3005`)
+2. Seed default users (if the database is new)
+3. Start the Express server on the configured port (default: `http://localhost:3005`)
+
+### Default Users (Security Warning ⚠️)
+
+On the first run, the system will create the following default users:
+
+- **Admin (Librarian)**: `admin` / `adminpassword`
+- **Reader**: `reader1` / `readerpassword`
+- **Guest**: `guest1` / `guestpassword`
+
+**IMPORTANT**: Please change these passwords or remove these users immediately after your first login to secure your installation.
 
 ### Start the Frontend Development Server
 
@@ -168,16 +175,13 @@ bookshelf/
 git clone https://github.com/vivamau/bookshelf.git
 cd bookshelf
 
-# 2. Set up the database
-cp backend/data/booksshelf.sample.db backend/data/booksshelf.db
-
-# 3. Configure backend
+# 2. Configure backend
 cp backend/.env.sample backend/.env
 
-# 4. Configure frontend
+# 3. Configure frontend
 cp frontend/.env.sample frontend/.env
 
-# 5. Install dependencies
+# 4. Install dependencies
 cd backend && npm install
 cd ../frontend && npm install
 
