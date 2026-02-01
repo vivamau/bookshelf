@@ -15,6 +15,11 @@ if (!fs.existsSync(EXTRACTED_DIR)) {
     fs.mkdirSync(EXTRACTED_DIR);
 }
 
+const stripHtml = (html) => {
+    if (!html) return '';
+    return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+};
+
 const getOrCreateFormat = (db, formatName) => {
     return new Promise((resolve, reject) => {
         db.get("SELECT ID FROM Formats WHERE format_name = ?", [formatName], (err, row) => {
@@ -204,7 +209,7 @@ const processBook = async (db, filename, formatId, onProgress, options = {}) => 
             }
             const publisher = getText(metadata['dc:publisher']);
             const language = getText(metadata['dc:language']) || 'en';
-            const description = getText(metadata['dc:description']);
+            const description = stripHtml(getText(metadata['dc:description']));
             console.log(`  Title: ${title}`);
 
             // Use a unique name for folders/files to avoid collisions in subdirs

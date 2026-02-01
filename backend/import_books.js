@@ -264,7 +264,12 @@ const insertBook = (book, formatId, publisherId, languageId) => {
         if (!isbn && book.metadata['dcterms:identifier']) {
              isbn = book.metadata['dcterms:identifier'];
         }
-        const summary = book.metadata.summary || book.metadata.description || '';
+        const stripHtml = (html) => {
+            if (!html) return '';
+            return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+        };
+
+        const summary = stripHtml(book.metadata.summary || book.metadata.description || '');
         
         let bookDate = null;
         if (book.metadata.date) {
