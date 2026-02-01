@@ -74,7 +74,10 @@ export default function Library() {
       }
   }, []);
   
-  const canDelete = user?.userrole_managebooks === 1;
+  
+  // Robust check for delete permission (handles 1/0 or true/false)
+  const canDelete = !!user?.userrole_managebooks;
+  // console.log("User permissions debug:", { user, canDelete });
 
   const confirmDelete = (e, book) => {
       e.stopPropagation();
@@ -253,7 +256,7 @@ export default function Library() {
                                    {canDelete && (
                                        <button 
                                            onClick={(e) => confirmDelete(e, book)}
-                                           className="absolute bottom-2 right-2 p-1.5 bg-destructive text-white rounded-md opacity-0 group-hover:opacity-100 transition-all hover:scale-110 shadow-lg z-20"
+                                           className="absolute bottom-2 right-2 p-1.5 bg-destructive text-white rounded-md opacity-0 group-hover:opacity-100 transition-all hover:scale-110 shadow-lg z-30"
                                            title="Delete Book"
                                        >
                                            <Trash2 size={14} />
