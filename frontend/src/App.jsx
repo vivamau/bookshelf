@@ -517,10 +517,10 @@ function Dashboard() {
       try {
         if (activeTab === 'Explore') {
           const [booksRes, continueRes] = await Promise.all([
-              booksApi.getAll(),
+              booksApi.getAll({ sort: 'latest', limit: 24 }),
               booksApi.getContinueReading()
           ]);
-          setBooks((booksRes.data.data || []).sort((a, b) => b.ID - a.ID));
+          setBooks(booksRes.data.data || []);
           setContinueReading(continueRes.data.data || []);
         } else if (activeTab === 'Trending') {
           const [readRes, downloadRes] = await Promise.all([

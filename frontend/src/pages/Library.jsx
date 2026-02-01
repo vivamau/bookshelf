@@ -23,7 +23,7 @@ export default function Library() {
   const [limit, setLimit] = useState(50);
   const [totalBooks, setTotalBooks] = useState(0);
   const [viewMode, setViewMode] = useState('grid');
-  const [sortBy, setSortBy] = useState('title'); // title, date, year
+  const [sortBy, setSortBy] = useState('latest'); // latest, title, date, year
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
 
@@ -56,14 +56,9 @@ export default function Library() {
   }, [page]);
 
   const sortedBooks = useMemo(() => {
-    // Note: Filtering/Sorting here only applies to CURRENTLY LOADED books (current page).
-    return [...books].sort((a, b) => {
-        if (sortBy === 'title') {
-            return a.book_title.localeCompare(b.book_title);
-        }
-        return 0;
-    });
-  }, [books, sortBy]);
+    // We rely on backend sorting for paginated results
+    return books;
+  }, [books]);
   
   const [bookToDelete, setBookToDelete] = useState(null);
   const user = useMemo(() => {
@@ -112,9 +107,15 @@ export default function Library() {
                 <ChevronDown size={14} className="text-muted-foreground" />
             </div>
 
-            <div className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer hover:text-primary transition-colors">
-                <span>By Title</span>
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer hover:text-primary transition-colors relative group/sort">
+                <span className="capitalize">{sortBy === 'latest' ? 'Recently Added' : `By ${sortBy}`}</span>
                 <ChevronDown size={14} className="text-muted-foreground" />
+                
+                <div className="absolute top-full left-0 mt-2 w-40 bg-card border border-border rounded-lg shadow-xl overflow-hidden opacity-0 invisible group-hover/sort:opacity-100 group-hover/sort:visible transition-all z-50 py-1">
+                    <div onClick={() => setSortBy('latest')} className={cn("px-4 py-2.5 hover:bg-white/5 text-xs font-bold", sortBy === 'latest' && "text-primary")}>Recently Added</div>
+                    <div onClick={() => setSortBy('title')} className={cn("px-4 py-2.5 hover:bg-white/5 text-xs font-bold", sortBy === 'title' && "text-primary")}>By Title</div>
+                    <div onClick={() => setSortBy('year')} className={cn("px-4 py-2.5 hover:bg-white/5 text-xs font-bold", sortBy === 'year' && "text-primary")}>By Year</div>
+                </div>
             </div>
 
             <div className="h-6 w-px bg-white/10 mx-2" />

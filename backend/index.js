@@ -898,7 +898,7 @@ booksRouter.get('/', (req, res) => {
     const sort = req.query.sort || 'title';
     
     let orderBy = 'b.book_title ASC'; // Default to alphabetical
-    if (sort === 'latest') orderBy = 'b.ID DESC';
+    if (sort === 'latest' || sort === 'added') orderBy = 'b.book_create_date DESC, b.ID DESC';
     else if (sort === 'year') orderBy = 'b.book_date DESC'; /* Assuming book_date stores the publication year/date */
     
     sql += ` ORDER BY ${orderBy} LIMIT ? OFFSET ?`;
