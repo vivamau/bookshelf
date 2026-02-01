@@ -60,3 +60,6 @@ backend/covers/*
 backend/extracted/*
 !backend/extracted/.gitkeep
 
+
+# Agent Context
+.agent/
