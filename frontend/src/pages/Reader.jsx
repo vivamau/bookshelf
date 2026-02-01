@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, X, Maximize2, RotateCcw, ChevronLeft, ChevronRight, List, Loader2 } from 'lucide-react';
+import { ArrowLeft, X, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { booksApi } from '../api/api';
 
 export default function Reader() {
@@ -12,41 +12,111 @@ export default function Reader() {
   const [loading, setLoading] = useState(true);
   const [preparing, setPreparing] = useState(false);
   const [error, setError] = useState(null);
-  const isInitialized = React.useRef(false);
+  const isInitialized = useRef(false);
+
+  const iframeRef = useRef(null);
+  const [internalPage, setInternalPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [htmlContent, setHtmlContent] = useState('');
+  const [contentLoading, setContentLoading] = useState(false);
+  const [shouldJumpToLast, setShouldJumpToLast] = useState(false);
+  const [initialToRestore, setInitialToRestore] = useState(null);
+
+  // Inject styles and calculate pages when iframe content loads
+  const handleIframeLoad = () => {
+    if (!iframeRef.current || !htmlContent) return;
+    
+    let attempts = 0;
+    const maxAttempts = 15; // Increased attempts for slower loads
+    
+    const checkLayout = setInterval(() => {
+        try {
+          const iframe = iframeRef.current;
+          if (!iframe) { clearInterval(checkLayout); return; }
+          const doc = iframe.contentDocument || iframe.contentWindow.document;
+          
+          // Wait for actual content to be present in the body
+          if (!doc || !doc.body || doc.body.innerHTML.trim().length < 50) {
+            attempts++;
+            if (attempts >= maxAttempts) {
+                clearInterval(checkLayout);
+                setContentLoading(false);
+            }
+            return;
+          }
+
+          const clientWidth = doc.documentElement.clientWidth;
+          const scrollWidth = doc.documentElement.scrollWidth;
+          const pages = Math.max(1, Math.ceil(scrollWidth / clientWidth));
+          
+          // If we calculate 1 page but it feels like there should be more (heuristic), wait a bit
+          if (pages === 1 && attempts < 8 && scrollWidth < clientWidth * 1.1) {
+             attempts++;
+             return;
+          }
+
+          console.log(`[Reader] Layout Validated (Attempt ${attempts}):`, { scrollWidth, clientWidth, pages, initialToRestore });
+          setTotalPages(pages);
+          
+          if (shouldJumpToLast) {
+            const target = pages - 1;
+            setInternalPage(target);
+            doc.body.style.transform = `translateX(-${target * clientWidth}px)`;
+            setShouldJumpToLast(false);
+          } else if (initialToRestore !== null) {
+            const targetPage = Math.min(initialToRestore, pages - 1);
+            console.log("[Reader] Resume Success: Jumping to page", targetPage);
+            setInternalPage(targetPage);
+            doc.body.style.transform = `translateX(-${targetPage * clientWidth}px)`;
+            // Clear the restoration target so normal navigation works
+            setInitialToRestore(null); 
+          } else {
+            // Ensure we are at the right position for the current internalPage
+            doc.body.style.transform = `translateX(-${internalPage * clientWidth}px)`;
+          }
+          
+          setContentLoading(false);
+          clearInterval(checkLayout);
+        } catch (e) {
+          console.error("Reader Pagination Error:", e);
+          clearInterval(checkLayout);
+          setContentLoading(false);
+        }
+    }, 150);
+  };
 
   useEffect(() => {
     const fetchAndPrepareBook = async () => {
       try {
-        // First, get book details
         const res = await booksApi.getById(id);
         const bookData = res.data.data;
-        console.log("Reader loaded book data:", bookData);
         setBook(bookData);
         
         if (bookData.book_spine) {
             const parsedSpine = JSON.parse(bookData.book_spine);
             setSpine(parsedSpine);
             
-            // Initialize from saved progress if available
+            // Set initial chapter index
+            let startIdx = 0;
             if (bookData.book_current_index !== undefined && bookData.book_current_index !== null) {
-                console.log("Setting initial index from DB:", bookData.book_current_index);
-                setCurrentIndex(bookData.book_current_index);
+                startIdx = bookData.book_current_index;
+                if (bookData.book_current_page !== undefined && bookData.book_current_page !== null) {
+                    console.log("[Reader] Initializing restoration target:", bookData.book_current_page);
+                    setInitialToRestore(bookData.book_current_page);
+                }
             } else {
-                // Try to find current index if entry point is set
                 const idx = parsedSpine.indexOf(bookData.book_entry_point);
-                setCurrentIndex(idx !== -1 ? idx : 0);
+                startIdx = idx !== -1 ? idx : 0;
             }
+            setCurrentIndex(startIdx);
         }
 
-        // Now prepare (extract) the book for reading
         setPreparing(true);
-        console.log("Preparing book for reader...");
-        const prepareRes = await booksApi.prepareReader(id);
-        console.log("Book preparation result:", prepareRes.data);
+        await booksApi.prepareReader(id);
         setPreparing(false);
 
-        // Mark as initialized after a short delay to bridge the state update
-        setTimeout(() => { isInitialized.current = true; }, 300);
+        // Signal that we are ready to start saving progress
+        setTimeout(() => { isInitialized.current = true; }, 1000);
       } catch (err) {
         console.error("Failed to load/prepare book for reader", err);
         setError(err.response?.data?.error || err.message || 'Failed to prepare book');
@@ -58,29 +128,128 @@ export default function Reader() {
     fetchAndPrepareBook();
   }, [id]);
 
-  // Save progress when index changes
+  // Fetch and process HTML content
   useEffect(() => {
-    if (!loading && spine.length > 0 && isInitialized.current && currentIndex !== null) {
-      console.log("Saving progress to DB. Index:", currentIndex);
-      const progress_percentage = ((currentIndex + 1) / spine.length) * 100;
+    const loadChapter = async () => {
+      if (!book || !spine || currentIndex === null || !spine[currentIndex]) return;
+      
+      setContentLoading(true);
+      try {
+        const folderName = book.book_filename?.replace(/[/\\]/g, '_').replace(/\.epub$/i, '');
+        const token = localStorage.getItem('token');
+        const baseUrl = `${import.meta.env.VITE_API_BASE_URL}/extracted/${folderName}/`;
+        const chapterRelativeDir = spine[currentIndex].substring(0, spine[currentIndex].lastIndexOf('/') + 1);
+        const fullBaseUrl = baseUrl + chapterRelativeDir;
+        
+        const readerUrl = `${baseUrl}${spine[currentIndex]}?token=${token}`;
+        const response = await fetch(readerUrl);
+        let html = await response.text();
+
+        // Rewrite relative paths for images, css, etc. AND append token
+        html = html.replace(/(src|href)="([^":]+)"/g, (match, p1, p2) => {
+          if (p2.startsWith('http') || p2.startsWith('data:') || p2.startsWith('blob:')) return match;
+          try {
+            const absoluteUrl = new URL(p2, fullBaseUrl).href;
+            return `${ p1 }="${ absoluteUrl }${ absoluteUrl.includes('?') ? '&' : '?' }token=${ token }"`;
+          } catch(e) {
+            return `${ p1 }="${ fullBaseUrl }${ p2 }${ p2.includes('?') ? '&' : '?' }token=${ token }"`;
+          }
+        });
+
+        // Inject pagination styles directly into the HTML
+        const style = `
+          <style>
+            html { 
+              height: 100vh !important; 
+              overflow: hidden !important; 
+              margin: 0 !important;
+              padding: 0 !important;
+            }
+            body {
+              margin: 0 !important;
+              padding: 40px 60px !important;
+              height: 100vh !important;
+              width: 100vw !important;
+              box-sizing: border-box !important;
+              column-width: calc(100vw - 120px) !important;
+              column-gap: 120px !important;
+              column-fill: auto !important;
+              transition: transform 0.3s ease-in-out !important;
+              font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+              line-height: 1.7 !important;
+              color: #1a1a1a !important;
+              background-color: white !important;
+              font-size: 18px !important;
+            }
+            img { 
+              max-width: 100% !important; 
+              max-height: calc(100vh - 100px) !important; 
+              object-fit: contain !important; 
+              display: block !important; 
+              margin: 20px auto !important; 
+            }
+            p { margin-bottom: 1.2em !important; text-align: justify !important; }
+            h1, h2, h3, h4 { color: #000 !important; margin-top: 1em !important; }
+          </style>
+        `;
+        
+        if (html.includes('</head>')) {
+          html = html.replace('</head>', `${ style }</head>`);
+        } else {
+          html = style + html;
+        }
+
+        setHtmlContent(html);
+      } catch (err) {
+        console.error("Failed to load chapter content", err);
+        setContentLoading(false);
+      }
+    };
+
+    loadChapter();
+  }, [currentIndex, book, spine]);
+
+  useEffect(() => {
+    // CRITICAL: Only save progress if:
+    // 1. Component is fully initialized
+    // 2. We ARE NOT currently in the middle of a restoration jump (initialToRestore === null)
+    // 3. We have actual content loaded
+    if (isInitialized.current && initialToRestore === null && !loading && !contentLoading && currentIndex !== null && spine.length > 0) {
+      console.log("[Reader] Saving Progress:", { currentIndex, internalPage });
+      const progress_percentage = ((currentIndex + (internalPage / totalPages)) / spine.length) * 100;
       booksApi.updateProgress(id, { 
         current_index: currentIndex, 
-        progress_percentage: progress_percentage 
+        current_page: internalPage,
+        progress_percentage: Math.min(100, progress_percentage) 
       }).catch(err => console.error("Failed to save progress", err));
     }
-  }, [currentIndex, loading, spine.length, id]);
+  }, [currentIndex, internalPage, totalPages, loading, contentLoading, initialToRestore, spine.length, id]);
+
+  const updateInternalPage = (newPage) => {
+    if (!iframeRef.current) return;
+    const doc = iframeRef.current.contentDocument || iframeRef.current.contentWindow.document;
+    const clientWidth = doc.documentElement.clientWidth;
+    doc.body.style.transform = `translateX(-${newPage * clientWidth}px)`;
+    setInternalPage(newPage);
+  };
 
   const goToNext = useCallback(() => {
-    if (currentIndex !== null && currentIndex < spine.length - 1) {
+    if (internalPage < totalPages - 1) {
+      updateInternalPage(internalPage + 1);
+    } else if (currentIndex !== null && currentIndex < spine.length - 1) {
       setCurrentIndex(prev => prev + 1);
+      setInternalPage(0);
     }
-  }, [currentIndex, spine.length]);
+  }, [currentIndex, internalPage, totalPages, spine.length]);
 
   const goToPrev = useCallback(() => {
-    if (currentIndex !== null && currentIndex > 0) {
+    if (internalPage > 0) {
+      updateInternalPage(internalPage - 1);
+    } else if (currentIndex !== null && currentIndex > 0) {
+      setShouldJumpToLast(true);
       setCurrentIndex(prev => prev - 1);
     }
-  }, [currentIndex]);
+  }, [currentIndex, internalPage]);
 
   if (loading || preparing || currentIndex === null) {
     return (
@@ -115,14 +284,8 @@ export default function Reader() {
     );
   }
 
-  // Compute folder name using same logic as backend
-  const folderName = book?.book_filename?.replace(/[/\\]/g, '_').replace(/\.epub$/i, '');
-  const token = localStorage.getItem('token');
-  const readerUrl = `${import.meta.env.VITE_API_BASE_URL}/extracted/${folderName}/${spine[currentIndex]}?token=${token}`;
-
   return (
-    <div className="h-screen w-full bg-[#0a0a0a] flex flex-col overflow-hidden animate-in fade-in duration-500">
-      {/* Reader Controls Header */}
+    <div className="h-screen w-full bg-[#0a0a0a] flex flex-col overflow-hidden animate-in fade-in duration-500 font-sans">
       <div className="h-14 bg-[#0a0a0a] border-b border-white/5 flex items-center justify-between px-6 shrink-0 z-50">
         <div className="flex items-center gap-4">
           <button 
@@ -132,36 +295,38 @@ export default function Reader() {
             <ArrowLeft size={20} />
           </button>
           <div className="flex flex-col">
-            <span className="text-xs font-bold text-white/50 uppercase tracking-widest leading-none mb-1">Page {currentIndex + 1} of {spine.length}</span>
+            <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] leading-none mb-1">
+              CH {currentIndex + 1}/{spine.length} • SCR {internalPage + 1}/{totalPages}
+            </span>
             <span className="text-sm font-bold text-white leading-none truncate max-w-[200px] md:max-w-md">{book.book_title}</span>
           </div>
         </div>
 
         <div className="flex items-center gap-4">
-            <div className="flex items-center bg-white/5 rounded-full px-2 py-1">
+            <div className="flex items-center bg-white/5 rounded-full px-1.5 py-1 border border-white/10">
                 <button 
-                    disabled={currentIndex === 0}
+                    disabled={currentIndex === 0 && internalPage === 0}
                     onClick={goToPrev}
-                    className="p-1.5 hover:bg-white/10 rounded-full text-white/70 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+                    className="p-2 hover:bg-white/10 rounded-full text-white/70 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed transition-all"
                 >
                     <ChevronLeft size={20} />
                 </button>
                 <div className="w-px h-4 bg-white/10 mx-1" />
                 <button 
-                    disabled={currentIndex === spine.length - 1}
+                    disabled={currentIndex === spine.length - 1 && internalPage === totalPages - 1}
                     onClick={goToNext}
-                    className="p-1.5 hover:bg-white/10 rounded-full text-white/70 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+                    className="p-2 hover:bg-white/10 rounded-full text-white/70 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed transition-all"
                 >
                     <ChevronRight size={20} />
                 </button>
             </div>
 
-            <button onClick={() => setCurrentIndex(0)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white hidden md:block" title="Reset to start">
+            <button onClick={() => { setInternalPage(0); setCurrentIndex(0); }} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white hidden md:block" title="Reset to start">
                 <RotateCcw size={18} />
             </button>
             <button 
                 onClick={() => navigate(`/book/${id}`)}
-                className="flex items-center gap-2 px-4 py-1.5 bg-[#f1184c] hover:bg-[#d11440] text-white rounded-md text-sm font-bold transition-all ml-2"
+                className="flex items-center gap-2 px-5 py-1.5 bg-[#f1184c] hover:bg-[#d11440] text-white rounded-lg text-sm font-black tracking-wider transition-all shadow-lg shadow-[#f1184c]/20"
             >
                 <X size={16} />
                 <span>EXIT</span>
@@ -169,31 +334,39 @@ export default function Reader() {
         </div>
       </div>
 
-      {/* Reader Content Area */}
-      <div className="flex-1 bg-white relative flex justify-center">
-        <div className="w-full max-w-4xl h-full shadow-2xl relative">
+      <div className="flex-1 bg-[#121212] relative flex justify-center p-4 md:p-8">
+        <div className="w-full max-w-5xl h-full shadow-2xl relative rounded-xl overflow-hidden bg-white">
+            {contentLoading && (
+                <div className="absolute inset-0 bg-white z-20 flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-3">
+                        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Loading Chapter...</span>
+                    </div>
+                </div>
+            )}
             <iframe 
-                src={readerUrl} 
-                className="w-full h-full border-none bg-white"
+                ref={iframeRef}
+                onLoad={handleIframeLoad}
+                srcDoc={htmlContent} 
+                className="w-full h-full border-none shadow-inner"
                 title={book.book_title}
             />
             
-            {/* Clickable Navigation Overlays */}
             <div 
                 onClick={goToPrev}
-                className={`absolute inset-y-0 left-0 w-32 cursor-pointer z-10 flex items-center justify-start pl-8 group ${currentIndex === 0 ? 'hidden' : ''}`}
+                className={`absolute inset-y-0 left-0 w-32 cursor-pointer z-10 flex items-center justify-start pl-4 group ${currentIndex === 0 && internalPage === 0 ? 'hidden' : ''}`}
             >
-                <div className="w-12 h-12 rounded-full bg-black/5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <ChevronLeft size={32} className="text-black" />
+                <div className="w-12 h-12 rounded-full bg-black/0 group-hover:bg-black/5 flex items-center justify-center transition-all">
+                    <ChevronLeft size={24} className="text-black/0 group-hover:text-black/30" />
                 </div>
             </div>
 
             <div 
                 onClick={goToNext}
-                className={`absolute inset-y-0 right-0 w-32 cursor-pointer z-10 flex items-center justify-end pr-8 group ${currentIndex === spine.length - 1 ? 'hidden' : ''}`}
+                className={`absolute inset-y-0 right-0 w-32 cursor-pointer z-10 flex items-center justify-end pr-4 group ${currentIndex === spine.length - 1 && internalPage === totalPages - 1 ? 'hidden' : ''}`}
             >
-                <div className="w-12 h-12 rounded-full bg-black/5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <ChevronRight size={32} className="text-black" />
+                <div className="w-12 h-12 rounded-full bg-black/0 group-hover:bg-black/5 flex items-center justify-center transition-all">
+                    <ChevronRight size={24} className="text-black/0 group-hover:text-black/30" />
                 </div>
             </div>
         </div>

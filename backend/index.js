@@ -926,7 +926,7 @@ booksRouter.get('/:id/progress', (req, res) => {
     
     db.get("SELECT * FROM BooksUsers WHERE book_id = ? AND user_id = ?", [bookId, userId], (err, row) => {
         if (err) return res.status(500).json({ error: err.message });
-        res.json({ data: row || { book_current_index: 0, book_progress_percentage: 0 } });
+        res.json({ data: row || { book_current_index: 0, book_current_page: 0, book_progress_percentage: 0 } });
     });
 });
 
@@ -934,7 +934,7 @@ booksRouter.get('/:id/progress', (req, res) => {
 booksRouter.post('/:id/progress', (req, res) => {
     const userId = req.user.user_id;
     const bookId = req.params.id;
-    const { current_index, progress_percentage } = req.body;
+    const { current_index, current_page, progress_percentage } = req.body;
     const now = Date.now();
 
     db.get("SELECT ID FROM BooksUsers WHERE book_id = ? AND user_id = ?", [bookId, userId], (err, row) => {
@@ -943,8 +943,8 @@ booksRouter.post('/:id/progress', (req, res) => {
         if (row) {
             // Update
             db.run(
-                "UPDATE BooksUsers SET book_current_index = ?, book_progress_percentage = ?, booksusers_update_date = ? WHERE ID = ?",
-                [current_index, progress_percentage, now, row.ID],
+                "UPDATE BooksUsers SET book_current_index = ?, book_current_page = ?, book_progress_percentage = ?, booksusers_update_date = ? WHERE ID = ?",
+                [current_index, current_page || 0, progress_percentage, now, row.ID],
                 function(err) {
                     if (err) return res.status(500).json({ error: err.message });
                     res.json({ message: 'Progress updated' });
@@ -953,11 +953,11 @@ booksRouter.post('/:id/progress', (req, res) => {
         } else {
             // Insert
             db.run(
-                "INSERT INTO BooksUsers (book_id, user_id, book_current_index, book_progress_percentage, book_started_date, booksusers_create_date, booksusers_update_date) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                [bookId, userId, current_index, progress_percentage, now, now, now],
+                "INSERT INTO BooksUsers (book_id, user_id, book_current_index, book_current_page, book_progress_percentage, booksusers_create_date, booksusers_update_date) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [bookId, userId, current_index, current_page || 0, progress_percentage, now, now],
                 function(err) {
                     if (err) return res.status(500).json({ error: err.message });
-                    res.status(201).json({ message: 'Progress started' });
+                    res.json({ message: 'Progress saved', id: this.lastID });
                 }
             );
         }
@@ -1122,6 +1122,7 @@ booksRouter.get('/:id', (req, res) => {
                p.publisher_name,
                bu.ID as bookuser_id,
                bu.book_current_index,
+               bu.book_current_page,
                bu.book_progress_percentage,
                (SELECT review_score FROM Reviews WHERE bookuser_ID = bu.ID LIMIT 1) as user_rating,
                (SELECT AVG(review_score) FROM Reviews r JOIN BooksUsers bu2 ON r.bookuser_ID = bu2.ID WHERE bu2.book_id = b.ID AND r.review_score > 0) as avg_rating,
@@ -1532,6 +1533,22 @@ if (require.main === module) {
             await runMigrations(db);
             await seedUserRoles(db);
             await seedUsers(db);
+            
+            // Manual schema patch for book_current_page if migrations missed it
+            db.serialize(() => {
+                db.all("PRAGMA table_info(BooksUsers)", (err, rows) => {
+                    if (err) return console.error("Could not check BooksUsers schema:", err);
+                    const hasPage = rows.some(r => r.name === 'book_current_page');
+                    if (!hasPage) {
+                        console.log("Adding missing column 'book_current_page' to BooksUsers...");
+                        db.run("ALTER TABLE BooksUsers ADD COLUMN book_current_page INTEGER DEFAULT 0", (err) => {
+                            if (err) console.error("Error adding column:", err);
+                            else console.log("Column added successfully.");
+                        });
+                    }
+                });
+            });
+
             console.log("Database initialized.");
 
             app.listen(PORT, () => {
