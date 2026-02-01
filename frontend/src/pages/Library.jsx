@@ -20,7 +20,7 @@ export default function Library() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(48);
+  const [limit, setLimit] = useState(50);
   const [totalBooks, setTotalBooks] = useState(0);
   const [viewMode, setViewMode] = useState('grid');
   const [sortBy, setSortBy] = useState('title'); // title, date, year
@@ -156,7 +156,7 @@ export default function Library() {
           {/* Main Content Area */}
           <div className="flex-1 overflow-y-auto px-8 py-8 custom-scrollbar">
               {loading ? (
-                   <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-x-6 gap-y-10">
+                   <div className="grid grid-cols-2 md:grid-cols-5 xl:grid-cols-10 gap-x-6 gap-y-10">
                        {[1,2,3,4,5,6,7,8,9,10,11,12].map(i => (
                            <div key={i} className="flex flex-col gap-3">
                                <div className="aspect-[2/3] bg-muted/20 rounded-lg animate-pulse" />
@@ -227,7 +227,7 @@ export default function Library() {
                       </table>
                   </div>
               ) : (
-                   <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-x-6 gap-y-10 pb-4">
+                   <div className="grid grid-cols-2 md:grid-cols-5 xl:grid-cols-10 gap-x-6 gap-y-10 pb-4">
                        {sortedBooks.map((book) => (
                            <div 
                              key={book.ID} 
@@ -293,10 +293,9 @@ export default function Library() {
                       }}
                       className="bg-white/5 border border-white/10 rounded px-2 py-1 outline-none focus:border-primary/50 text-foreground cursor-pointer"
                   >
-                      <option value={24}>24</option>
-                      <option value={48}>48</option>
-                      <option value={72}>72</option>
-                      <option value={96}>96</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                      <option value={150}>150</option>
                   </select>
               </div>
 

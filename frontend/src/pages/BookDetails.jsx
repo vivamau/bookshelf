@@ -23,6 +23,7 @@ import {
 import { booksApi, genresApi, booksGenresApi, authorsApi, booksAuthorsApi, publishersApi, reviewsApi, readlistsApi } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../lib/utils';
+import AuthorSearch from '../components/AuthorSearch';
 
 const formatDateForInput = (dateValue) => {
   if (!dateValue) return '';
@@ -443,23 +444,43 @@ export default function BookDetails() {
       console.log("Saving book update:", updateData);
       await booksApi.update(id, updateData);
       
-      // 2. If an author was selected in the dropdown, update the relationship
-      if (selectedAuthorId) {
-        // Get all BooksAuthors relationships for this book
-        const allRelationsRes = await booksAuthorsApi.getAll();
-        const bookRelations = allRelationsRes.data.data.filter(rel => rel.book_id == id);
-        
-        // Delete all existing author relationships for this book
-        for (const relation of bookRelations) {
-          await booksAuthorsApi.delete(relation.ID);
-        }
-        
-        // Create new author relationship
-        await booksAuthorsApi.create({ 
-          book_id: parseInt(id), 
-          author_id: parseInt(selectedAuthorId),
-          bookauthor_create_date: Date.now()
-        });
+      // 2. Handle Authors Update (Multiple)
+      if (book.authors_data && typeof book.authors_data === 'string') {
+          const currentAuthorIds = book.authors_data.split('||').map(s => {
+              const parts = s.split('::'); 
+              return parts.length >= 1 ? parseInt(parts[0]) : null;
+          }).filter(Boolean);
+
+          if (currentAuthorIds.length === 0) {
+              alert("At least one author is required.");
+              setSaving(false);
+              return;
+          }
+
+          // Fetch existing relations for THIS book only (passing book_id filter)
+          const allRelationsRes = await booksAuthorsApi.getAll({ book_id: id });
+          // Safeguard: Ensure we only process relations for THIS book, even if API returns more
+          const existingBookRelations = (allRelationsRes.data.data || []).filter(r => String(r.book_id) === String(id));
+          
+          const existingAuthorIds = existingBookRelations.map(r => r.author_id);
+          
+          // Determine what to add and what to remove
+          const toAdd = currentAuthorIds.filter(aid => !existingAuthorIds.includes(aid));
+          const toRemove = existingBookRelations.filter(rel => !currentAuthorIds.includes(rel.author_id));
+          
+          // Remove old
+          for (const rel of toRemove) {
+              await booksAuthorsApi.delete(rel.ID);
+          }
+          
+          // Add new
+          for (const authorId of toAdd) {
+              await booksAuthorsApi.create({
+                  book_id: parseInt(id),
+                  author_id: authorId,
+                  bookauthor_create_date: Date.now()
+              });
+          }
       }
 
       // 3. Refresh book data
@@ -860,38 +881,54 @@ export default function BookDetails() {
               <div className="flex items-center gap-4 text-sm font-medium text-muted-foreground">
                  <div className="flex items-center gap-1">
                     {isEditing ? (
-                      <div className="flex gap-2 items-center">
-                        <div className="flex items-center gap-1 opacity-60 bg-white/5 px-2 py-1 rounded border border-white/10 italic">
-                           {book.authors_data && typeof book.authors_data === 'string' ? book.authors_data.split('||').map((authorStr, idx) => {
+                      <div className="flex flex-col gap-2 w-full">
+                        {/* Current Authors List */}
+                        <div className="flex flex-wrap gap-2 mb-2">
+                           {book.authors_data && typeof book.authors_data === 'string' ? book.authors_data.split('||').map((authorStr) => {
                              const parts = authorStr.split('::');
                              if (parts.length < 2) return null;
-                             return <span key={parts[0]}>{parts[1]}{idx < book.authors_data.split('||').length - 1 ? ', ' : ''}</span>
-                           }) : <span>Unknown Author</span>}
+                             const [authId, authName] = parts;
+                             return (
+                               <div key={authId} className="flex items-center gap-1 bg-white/10 px-2 py-1 rounded text-xs text-foreground border border-white/20">
+                                  <span>{authName}</span>
+                                  {book.authors_data.split('||').length > 1 && (
+                                    <button 
+                                      onClick={() => {
+                                        // Remove author from the concatenated string locally for UI update
+                                        // Ideally we should have parsed this into an array in state, but let's do it successfully
+                                        const newAuthorsData = book.authors_data.split('||').filter(s => !s.startsWith(`${authId}::`)).join('||');
+                                        setBook(prev => ({...prev, authors_data: newAuthorsData}));
+                                      }}
+                                      className="hover:text-destructive transition-colors p-0.5"
+                                      title="Remove author"
+                                    >
+                                      <X size={12} />
+                                    </button>
+                                  )}
+                               </div>
+                             );
+                           }) : <span className="text-xs text-muted-foreground italic">No authors</span>}
                         </div>
-                        <ChevronRight size={14} className="text-muted-foreground mr-1" />
-                        <select 
-                          value={selectedAuthorId}
-                          onChange={e => setSelectedAuthorId(e.target.value)}
-                          className="bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-sm font-bold text-primary outline-none focus:border-primary focus:bg-white/15 transition-all"
-                        >
-                          <option value="">Select new author...</option>
-                          {allAuthors.filter(author => {
-                            // Get current author IDs from book data
-                            if (!book.authors_data || typeof book.authors_data !== 'string') return true;
-                            const currentAuthorIds = book.authors_data.split('||').map(authorStr => {
-                              const parts = authorStr.split('::');
-                              return parts.length >= 1 ? parts[0] : null;
-                            }).filter(Boolean);
-                            // Exclude current authors
-                            return !currentAuthorIds.includes(String(author.ID));
-                          })
-                          .sort((a, b) => (a.author_name + ' ' + a.author_lastname).localeCompare(b.author_name + ' ' + b.author_lastname))
-                          .map(author => (
-                            <option key={author.ID} value={author.ID}>
-                              {author.author_name} {author.author_lastname}
-                            </option>
-                          ))}
-                        </select>
+
+                        {/* Add New Author */}
+                        <div className="flex items-center gap-2">
+                            <Plus size={14} className="text-muted-foreground" />
+                            <AuthorSearch 
+                              className="flex-1 min-w-[200px]"
+                              placeholder="Add another author..."
+                              onSelect={(author) => {
+                                  if (author) {
+                                      // Add to book.authors_data string format: ID::Name::RelationID
+                                      // RelationID is unknown yet, so we can use 'new' or 0
+                                      const newEntry = `${author.ID}::${author.author_name} ${author.author_lastname}::0`;
+                                      setBook(prev => ({
+                                          ...prev, 
+                                          authors_data: prev.authors_data ? `${prev.authors_data}||${newEntry}` : newEntry
+                                      }));
+                                  }
+                              }}
+                            />
+                        </div>
                       </div>
                     ) : (
                       <>
@@ -1172,7 +1209,7 @@ export default function BookDetails() {
                           className="bg-white/10 border border-white/20 rounded-lg px-2 py-1.5 text-xs font-bold text-primary outline-none focus:border-primary transition-all shadow-inner w-full"
                         >
                           <option value="">Change publisher...</option>
-                          {allPublishers.filter(p => p.ID !== book.book_publisher_id).map(p => (
+                          {allPublishers.map(p => (
                             <option key={p.ID} value={p.ID}>{p.publisher_name}</option>
                           ))}
                         </select>

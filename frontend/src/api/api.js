@@ -86,7 +86,7 @@ export const booksGenresApi = {
 };
 
 export const booksAuthorsApi = {
-  getAll: () => api.get('/books-authors'),
+  getAll: (params = {}) => api.get('/books-authors', { params }),
   create: (data) => api.post('/books-authors', data),
   delete: (id) => api.delete(`/books-authors/${id}`),
 };
