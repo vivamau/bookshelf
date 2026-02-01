@@ -420,7 +420,7 @@ app.use('/api/authors', (req, res, next) => {
     });
 
     // Fallback to CRUD for other author methods
-    const crud = createCrudRouter('Authors', db);
+    const crud = createCrudRouter('Authors', db, 'ID', ['GET', 'POST', 'PUT', 'DELETE'], ['author_name', 'author_lastname']);
     authorsRouter.use('/', crud);
     
     authorsRouter(req, res, next);

@@ -1,6 +1,6 @@
 const express = require('express');
 
-const createCrudRouter = (tableName, db, primaryKey = 'ID', allowedMethods = ['GET', 'POST', 'PUT', 'DELETE']) => {
+const createCrudRouter = (tableName, db, primaryKey = 'ID', allowedMethods = ['GET', 'POST', 'PUT', 'DELETE'], searchColumns = []) => {
     const router = express.Router();
 
     const getValidColumns = (cb) => {
@@ -14,26 +14,65 @@ const createCrudRouter = (tableName, db, primaryKey = 'ID', allowedMethods = ['G
     if (allowedMethods.includes('GET')) {
         router.get('/', (req, res) => {
             const page = parseInt(req.query.page) || 1;
-            const limit = parseInt(req.query.limit) || 1000; // Default to 1000 if not specified
+            const limit = parseInt(req.query.limit) || 1000;
             const offset = (page - 1) * limit;
+            const search = req.query.search;
 
-            const countSql = `SELECT COUNT(*) as total FROM ${tableName}`;
-            const sql = `SELECT * FROM ${tableName} LIMIT ? OFFSET ?`;
+            let whereClause = '';
+            let params = [];
 
-            db.get(countSql, [], (err, countRow) => {
-                if (err) return res.status(500).json({ error: err.message });
-                
-                db.all(sql, [limit, offset], (err, rows) => {
-                    if (err) {
-                        return res.status(500).json({ error: err.message });
-                    }
-                    res.json({ 
-                        data: rows,
-                        total: countRow.total,
-                        page: page,
-                        limit: limit
+            if (search && searchColumns.length > 0) {
+                 const conditions = searchColumns.map(col => `${col} LIKE ?`).join(' OR ');
+                 whereClause = `WHERE ${conditions}`;
+                 // Fill params for each column
+                 searchColumns.forEach(() => params.push(`%${search}%`));
+            }
+
+            // Exact match filtering (e.g. ?book_id=1)
+            getValidColumns((err, validColumns) => {
+                 if (!err && validColumns) {
+                    const filters = [];
+                    Object.keys(req.query).forEach(key => {
+                        if (['page', 'limit', 'search'].includes(key)) return;
+                        if (validColumns.includes(key)) {
+                            filters.push(`${key} = ?`);
+                            params.push(req.query[key]);
+                        }
                     });
-                });
+
+                    if (filters.length > 0) {
+                        if (whereClause) {
+                            whereClause += ` AND (${filters.join(' AND ')})`;
+                        } else {
+                            whereClause = `WHERE ${filters.join(' AND ')}`;
+                        }
+                    }
+
+                    const countSql = `SELECT COUNT(*) as total FROM ${tableName} ${whereClause}`;
+                    const sql = `SELECT * FROM ${tableName} ${whereClause} LIMIT ? OFFSET ?`;
+
+                    // Query for Total
+                    db.get(countSql, params, (err, countRow) => {
+                        if (err) return res.status(500).json({ error: err.message });
+                        
+                        // Query for Data
+                        const dataParams = [...params, limit, offset];
+                        db.all(sql, dataParams, (err, rows) => {
+                            if (err) {
+                                return res.status(500).json({ error: err.message });
+                            }
+                            res.json({ 
+                                data: rows,
+                                total: countRow.total,
+                                page: page,
+                                limit: limit
+                            });
+                        });
+                    });
+                 } else {
+                     // Fallback if table info fails (shouldn't happen really)
+                     res.status(500).json({ error: "Failed to schema info" });
+                 }
             });
         });
 
