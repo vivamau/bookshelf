@@ -73,6 +73,10 @@ export const rolesApi = {
   getAll: () => api.get('/userroles'),
 };
 
+export const languagesApi = {
+  getAll: () => api.get('/languages'),
+};
+
 export const genresApi = {
   getAll: () => api.get('/generes'),
   getWithBooks: () => api.get('/generes/with-books'),

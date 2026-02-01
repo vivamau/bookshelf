@@ -21,7 +21,7 @@ import {
   ListPlus,
   Building2
 } from 'lucide-react';
-import { booksApi, genresApi, booksGenresApi, authorsApi, booksAuthorsApi, publishersApi, reviewsApi, readlistsApi } from '../api/api';
+import { booksApi, genresApi, booksGenresApi, authorsApi, booksAuthorsApi, publishersApi, reviewsApi, readlistsApi, languagesApi } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../lib/utils';
 import AuthorSearch from '../components/AuthorSearch';
@@ -138,7 +138,7 @@ export default function BookDetails() {
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ book_title: '', book_summary: '', book_isbn: '', book_isbn_13: '', book_publisher_id: '', book_date: '' });
+  const [editForm, setEditForm] = useState({ book_title: '', book_summary: '', book_isbn: '', book_isbn_13: '', book_publisher_id: '', book_date: '', language_id: '' });
   const [saving, setSaving] = useState(false);
   
   const [allGenres, setAllGenres] = useState([]);
@@ -150,6 +150,7 @@ export default function BookDetails() {
   const [allAuthors, setAllAuthors] = useState([]);
   const [selectedAuthorId, setSelectedAuthorId] = useState('');
   const [allPublishers, setAllPublishers] = useState([]);
+  const [allLanguages, setAllLanguages] = useState([]);
   const [currentAuthorRelationId, setCurrentAuthorRelationId] = useState(null);
   
   // Delete Modal State
@@ -445,6 +446,9 @@ export default function BookDetails() {
         book_publisher_id: (editForm.book_publisher_id && !isNaN(Number(editForm.book_publisher_id))) 
           ? Number(editForm.book_publisher_id) 
           : null,
+        language_id: (editForm.language_id && !isNaN(Number(editForm.language_id)))
+          ? Number(editForm.language_id)
+          : null,
         book_update_date: Date.now()
       };
 
@@ -607,14 +611,16 @@ export default function BookDetails() {
   useEffect(() => {
     const loadGenresAndAuthors = async () => {
         try {
-            const [genresRes, authorsRes, publishersRes] = await Promise.all([
+            const [genresRes, authorsRes, publishersRes, languagesRes] = await Promise.all([
               genresApi.getAll(),
               authorsApi.getAll(),
-              publishersApi.getAll()
+              publishersApi.getAll(),
+              languagesApi.getAll()
             ]);
             setAllGenres(genresRes.data.data);
             setAllAuthors(authorsRes.data.data);
             setAllPublishers(publishersRes.data.data);
+            setAllLanguages(languagesRes.data.data);
         } catch (err) {
             console.error("Failed to load genres/authors", err);
         }
@@ -634,6 +640,7 @@ export default function BookDetails() {
             book_isbn: bookData.book_isbn || '',
             book_isbn_13: bookData.book_isbn_13 || '',
             book_publisher_id: bookData.book_publisher_id || '',
+            language_id: bookData.language_id || '',
             book_date: formatDateForInput(bookData.book_date)
         });
         
@@ -958,8 +965,21 @@ export default function BookDetails() {
                       </>
                     )}
                  </div>
-                 <span>•</span>
-                 <span>{book.language_name || 'English'}</span>
+                  <span>•</span>
+                  {isEditing ? (
+                    <select 
+                      value={editForm.language_id}
+                      onChange={e => setEditForm({...editForm, language_id: e.target.value})}
+                      className="bg-white/5 border border-white/10 rounded px-2 py-0.5 text-xs outline-none focus:border-primary/50 text-foreground"
+                    >
+                      <option value="">Select Language</option>
+                      {allLanguages.map(lang => (
+                        <option key={lang.ID} value={lang.ID}>{lang.language_name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span>{book.language_name || 'English'}</span>
+                  )}
                  <span>•</span>
                  <span>{book.format_name || 'Epub'}</span>
                  <span>•</span>
@@ -1002,6 +1022,7 @@ export default function BookDetails() {
                             book_isbn: book.book_isbn || '',
                             book_isbn_13: book.book_isbn_13 || '',
                             book_publisher_id: book.book_publisher_id || '',
+                            language_id: book.language_id || '',
                             book_date: formatDateForInput(book.book_date)
                           });
                           setIsEditing(true);
