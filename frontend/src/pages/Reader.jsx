@@ -90,6 +90,18 @@ export default function Reader() {
       try {
         const res = await booksApi.getById(id);
         const bookData = res.data.data;
+        
+        // Prepare reader FIRST before setting state that triggers content loading
+        setPreparing(true);
+        try {
+            await booksApi.prepareReader(id);
+        } catch (prepareErr) {
+            console.warn("Prepare reader warning:", prepareErr);
+            // We continue anyway, as it might be already prepared or not needed
+        }
+        setPreparing(false);
+
+        // NOW set the state that triggers the effects
         setBook(bookData);
         
         if (bookData.book_spine) {
@@ -110,10 +122,6 @@ export default function Reader() {
             }
             setCurrentIndex(startIdx);
         }
-
-        setPreparing(true);
-        await booksApi.prepareReader(id);
-        setPreparing(false);
 
         // Signal that we are ready to start saving progress
         setTimeout(() => { isInitialized.current = true; }, 1000);

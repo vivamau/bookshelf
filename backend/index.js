@@ -870,31 +870,61 @@ booksRouter.post('/:id/cover-from-url', async (req, res) => {
 });
 
 // Update getAll to include progress and pagination
+    // Update getAll to include progress and pagination
 booksRouter.get('/', (req, res) => {
     const userId = req.user.user_id;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 50; 
     const offset = (page - 1) * limit;
     const search = req.query.search || '';
+    const format = req.query.format || 'all';
 
-    let countSql = `SELECT COUNT(*) as total FROM Books`;
-    let sql = `
-        SELECT b.*, bu.book_progress_percentage 
-        FROM Books b
-        LEFT JOIN BooksUsers bu ON b.ID = bu.book_id AND bu.user_id = ?
-    `;
-    
-    const params = [userId];
-    const countParams = [];
+    let baseJoin = ` LEFT JOIN BooksUsers bu ON b.ID = bu.book_id AND bu.user_id = ? LEFT JOIN Formats f ON b.book_format_id = f.ID`;
+    let whereClauses = ["1=1"];
+    let params = [userId];
+    let countParams = [];
 
     if (search) {
-        const searchClause = " WHERE b.book_title LIKE ?";
-        countSql += " WHERE book_title LIKE ?";
-        sql += searchClause;
+        whereClauses.push("b.book_title LIKE ?");
         params.push(`%${search}%`);
         countParams.push(`%${search}%`);
     }
 
+    if (format && format.toLowerCase() !== 'all') {
+        whereClauses.push("f.format_name = ?");
+        params.push(format.toUpperCase()); // Assuming 'EPUB', 'PDF' are stored uppercase
+        countParams.push(format.toUpperCase());
+    }
+
+    const whereSql = " WHERE " + whereClauses.join(" AND ");
+
+    let countSql = `SELECT COUNT(*) as total FROM Books b LEFT JOIN Formats f ON b.book_format_id = f.ID` + whereSql.replace("1=1 AND ", "").replace("1=1", "");
+    
+    // For count query, we don't need the user join, but we do need the format join if filtering
+    // Re-adjust count params: removing userId which is at index 0 of params
+    // Actually, constructing countParams separately is safer
+    let finalCountParams = [];
+    if (search) finalCountParams.push(`%${search}%`);
+    if (format && format.toLowerCase() !== 'all') finalCountParams.push(format.toUpperCase());
+
+    // If whereSql is just " WHERE 1=1", clean it up for cleaner logs/logic, though SQL handles it fine.
+    // Let's rely on the separate params construction above.
+    
+    // Fix countSql construction to match params
+    let countWhere = [];
+    if (search) countWhere.push("b.book_title LIKE ?");
+    if (format && format.toLowerCase() !== 'all') countWhere.push("f.format_name = ?");
+    let countWhereStr = countWhere.length > 0 ? " WHERE " + countWhere.join(" AND ") : "";
+    countSql = `SELECT COUNT(*) as total FROM Books b LEFT JOIN Formats f ON b.book_format_id = f.ID` + countWhereStr;
+
+
+    let sql = `
+        SELECT b.*, bu.book_progress_percentage, f.format_name
+        FROM Books b
+        ${baseJoin}
+        ${whereSql}
+    `;
+    
     const sort = req.query.sort || 'title';
     
     let orderBy = 'b.book_title ASC'; // Default to alphabetical
@@ -904,7 +934,7 @@ booksRouter.get('/', (req, res) => {
     sql += ` ORDER BY ${orderBy} LIMIT ? OFFSET ?`;
     params.push(limit, offset);
 
-    db.get(countSql, countParams, (err, countRow) => {
+    db.get(countSql, finalCountParams, (err, countRow) => {
         if (err) return res.status(500).json({ error: err.message });
 
         db.all(sql, params, (err, rows) => {

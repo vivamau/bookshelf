@@ -23,14 +23,15 @@ export default function Library() {
   const [limit, setLimit] = useState(50);
   const [totalBooks, setTotalBooks] = useState(0);
   const [viewMode, setViewMode] = useState('grid');
-  const [sortBy, setSortBy] = useState('latest'); // latest, title, date, year
+  const [sortBy, setSortBy] = useState('latest');
   const [searchTerm, setSearchTerm] = useState('');
+  const [format, setFormat] = useState('all'); // 'all', 'EPUB', 'PDF'
   const navigate = useNavigate();
 
-    const fetchBooks = async (pageToFetch, search = '', limitToFetch = 50, sortParam = 'title') => {
+    const fetchBooks = async (pageToFetch, search = '', limitToFetch = 50, sortParam = 'title', formatParam = 'all') => {
     try {
       setLoading(true);
-      const res = await booksApi.getAll({ page: pageToFetch, limit: limitToFetch, search, sort: sortParam });
+      const res = await booksApi.getAll({ page: pageToFetch, limit: limitToFetch, search, sort: sortParam, format: formatParam });
       setBooks(res.data.data || []);
       setTotalBooks(res.data.total || 0);
     } catch (err) {
@@ -40,19 +41,19 @@ export default function Library() {
     }
   };
 
-  // Debounce search and handle sort/limit changes
+  // Debounce search and handle sort/limit/format changes
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
         setPage(1);
-        fetchBooks(1, searchTerm, limit, sortBy);
+        fetchBooks(1, searchTerm, limit, sortBy, format);
     }, 500);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm, limit, sortBy]);
+  }, [searchTerm, limit, sortBy, format]);
 
   // Handle pagination
   useEffect(() => {
-    fetchBooks(page, searchTerm, limit, sortBy);
+    fetchBooks(page, searchTerm, limit, sortBy, format);
   }, [page]);
 
   const sortedBooks = useMemo(() => {
@@ -83,7 +84,7 @@ export default function Library() {
       if (!bookToDelete) return;
       try {
           await booksApi.delete(bookToDelete.ID);
-          fetchBooks(page, searchTerm, limit, sortBy);
+          fetchBooks(page, searchTerm, limit, sortBy, format);
           setBookToDelete(null);
       } catch (err) {
           console.error("Failed to delete book", err);
@@ -97,14 +98,15 @@ export default function Library() {
       {/* Library Toolbar */}
       <div className="flex items-center justify-between px-8 py-4 border-b border-white/5 bg-background/95 backdrop-blur z-20">
         <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer hover:text-primary transition-colors">
-                <span>All</span>
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer hover:text-primary transition-colors relative group/filter">
+                <span>{format === 'all' ? 'All' : format}</span>
                 <ChevronDown size={14} className="text-muted-foreground" />
-            </div>
-            
-            <div className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer hover:text-primary transition-colors">
-                <span>Books</span>
-                <ChevronDown size={14} className="text-muted-foreground" />
+                
+                <div className="absolute top-full left-0 mt-2 w-40 bg-card border border-border rounded-lg shadow-xl overflow-hidden opacity-0 invisible group-hover/filter:opacity-100 group-hover/filter:visible transition-all z-50 py-1">
+                    <div onClick={() => setFormat('all')} className={cn("px-4 py-2.5 hover:bg-white/5 text-xs font-bold", format === 'all' && "text-primary")}>All</div>
+                    <div onClick={() => setFormat('EPUB')} className={cn("px-4 py-2.5 hover:bg-white/5 text-xs font-bold", format === 'EPUB' && "text-primary")}>EPUB</div>
+                    <div onClick={() => setFormat('PDF')} className={cn("px-4 py-2.5 hover:bg-white/5 text-xs font-bold", format === 'PDF' && "text-primary")}>PDF</div>
+                </div>
             </div>
 
             <div className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer hover:text-primary transition-colors relative group/sort">
