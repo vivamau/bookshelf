@@ -135,8 +135,6 @@ export default function Library() {
                     className="bg-white/5 border border-white/10 rounded-full pl-9 pr-4 py-1.5 text-sm outline-none focus:border-primary/50 transition-all w-48 focus:w-64"
                 />
             </div>
-
-            <SlidersHorizontal size={20} className="hover:text-foreground cursor-pointer transition-colors" />
             
             <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1">
                 <button 

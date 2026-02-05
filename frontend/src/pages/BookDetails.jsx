@@ -700,7 +700,7 @@ export default function BookDetails() {
       <div className="flex-1 overflow-y-auto px-8 md:px-16 pt-12 pb-20 relative z-10 custom-scrollbar">
         {/* Back Button */}
         <button 
-          onClick={() => navigate(-1)}
+          onClick={() => navigate('/library')}
           className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-8 group"
         >
           <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
