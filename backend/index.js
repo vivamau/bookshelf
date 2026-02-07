@@ -27,7 +27,26 @@ const app = express();
 const os = require('os');
 const PORT = process.env.PORT || 3005;
 
-app.use(cors());
+app.use(cors({
+    origin: function(origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        // Allow localhost, 127.0.0.1, and local network IPs (192.168.x.x, 10.x.x.x)
+        const allowed = /^(http:\/\/localhost:\d+|http:\/\/127\.0\.0\.1:\d+|http:\/\/192\.168\.\d+\.\d+:\d+|http:\/\/10\.\d+\.\d+\.\d+:\d+)$/.test(origin);
+        
+        if (allowed) {
+            callback(null, true);
+        } else {
+            // For now, in dev mode, we might want to log this but potentially block it
+            console.log("Blocked by CORS:", origin);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
+}));
 app.use(express.json());
 app.use(fileUpload({
     createParentPath: true,
@@ -49,6 +68,7 @@ app.get('/health', (req, res) => {
     res.status(200).json({ status: 'ok' });
 });
 
+// Auth Routes (Public)
 // Auth Routes (Public)
 app.post('/login', (req, res) => {
     // Simplified login logic
@@ -76,13 +96,6 @@ app.post('/login', (req, res) => {
             console.log(`Login attempt for ${username}: ${validPass ? 'SUCCESS' : 'FAILED'}`);
             if (!validPass) return res.status(400).send("Invalid Credentials");
 
-            console.log('User permissions:', {
-                manageusers: user.userrole_manageusers,
-                managebooks: user.userrole_managebooks,
-                readbooks: user.userrole_readbooks,
-                viewbooks: user.userrole_viewbooks
-            });
-
             const token = jwt.sign(
                 { 
                     user_id: user.ID, 
@@ -95,6 +108,12 @@ app.post('/login', (req, res) => {
                 TOKEN_KEY,
                 { expiresIn: "2h" }
             );
+
+            // Set cookie for secure authentication
+            // Note: SameSite=None; Secure required for cross-site (if frontend/backend on different ports/domains)
+            // But for localhost dev usually Lax works. If HTTPS is used, Secure is needed.
+            res.setHeader('Set-Cookie', `token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=7200`);
+
             const userInfo = {
                 id: user.ID,
                 username: user.user_username,
@@ -104,14 +123,18 @@ app.post('/login', (req, res) => {
                 userrole_manageusers: user.userrole_manageusers,
                 userrole_managebooks: user.userrole_managebooks,
                 userrole_readbooks: user.userrole_readbooks,
-                userrole_viewbooks: user.userrole_viewbooks,
-                token: token
+                userrole_viewbooks: user.userrole_viewbooks
             };
             
             return res.status(200).json(userInfo);
         }
         return res.status(400).send("Invalid Credentials");
     });
+});
+
+app.post('/logout', (req, res) => {
+    res.setHeader('Set-Cookie', `token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
+    res.status(200).send("Logged out");
 });
 
 app.post('/register', async (req, res) => {
@@ -173,6 +196,36 @@ app.post('/register', async (req, res) => {
 
 
 app.use('/api', auth);
+
+// Get current user (session check)
+app.get('/api/me', auth, (req, res) => {
+    // req.user is set by auth middleware
+    const sql = `
+        SELECT u.ID, u.user_username, u.user_email, u.user_name, u.user_lastname, u.user_avatar, u.userrole_id, 
+               r.userrole_name, r.userrole_manageusers, r.userrole_managebooks, r.userrole_readbooks, r.userrole_viewbooks
+        FROM Users u
+        LEFT JOIN UserRoles r ON u.userrole_id = r.ID
+        WHERE u.ID = ?
+    `;
+    db.get(sql, [req.user.user_id], (err, user) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        
+        // Map to match login response structure
+        const userInfo = {
+            id: user.ID,
+            username: user.user_username,
+            email: user.user_email,
+            user_avatar: user.user_avatar,
+            userrole_name: user.userrole_name,
+            userrole_manageusers: user.userrole_manageusers,
+            userrole_managebooks: user.userrole_managebooks,
+            userrole_readbooks: user.userrole_readbooks,
+            userrole_viewbooks: user.userrole_viewbooks
+        };
+        res.json(userInfo);
+    });
+});
 
 // Secure static routes
 const checkReadPermission = (req, res, next) => {
