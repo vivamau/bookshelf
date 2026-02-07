@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { booksApi } from '../api/api';
+import { useAuth } from '../context/AuthContext';
 import { 
   ChevronDown, 
   LayoutGrid, 
@@ -62,13 +63,7 @@ export default function Library() {
   }, [books]);
   
   const [bookToDelete, setBookToDelete] = useState(null);
-  const user = useMemo(() => {
-      try {
-          return JSON.parse(localStorage.getItem('user'));
-      } catch (e) {
-          return null;
-      }
-  }, []);
+  const { user } = useAuth();
   
   
   // Robust check for delete permission (handles 1/0 or true/false)

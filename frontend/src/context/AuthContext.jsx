@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { authApi } from '../api/api';
 
 const AuthContext = createContext(null);
 
@@ -7,37 +8,45 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setLoading(false);
+    checkAuth();
   }, []);
 
-  const login = (userData) => {
-    setUser(userData);
-    localStorage.setItem('user', JSON.stringify(userData));
-    if (userData.token) {
-        localStorage.setItem('token', userData.token);
+  const checkAuth = async () => {
+    try {
+      const res = await authApi.me();
+      setUser(res.data);
+    } catch (err) {
+      // If 401/403 or network error, we are not logged in
+      setUser(null);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const logout = () => {
+  const login = (userData) => {
+    setUser(userData);
+    // No localStorage storage for critical data
+  };
+
+  const logout = async () => {
+    try {
+        await authApi.logout();
+    } catch (err) {
+        console.error("Logout failed", err);
+    }
     setUser(null);
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
+    localStorage.removeItem('user'); // Cleanup legacy
+    localStorage.removeItem('token'); // Cleanup legacy
   };
 
   // Helper to check roles based on the userrole_id or role information from user object
   const hasPermission = (permission) => {
     if (!user) return false;
-    // Assuming user object has role details or we fetch them
-    // For now based on the user object directly for demo
     return !!user[permission];
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, hasPermission, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, hasPermission, loading, checkAuth }}>
       {children}
     </AuthContext.Provider>
   );

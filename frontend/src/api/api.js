@@ -4,25 +4,15 @@ const API_URL = `${import.meta.env.VITE_API_BASE_URL}/api`;
 
 const api = axios.create({
   baseURL: API_URL,
+  withCredentials: true // Enable sending cookies
 });
 
-// Add request interceptor for JWT
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-// Add response interceptor to handle errors (like 401)
+// Response interceptor to handle errors (like 401)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && [401, 403].includes(error.response.status)) {
-      // Clear local storage
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      // Clear client state if needed (handled by AuthContext mostly)
       
       // Redirect to login if not already there
       if (window.location.pathname !== '/login') {
@@ -34,8 +24,10 @@ api.interceptors.response.use(
 );
 
 export const authApi = {
-  login: (credentials) => axios.post(`${import.meta.env.VITE_API_BASE_URL}/login`, credentials),
-  register: (userData) => axios.post(`${import.meta.env.VITE_API_BASE_URL}/register`, userData),
+  login: (credentials) => axios.post(`${import.meta.env.VITE_API_BASE_URL}/login`, credentials, { withCredentials: true }), // Login is on root, not /api
+  register: (userData) => axios.post(`${import.meta.env.VITE_API_BASE_URL}/register`, userData, { withCredentials: true }),
+  logout: () => axios.post(`${import.meta.env.VITE_API_BASE_URL}/logout`, {}, { withCredentials: true }),
+  me: () => api.get('/me'),
 };
 
 export const booksApi = {

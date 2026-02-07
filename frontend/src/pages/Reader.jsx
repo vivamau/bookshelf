@@ -144,23 +144,23 @@ export default function Reader() {
       setContentLoading(true);
       try {
         const folderName = book.book_filename?.replace(/[/\\]/g, '_').replace(/\.epub$/i, '');
-        const token = localStorage.getItem('token');
         const baseUrl = `${import.meta.env.VITE_API_BASE_URL}/extracted/${folderName}/`;
         const chapterRelativeDir = spine[currentIndex].substring(0, spine[currentIndex].lastIndexOf('/') + 1);
         const fullBaseUrl = baseUrl + chapterRelativeDir;
         
-        const readerUrl = `${baseUrl}${spine[currentIndex]}?token=${token}`;
-        const response = await fetch(readerUrl);
+        const readerUrl = `${baseUrl}${spine[currentIndex]}`;
+        const response = await fetch(readerUrl, { credentials: 'include' });
         let html = await response.text();
 
-        // Rewrite relative paths for images, css, etc. AND append token
+        // Rewrite relative paths for images, css, etc. AND add crossorigin
         html = html.replace(/(src|href)="([^":]+)"/g, (match, p1, p2) => {
           if (p2.startsWith('http') || p2.startsWith('data:') || p2.startsWith('blob:')) return match;
           try {
             const absoluteUrl = new URL(p2, fullBaseUrl).href;
-            return `${ p1 }="${ absoluteUrl }${ absoluteUrl.includes('?') ? '&' : '?' }token=${ token }"`;
+            // Add crossorigin attribute for resources to send cookies
+            return `${ p1 }="${ absoluteUrl }" crossorigin="use-credentials"`;
           } catch(e) {
-            return `${ p1 }="${ fullBaseUrl }${ p2 }${ p2.includes('?') ? '&' : '?' }token=${ token }"`;
+            return `${ p1 }="${ fullBaseUrl }${ p2 }" crossorigin="use-credentials"`;
           }
         });
 

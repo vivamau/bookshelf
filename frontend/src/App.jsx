@@ -173,12 +173,9 @@ const Layout = ({ children }) => {
     setShowLibraryMenu(false);
     
     try {
-      const token = localStorage.getItem('token');
       const endpoint = taskType === 'scan' ? '/api/library/scan' : '/api/library/refresh-covers';
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}${endpoint}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        credentials: 'include'
       });
       
       const reader = response.body.getReader();

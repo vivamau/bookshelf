@@ -579,7 +579,7 @@ export default function BookDetails() {
       await booksApi.delete(id);
       setShowDeleteBookModal(false);
       // Navigate back to home after successful deletion
-      navigate('/');
+      navigate('/library');
     } catch (err) {
       console.error("Failed to delete book", err);
       setDeleting(false);
@@ -715,8 +715,7 @@ export default function BookDetails() {
                 if (!hasPermission('userrole_readbooks') || !book.file_exists) return;
                 
                 if (book.format_name === 'PDF') {
-                  const token = localStorage.getItem('token');
-                  window.open(`${import.meta.env.VITE_API_BASE_URL}/api/books/${id}/download-file?token=${token}`, '_blank');
+                  window.open(`${import.meta.env.VITE_API_BASE_URL}/api/books/${id}/download-file`, '_blank');
                 } else if (book.book_entry_point) {
                   navigate(`/reader/${id}`);
                 }
