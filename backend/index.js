@@ -32,6 +32,10 @@ app.use(cors({
         // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
         
+        // Check against environment variable allowed origins
+        const envAllowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()) : [];
+        if (envAllowedOrigins.includes(origin)) return callback(null, true);
+
         // Allow localhost, 127.0.0.1, and local network IPs (192.168.x.x, 10.x.x.x)
         const allowed = /^(http:\/\/localhost:\d+|http:\/\/127\.0\.0\.1:\d+|http:\/\/192\.168\.\d+\.\d+:\d+|http:\/\/10\.\d+\.\d+\.\d+:\d+)$/.test(origin);
         
