@@ -38,6 +38,7 @@ import Readlists from './pages/Readlists';
 import ReadlistDetails from './pages/ReadlistDetails';
 import { booksApi, libraryApi, genresApi, searchApi } from './api/api';
 import ProfileModal from './components/ProfileModal';
+import InstallPWA from './components/InstallPWA';
 
 // UI Components
 // ... (rest)
@@ -510,6 +511,7 @@ const Layout = ({ children }) => {
             isOpen={showProfileModal} 
             onClose={() => setShowProfileModal(false)} 
         />
+        <InstallPWA />
       </div>
     </div>
   );
