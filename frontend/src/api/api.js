@@ -51,6 +51,7 @@ export const booksApi = {
   getMostRead: () => api.get('/books/most-read'),
   getMostDownloaded: () => api.get('/books/most-downloaded'),
   sendToKindle: (id, email) => api.post(`/books/${id}/send-to-kindle`, { email }),
+  downloadFile: (id) => api.get(`/books/${id}/download-file`, { responseType: 'blob' }),
 };
 
 export const authorsApi = {

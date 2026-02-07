@@ -747,11 +747,18 @@ export default function BookDetails() {
           {/* Poster / Cover */}
           <div className="w-full max-w-[300px] shrink-0 self-center md:self-start flex flex-col gap-4">
             <div 
-              onClick={() => {
+              onClick={async () => {
                 if (!hasPermission('userrole_readbooks') || !book.file_exists) return;
                 
                 if (book.format_name === 'PDF') {
-                  window.open(`${import.meta.env.VITE_API_BASE_URL}/api/books/${id}/download-file`, '_blank');
+                  try {
+                    const response = await booksApi.downloadFile(id);
+                    const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+                    window.open(url, '_blank');
+                  } catch (error) {
+                    console.error("Error downloading PDF:", error);
+                    alert("Failed to load PDF. Please ensure you are logged in.");
+                  }
                 } else if (book.book_entry_point) {
                   navigate(`/reader/${id}`);
                 }
