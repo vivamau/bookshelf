@@ -739,7 +739,7 @@ export default function BookDetails() {
                   className="text-3xl font-black tracking-tighter text-foreground leading-none bg-white/5 border-b-2 border-primary outline-none py-2 w-full"
                 />
               ) : (
-                <h1 className="text-3xl font-black tracking-tighter text-foreground leading-none mb-2">{book.book_title}</h1>
+                <h1 className="text-3xl font-black tracking-tighter text-foreground leading-none mb-4">{book.book_title}</h1>
               )}
         </div>
 
@@ -941,7 +941,7 @@ export default function BookDetails() {
                     className="text-4xl md:text-6xl font-black tracking-tighter text-foreground leading-none bg-white/5 border-b-2 border-primary outline-none py-2 w-full"
                   />
                 ) : (
-                  <h1 className="text-4xl md:text-6xl font-black tracking-tighter text-foreground leading-none">{book.book_title}</h1>
+                  <h1 className="text-4xl md:text-6xl font-black tracking-tighter text-foreground leading-none mb-4">{book.book_title}</h1>
                 )}
               </div>
               <div className="flex items-center gap-4 text-sm font-medium text-muted-foreground">
