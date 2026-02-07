@@ -112,6 +112,7 @@ export default function Library() {
                     <div onClick={() => setSortBy('latest')} className={cn("px-4 py-2.5 hover:bg-white/5 text-xs font-bold", sortBy === 'latest' && "text-primary")}>Recently Added</div>
                     <div onClick={() => setSortBy('title')} className={cn("px-4 py-2.5 hover:bg-white/5 text-xs font-bold", sortBy === 'title' && "text-primary")}>By Title</div>
                     <div onClick={() => setSortBy('year')} className={cn("px-4 py-2.5 hover:bg-white/5 text-xs font-bold", sortBy === 'year' && "text-primary")}>By Year</div>
+                    <div onClick={() => setSortBy('progress')} className={cn("px-4 py-2.5 hover:bg-white/5 text-xs font-bold", sortBy === 'progress' && "text-primary")}>By Progress</div>
                 </div>
             </div>
 
@@ -121,7 +122,7 @@ export default function Library() {
         </div>
 
         <div className="flex items-center gap-4 text-muted-foreground">
-            <div className="relative">
+            <div className="relative hidden md:block">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input 
                     placeholder="Search library..." 
@@ -150,7 +151,7 @@ export default function Library() {
 
       <div className="flex flex-1 overflow-hidden relative flex-col">
           {/* Main Content Area */}
-          <div className="flex-1 overflow-y-auto px-8 py-8 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto px-4 md:px-8 py-8 custom-scrollbar">
               {loading ? (
                    <div className="grid grid-cols-2 md:grid-cols-5 xl:grid-cols-10 gap-x-6 gap-y-10">
                        {[1,2,3,4,5,6,7,8,9,10,11,12].map(i => (
@@ -165,11 +166,11 @@ export default function Library() {
                       <table className="w-full text-left border-collapse">
                           <thead>
                               <tr className="border-b border-white/10 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                                  <th className="py-4 pl-4 w-16">Cover</th>
+                                  <th className="py-4 pl-4 w-16 hidden md:table-cell">Cover</th>
                                   <th className="py-4">Title</th>
-                                  <th className="py-4">Year</th>
+                                  <th className="py-4 hidden md:table-cell">Year</th>
                                   <th className="py-4">Progress</th>
-                                  <th className="py-4">Added</th>
+                                  <th className="py-4 hidden md:table-cell">Added</th>
                                   {canDelete && <th className="py-4 w-10"></th>}
                               </tr>
                           </thead>
@@ -181,7 +182,7 @@ export default function Library() {
                                     onClick={() => navigate(`/book/${book.ID}`)}
                                     className="border-b border-white/5 hover:bg-white/5 cursor-pointer transition-colors group"
                                   >
-                                      <td className="py-3 pl-4">
+                                      <td className="py-3 pl-4 hidden md:table-cell">
                                           <div className="w-10 h-14 bg-muted/20 rounded overflow-hidden shrink-0">
                                               <img 
                                                 src={book.book_cover_img ? `${import.meta.env.VITE_API_BASE_URL}/covers/${book.book_cover_img}` : `https://api.dicebear.com/7.x/initials/svg?seed=${book.book_title}`} 
@@ -193,7 +194,7 @@ export default function Library() {
                                       <td className="py-3 font-bold text-foreground group-hover:text-primary transition-colors">
                                           {book.book_title.split(' ').length > 7 ? book.book_title.split(' ').slice(0, 7).join(' ') + '...' : book.book_title}
                                       </td>
-                                      <td className="py-3 text-sm text-muted-foreground">
+                                      <td className="py-3 text-sm text-muted-foreground hidden md:table-cell">
                                           {book.book_date ? new Date(book.book_date).getFullYear() : 'Unknown'}
                                       </td>
                                       <td className="py-3 pr-8">
@@ -203,7 +204,7 @@ export default function Library() {
                                               </div>
                                           </div>
                                       </td>
-                                      <td className="py-3 text-sm text-muted-foreground">
+                                      <td className="py-3 text-sm text-muted-foreground hidden md:table-cell">
                                           {formatDate(book.book_create_date)}
                                       </td>
                                       {canDelete && (

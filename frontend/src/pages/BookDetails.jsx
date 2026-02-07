@@ -720,7 +720,7 @@ export default function BookDetails() {
       </div>
 
       {/* Main Content Scrollable */}
-      <div className="flex-1 overflow-y-auto px-8 md:px-16 pt-12 pb-20 relative z-10 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto px-4 md:px-16 pt-12 pb-20 relative z-10 custom-scrollbar">
         {/* Back Button */}
         <button 
           onClick={() => navigate('/library')}
@@ -730,7 +730,20 @@ export default function BookDetails() {
           <span className="text-sm font-bold uppercase tracking-widest">Back</span>
         </button>
 
-        <div className="flex flex-col md:flex-row gap-12 items-start">
+        {/* Mobile Title Section */}
+        <div className="md:hidden mb-6">
+              {isEditing ? (
+                <input 
+                  value={editForm.book_title}
+                  onChange={e => setEditForm({...editForm, book_title: e.target.value})}
+                  className="text-3xl font-black tracking-tighter text-foreground leading-none bg-white/5 border-b-2 border-primary outline-none py-2 w-full"
+                />
+              ) : (
+                <h1 className="text-3xl font-black tracking-tighter text-foreground leading-none mb-2">{book.book_title}</h1>
+              )}
+        </div>
+
+        <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-start">
           {/* Poster / Cover */}
           <div className="w-full max-w-[300px] shrink-0 self-center md:self-start flex flex-col gap-4">
             <div 
@@ -848,54 +861,69 @@ export default function BookDetails() {
                     onChange={e => setReviewForm({...reviewForm, description: e.target.value})}
                     className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-xs font-medium text-foreground outline-none focus:border-primary/50 transition-all resize-none shadow-inner"
                   />
-                  <div className="flex justify-end gap-2">
-                    <button 
-                      onClick={() => setIsAddingReview(false)}
-                      className="px-3 py-1.5 text-[10px] font-black uppercase text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button 
-                      onClick={handleSubmitReview}
-                      disabled={submittingReview}
-                      className="px-4 py-1.5 bg-primary text-primary-foreground rounded-lg text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
-                    >
-                      {submittingReview ? 'Posting...' : 'Post Review'}
-                    </button>
+                  <div className="flex items-center gap-4 mt-1">
+                      <div className="flex flex-col gap-1">
+                          <span className="text-[10px] uppercase font-bold text-muted-foreground">Rating</span>
+                          <StarRating rating={reviewForm.rating || 0} onRate={(r) => setReviewForm({...reviewForm, rating: r})} />
+                      </div>
+                      <div className="flex-1 flex justify-end gap-2">
+                          <button 
+                              onClick={() => setIsAddingReview(false)}
+                              className="text-[10px] font-bold uppercase text-muted-foreground hover:text-foreground px-3 py-1.5"
+                          >
+                              Cancel
+                          </button>
+                          <button 
+                              onClick={handleSubmitReview}
+                              disabled={submittingReview}
+                              className="bg-primary text-primary-foreground text-[10px] font-bold uppercase px-4 py-1.5 rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                          >
+                              {submittingReview ? 'Saving...' : 'Post Review'}
+                          </button>
+                      </div>
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col gap-3">
-                  {reviews.length === 0 ? (
-                    <div className="bg-white/[0.02] border border-dashed border-white/10 rounded-xl p-6 text-center">
-                      <p className="text-[10px] font-bold text-muted-foreground/40 italic uppercase tracking-wider">No reviews yet</p>
-                    </div>
-                  ) : (
-                    reviews.map(review => (
-                      <div key={review.ID} className="group relative bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 rounded-xl p-4 transition-all">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[9px] font-black uppercase text-primary tracking-[0.1em]">{review.user_username}</span>
-                          <div className="flex items-center gap-0.5">
-                            {[1,2,3,4,5].map(s => (
-                              <Star key={s} size={8} className={cn(s <= review.review_score ? "text-yellow-400 fill-yellow-400" : "text-white/10 fill-none")} />
-                            ))}
-                          </div>
+                <div className="flex flex-col gap-4">
+                  {reviews.length > 0 ? (
+                    reviews.slice(0, 3).map(review => (
+                      <div key={review.ID} className="flex flex-col gap-1 pb-4 border-b border-white/5 last:border-0 last:pb-0">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-foreground">{review.review_title}</span>
+                            <div className="flex gap-0.5">
+                                {[1,2,3,4,5].map(s => (
+                                    <Star key={s} size={8} className={cn(s <= review.review_rating ? "text-primary fill-primary" : "text-white/10 fill-none")} />
+                                ))}
+                            </div>
                         </div>
-                        <h4 className="text-xs font-black text-foreground mb-1 leading-tight">{review.review_title}</h4>
-                        <p className="text-[11px] text-muted-foreground/80 leading-relaxed italic line-clamp-4 group-hover:line-clamp-none transition-all">"{review.review_description}"</p>
+                        <p className="text-[10px] text-muted-foreground line-clamp-2 leading-relaxed">"{review.review_description}"</p>
+                        <span className="text-[9px] text-white/20 font-mono mt-1">
+                            — {review.username || review.user_username} • {new Date(review.review_created).toLocaleDateString()}
+                        </span>
                       </div>
                     ))
+                  ) : (
+                    <div className="text-center py-6 bg-white/5 rounded-xl border border-white/5 border-dashed">
+                        <p className="text-[10px] text-muted-foreground italic">No reviews yet.</p>
+                    </div>
+                  )}
+                  {reviews.length > 3 && (
+                      <button className="text-[10px] font-bold text-muted-foreground hover:text-foreground hover:underline transition-all">
+                          View All {reviews.length} Reviews
+                      </button>
                   )}
                 </div>
               )}
             </div>
           </div>
 
-          {/* Metadata */}
-          <div className="flex-1 flex flex-col gap-6">
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-3">
-                 <span className="px-2 py-0.5 bg-primary/20 text-primary text-[10px] font-black rounded uppercase tracking-wider">Book</span>
+          {/* Details Column */}
+          <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-3 mb-4 animate-in slide-in-from-right-4 duration-500 delay-100">
+                  <span className="flex items-center gap-1.5 text-muted-foreground text-xs font-bold bg-white/5 px-2 py-0.5 rounded-full">
+                    <BookOpen size={12} className="text-primary" />
+                    {book.format_name || 'EPUB'}
+                  </span>
                   <span className="flex items-center gap-1.5 text-muted-foreground text-xs font-bold bg-white/5 px-2 py-0.5 rounded-full">
                     <Users size={12} className="text-primary" />
                     {book.readers_count || 0} Readers
@@ -905,15 +933,17 @@ export default function BookDetails() {
                     {book.book_downloads || 0} Downloads
                   </span>
               </div>
-              {isEditing ? (
-                <input 
-                  value={editForm.book_title}
-                  onChange={e => setEditForm({...editForm, book_title: e.target.value})}
-                  className="text-4xl md:text-6xl font-black tracking-tighter text-foreground leading-none bg-white/5 border-b-2 border-primary outline-none py-2 w-full"
-                />
-              ) : (
-                <h1 className="text-4xl md:text-6xl font-black tracking-tighter text-foreground leading-none">{book.book_title}</h1>
-              )}
+              <div className="hidden md:block">
+                {isEditing ? (
+                  <input 
+                    value={editForm.book_title}
+                    onChange={e => setEditForm({...editForm, book_title: e.target.value})}
+                    className="text-4xl md:text-6xl font-black tracking-tighter text-foreground leading-none bg-white/5 border-b-2 border-primary outline-none py-2 w-full"
+                  />
+                ) : (
+                  <h1 className="text-4xl md:text-6xl font-black tracking-tighter text-foreground leading-none">{book.book_title}</h1>
+                )}
+              </div>
               <div className="flex items-center gap-4 text-sm font-medium text-muted-foreground">
                  <div className="flex items-center gap-1">
                     {isEditing ? (
@@ -1005,13 +1035,12 @@ export default function BookDetails() {
                  <span>•</span>
                  <span>{book.format_name || 'Epub'}</span>
                  <span>•</span>
-                 <StarRating 
+                  <StarRating 
                     rating={book.user_rating} 
                     onRate={handleRate} 
                     interactive={hasPermission('userrole_readbooks') || hasPermission('userrole_managebooks')}
                   />
               </div>
-            </div>
 
             {/* Actions */}
             <div className="flex flex-wrap gap-4 mt-4">

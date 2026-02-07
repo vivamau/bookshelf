@@ -71,7 +71,7 @@ export default function AddBook() {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-background p-8">
+    <div className="flex-1 overflow-y-auto bg-background p-4 md:p-8">
       <div className="max-w-2xl mx-auto">
         <h1 className="text-3xl font-black tracking-tight mb-8">Add New Book</h1>
         

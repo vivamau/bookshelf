@@ -26,6 +26,7 @@ export default function Authors() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState('grid');
+  const [sortBy, setSortBy] = useState('latest');
   const navigate = useNavigate();
 
   // Pagination State
@@ -39,10 +40,10 @@ export default function Authors() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const fetchAuthors = async (pageToFetch, search = '', limitToFetch = 50) => {
+  const fetchAuthors = async (pageToFetch, search = '', limitToFetch = 50, sortParam = 'latest') => {
     try {
       setLoading(true);
-      const res = await authorsApi.getAll({ page: pageToFetch, limit: limitToFetch, search });
+      const res = await authorsApi.getAll({ page: pageToFetch, limit: limitToFetch, search, sort: sortParam });
       setAuthors(res.data.data || []);
       setTotalAuthors(res.data.total || 0);
     } catch (err) {
@@ -56,15 +57,15 @@ export default function Authors() {
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
         setPage(1);
-        fetchAuthors(1, searchTerm, limit);
+        fetchAuthors(1, searchTerm, limit, sortBy);
     }, 500);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm, limit]);
+  }, [searchTerm, limit, sortBy]);
 
   // Handle pagination
   useEffect(() => {
-    fetchAuthors(page, searchTerm, limit);
+    fetchAuthors(page, searchTerm, limit, sortBy);
   }, [page]);
 
   const handleAddAuthor = async (e) => {
@@ -86,7 +87,7 @@ export default function Authors() {
         });
         
         // Refresh list
-        const refreshRes = await authorsApi.getAll({ page, limit, search: searchTerm });
+        const refreshRes = await authorsApi.getAll({ page, limit, search: searchTerm, sort: sortBy });
         setAuthors(refreshRes.data.data || []);
         setTotalAuthors(refreshRes.data.total || 0);
         setIsAddingAuthor(false);
@@ -110,19 +111,14 @@ export default function Authors() {
       {/* Authors Toolbar */}
       <div className="flex items-center justify-between px-8 py-4 border-b border-white/5 bg-background/95 backdrop-blur z-20">
         <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer hover:text-primary transition-colors">
-                <span>All</span>
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer hover:text-primary transition-colors relative group/sort">
+                <span className="capitalize">{sortBy === 'latest' ? 'Recently Added' : 'Alphabetical'}</span>
                 <ChevronDown size={14} className="text-muted-foreground" />
-            </div>
-            
-            <div className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer hover:text-primary transition-colors">
-                <span>Authors</span>
-                <ChevronDown size={14} className="text-muted-foreground" />
-            </div>
-
-            <div className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer hover:text-primary transition-colors">
-                <span>By Name</span>
-                <ChevronDown size={14} className="text-muted-foreground" />
+                
+                <div className="absolute top-full left-0 mt-2 w-40 bg-card border border-border rounded-lg shadow-xl overflow-hidden opacity-0 invisible group-hover/sort:opacity-100 group-hover/sort:visible transition-all z-50 py-1">
+                    <div onClick={() => setSortBy('latest')} className={cn("px-4 py-2.5 hover:bg-white/5 text-xs font-bold", sortBy === 'latest' && "text-primary")}>Recently Added</div>
+                    <div onClick={() => setSortBy('name')} className={cn("px-4 py-2.5 hover:bg-white/5 text-xs font-bold", sortBy === 'name' && "text-primary")}>Alphabetical</div>
+                </div>
             </div>
 
             <div className="h-6 w-px bg-white/10 mx-2" />
@@ -132,16 +128,16 @@ export default function Authors() {
             {hasPermission('userrole_managebooks') && (
                 <button 
                     onClick={() => setIsAddingAuthor(true)}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full font-black text-xs uppercase tracking-wider transition-all shadow-lg active:scale-95"
+                    className="flex items-center gap-2 p-2.5 md:px-6 md:py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full font-black text-xs uppercase tracking-wider transition-all shadow-lg active:scale-95"
                 >
                     <Plus size={16} />
-                    Create Author
+                    <span className="hidden md:block">Create Author</span>
                 </button>
             )}
         </div>
 
         <div className="flex items-center gap-4 text-muted-foreground">
-            <div className="relative">
+            <div className="relative hidden md:block">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input 
                     placeholder="Search authors..." 

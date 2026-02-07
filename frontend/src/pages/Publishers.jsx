@@ -21,6 +21,7 @@ export default function Publishers() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState('grid');
+  const [sortBy, setSortBy] = useState('latest');
   const navigate = useNavigate();
 
   // Pagination State
@@ -28,10 +29,10 @@ export default function Publishers() {
   const [limit, setLimit] = useState(50);
   const [totalPublishers, setTotalPublishers] = useState(0);
 
-  const fetchPublishers = async (pageToFetch, search = '', limitToFetch = 50) => {
+  const fetchPublishers = async (pageToFetch, search = '', limitToFetch = 50, sortParam = 'latest') => {
     try {
       setLoading(true);
-      const res = await publishersApi.getAll({ page: pageToFetch, limit: limitToFetch, search });
+      const res = await publishersApi.getAll({ page: pageToFetch, limit: limitToFetch, search, sort: sortParam });
       setPublishers(res.data.data || []);
       setTotalPublishers(res.data.total || 0);
     } catch (err) {
@@ -45,15 +46,15 @@ export default function Publishers() {
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
         setPage(1);
-        fetchPublishers(1, searchTerm, limit);
+        fetchPublishers(1, searchTerm, limit, sortBy);
     }, 500);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm, limit]);
+  }, [searchTerm, limit, sortBy]);
 
   // Handle pagination
   useEffect(() => {
-    fetchPublishers(page, searchTerm, limit);
+    fetchPublishers(page, searchTerm, limit, sortBy);
   }, [page]);
 
   const totalPages = Math.ceil(totalPublishers / limit);
@@ -66,21 +67,21 @@ export default function Publishers() {
       {/* Toolbar */}
       <div className="flex items-center justify-between px-8 py-4 border-b border-white/5 bg-background/95 backdrop-blur z-20">
         <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer hover:text-primary transition-colors">
-                <span>All</span>
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer hover:text-primary transition-colors relative group/sort">
+                <span className="capitalize">{sortBy === 'latest' ? 'Recently Added' : 'Alphabetical'}</span>
                 <ChevronDown size={14} className="text-muted-foreground" />
-            </div>
-            
-            <div className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer hover:text-primary transition-colors">
-                <span>Publishers</span>
-                <ChevronDown size={14} className="text-muted-foreground" />
+                
+                <div className="absolute top-full left-0 mt-2 w-40 bg-card border border-border rounded-lg shadow-xl overflow-hidden opacity-0 invisible group-hover/sort:opacity-100 group-hover/sort:visible transition-all z-50 py-1">
+                    <div onClick={() => setSortBy('latest')} className={cn("px-4 py-2.5 hover:bg-white/5 text-xs font-bold", sortBy === 'latest' && "text-primary")}>Recently Added</div>
+                    <div onClick={() => setSortBy('name')} className={cn("px-4 py-2.5 hover:bg-white/5 text-xs font-bold", sortBy === 'name' && "text-primary")}>Alphabetical</div>
+                </div>
             </div>
 
             <div className="h-6 w-px bg-white/10 mx-2" />
             
             <span className="text-xl font-bold text-foreground">{totalPublishers}</span>
             
-            <div className="flex-1 max-w-sm relative group ml-4">
+            <div className="flex-1 max-w-sm relative group ml-4 hidden md:block">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={16} />
               <input 
                 type="text" 
@@ -125,9 +126,9 @@ export default function Publishers() {
                       <table className="w-full text-left border-collapse">
                           <thead>
                               <tr className="border-b border-white/10 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                                  <th className="py-4 pl-4 w-16"></th>
+
                                   <th className="py-4">Company Name</th>
-                                  <th className="py-4">Type</th>
+
                               </tr>
                           </thead>
                           <tbody>
@@ -137,15 +138,11 @@ export default function Publishers() {
                                     onClick={() => navigate(`/publisher/${pub.ID}`)}
                                     className="border-b border-white/5 hover:bg-white/5 cursor-pointer transition-colors group"
                                   >
-                                      <td className="py-3 pl-4">
-                                          <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center text-muted-foreground overflow-hidden shrink-0">
-                                              <Building2 size={20} />
-                                          </div>
-                                      </td>
+
                                       <td className="py-3 font-bold text-foreground group-hover:text-primary transition-colors">
                                           {pub.publisher_name}
                                       </td>
-                                      <td className="py-3 text-sm text-muted-foreground">Publisher</td>
+
                                   </tr>
                               ))}
                           </tbody>

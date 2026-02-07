@@ -122,6 +122,7 @@ const Layout = ({ children }) => {
   const location = useLocation();
   const { user, logout, hasPermission } = useAuth();
   const [showLibraryMenu, setShowLibraryMenu] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [scanType, setScanType] = useState(''); // 'scan' or 'refresh'
   const [scanMessage, setScanMessage] = useState('');
@@ -250,8 +251,20 @@ const Layout = ({ children }) => {
 
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden font-sans">
+      {/* Mobile Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 md:hidden animate-in fade-in duration-200"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-64 border-r border-border bg-card flex flex-col pt-4 overflow-y-auto shrink-0 z-20">
+      <aside className={cn(
+        "w-64 border-r border-border bg-card flex flex-col pt-4 overflow-y-auto shrink-0 z-50 transition-transform duration-300 ease-in-out",
+        "fixed inset-y-0 left-0 md:relative md:translate-x-0 md:z-20",
+        isSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"
+      )}>
         <div onClick={() => navigate('/')} className="px-6 mb-8 flex items-center gap-3 cursor-pointer">
           <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-black text-xl shadow-lg shadow-primary/20">
             <BookOpen size={24} />
@@ -369,10 +382,16 @@ const Layout = ({ children }) => {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 bg-background relative overflow-hidden">
         {/* Topbar */}
-        <header className="h-20 flex items-center px-8 gap-8 justify-between sticky top-0 bg-background/60 backdrop-blur-xl z-[30] border-b border-border/40">
+        <header className="h-20 flex items-center px-4 md:px-8 gap-8 justify-between sticky top-0 bg-background/60 backdrop-blur-xl z-[30] border-b border-border/40">
           <div className="flex items-center gap-6 flex-1">
             <div className="flex items-center gap-3">
-                <ArrowLeft onClick={() => navigate(-1)} size={20} className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
+                <button 
+                  onClick={() => setIsSidebarOpen(true)}
+                  className="p-2 -ml-2 text-muted-foreground hover:text-foreground transition-colors md:hidden"
+                >
+                  <Menu size={24} />
+                </button>
+                <ArrowLeft onClick={() => navigate(-1)} size={20} className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors hidden md:block" />
             </div>
             
             <div className="flex-1 max-w-2xl relative group z-50">
@@ -545,7 +564,7 @@ function Dashboard() {
         <div className="absolute top-0 left-0 w-full h-[300px] bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
 
         {/* Tabs */}
-        <div className="flex items-center gap-8 px-10 pt-8 pb-4 text-xs font-black uppercase tracking-[2px] text-muted-foreground overflow-x-auto whitespace-nowrap hide-scrollbar z-10">
+        <div className="flex items-center gap-8 px-4 md:px-10 pt-8 pb-4 text-xs font-black uppercase tracking-[2px] text-muted-foreground overflow-x-auto whitespace-nowrap hide-scrollbar z-10">
           <span 
             onClick={() => setActiveTab('Explore')}
             className={cn("pb-1 cursor-pointer transition-all", activeTab === 'Explore' ? "text-primary border-b-2 border-primary" : "hover:text-foreground")}
@@ -568,7 +587,7 @@ function Dashboard() {
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto px-10 pt-6 pb-20 custom-scrollbar z-10">
+        <div className="flex-1 overflow-y-auto px-4 md:px-10 pt-6 pb-20 custom-scrollbar z-10">
           {loading ? (
              <div className="flex flex-col gap-8 opacity-50 animate-pulse">
                 <div className="h-6 w-48 bg-muted rounded"></div>

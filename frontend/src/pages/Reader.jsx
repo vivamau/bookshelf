@@ -189,6 +189,14 @@ export default function Reader() {
               background-color: white !important;
               font-size: 18px !important;
             }
+            @media (max-width: 768px) {
+              body {
+                padding: 20px 20px !important;
+                column-width: calc(100vw - 40px) !important;
+                column-gap: 40px !important;
+                font-size: 16px !important;
+              }
+            }
             img { 
               max-width: 100% !important; 
               max-height: calc(100vh - 100px) !important; 
@@ -362,7 +370,7 @@ export default function Reader() {
             
             <div 
                 onClick={goToPrev}
-                className={`absolute inset-y-0 left-0 w-32 cursor-pointer z-10 flex items-center justify-start pl-4 group ${currentIndex === 0 && internalPage === 0 ? 'hidden' : ''}`}
+                className={`absolute inset-y-0 left-0 w-16 md:w-32 cursor-pointer z-10 flex items-center justify-start pl-4 group ${currentIndex === 0 && internalPage === 0 ? 'hidden' : ''}`}
             >
                 <div className="w-12 h-12 rounded-full bg-black/0 group-hover:bg-black/5 flex items-center justify-center transition-all">
                     <ChevronLeft size={24} className="text-black/0 group-hover:text-black/30" />
@@ -371,7 +379,7 @@ export default function Reader() {
 
             <div 
                 onClick={goToNext}
-                className={`absolute inset-y-0 right-0 w-32 cursor-pointer z-10 flex items-center justify-end pr-4 group ${currentIndex === spine.length - 1 && internalPage === totalPages - 1 ? 'hidden' : ''}`}
+                className={`absolute inset-y-0 right-0 w-16 md:w-32 cursor-pointer z-10 flex items-center justify-end pr-4 group ${currentIndex === spine.length - 1 && internalPage === totalPages - 1 ? 'hidden' : ''}`}
             >
                 <div className="w-12 h-12 rounded-full bg-black/0 group-hover:bg-black/5 flex items-center justify-center transition-all">
                     <ChevronRight size={24} className="text-black/0 group-hover:text-black/30" />

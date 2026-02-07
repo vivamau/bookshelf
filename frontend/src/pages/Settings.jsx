@@ -244,7 +244,7 @@ export default function Settings() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-background p-8">
+    <div className="flex-1 overflow-y-auto bg-background p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-4xl font-black tracking-tight mb-8">Settings</h1>
 
