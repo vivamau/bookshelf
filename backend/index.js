@@ -10,6 +10,7 @@ const fs = require('fs');
 const fileUpload = require('express-fileupload');
 
 const { scanLibrary, refreshCovers, importFiles, scanSingleFile } = require('./utils/libraryScanner');
+const { sendEmail } = require('./utils/mailer');
 
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
@@ -1079,6 +1080,49 @@ booksRouter.get('/:id/download-file', (req, res) => {
 // On-demand EPUB extraction for reader
 const AdmZip = require('adm-zip');
 const EXTRACTED_DIR = path.join(__dirname, 'extracted');
+
+booksRouter.post('/:id/send-to-kindle', async (req, res) => {
+    const bookId = req.params.id;
+    const { email } = req.body;
+
+    if (!email) {
+        return res.status(400).json({ error: 'Email address is required' });
+    }
+
+    if (!req.user.userrole_readbooks) {
+        return res.status(403).json({ error: 'Permission denied: Reader access required' });
+    }
+
+    db.get("SELECT book_filename, book_title FROM Books WHERE ID = ?", [bookId], async (err, book) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!book) return res.status(404).json({ error: 'Book not found' });
+        
+        const filePath = path.join(BOOKS_DIR, book.book_filename);
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({ error: 'Book file not found on server' });
+        }
+
+        try {
+            await sendEmail(
+                email,
+                `Send to Kindle: ${book.book_title}`,
+                `Here is the book file for "${book.book_title}".`,
+                [{
+                    filename: book.book_filename,
+                    path: filePath
+                }]
+            );
+            
+            // Increment download count as this counts as a form of download/consumption
+            db.run("UPDATE Books SET book_downloads = COALESCE(book_downloads, 0) + 1 WHERE ID = ?", [bookId]);
+
+            res.json({ success: true, message: 'Email sent successfully' });
+        } catch (mailError) {
+            console.error("Failed to send email:", mailError);
+            res.status(500).json({ error: 'Failed to send email. Check server logs.' });
+        }
+    });
+});
 
 // Ensure extracted directory exists
 if (!fs.existsSync(EXTRACTED_DIR)) {

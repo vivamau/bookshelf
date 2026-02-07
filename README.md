@@ -44,11 +44,24 @@ Edit `backend/.env` and configure the following:
 
 ```env
 PORT=3005
+ALLOWED_ORIGINS=http://localhost:5173
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your_email@gmail.com
+SMTP_PASS=your_app_password
+SMTP_FROM=Bookshelf <your_email@gmail.com>
 ```
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `PORT` | The port the backend server will run on | `3005` |
+| `ALLOWED_ORIGINS` | Comma-separated list of allowed origins for CORS | `http://example.com` |
+| `SMTP_HOST` | SMTP Server Hostname | `smtp.example.com` |
+| `SMTP_PORT` | SMTP Server Port | `587` |
+| `SMTP_USER` | SMTP Username | `user@example.com` |
+| `SMTP_PASS` | SMTP Password | `password` |
+| `SMTP_SECURE` | Set to `true` if using port 465 | `false` |
+| `SMTP_FROM` | Sender email address | `noreply@bookshelf.com` |
 
 #### Frontend Configuration
 

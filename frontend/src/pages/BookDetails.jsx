@@ -5,7 +5,7 @@ import {
   Play, 
   Plus, 
   Share2, 
-  MoreHorizontal,
+
   Star,
   Download,
   BookOpen,
@@ -19,7 +19,8 @@ import {
   Calendar,
   ExternalLink,
   ListPlus,
-  Building2
+  Building2,
+  Mail
 } from 'lucide-react';
 import { booksApi, genresApi, booksGenresApi, authorsApi, booksAuthorsApi, publishersApi, reviewsApi, readlistsApi, languagesApi } from '../api/api';
 import { useAuth } from '../context/AuthContext';
@@ -166,6 +167,28 @@ export default function BookDetails() {
   const [isAddingReview, setIsAddingReview] = useState(false);
   const [reviewForm, setReviewForm] = useState({ title: '', description: '' });
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [showKindleModal, setShowKindleModal] = useState(false);
+  const [kindleEmail, setKindleEmail] = useState('');
+  const [sendingToKindle, setSendingToKindle] = useState(false);
+
+  // ... (rest of state)
+
+  const handleSendToKindle = async () => {
+    if (!kindleEmail) return;
+    setSendingToKindle(true);
+    try {
+        await booksApi.sendToKindle(id, kindleEmail);
+        setShowKindleModal(false);
+        setKindleEmail('');
+        // Show success notification (could use a toast here)
+        alert('Book sent to Kindle successfully!');
+    } catch (err) {
+        console.error("Failed to send to Kindle", err);
+        alert('Failed to send to Kindle. Please check the email and try again.');
+    } finally {
+        setSendingToKindle(false);
+    }
+  };
   
   // Author Books State
   const [authorBooks, setAuthorBooks] = useState([]);
@@ -1077,8 +1100,30 @@ export default function BookDetails() {
                 Read List
               </button>
 
-              <div className="h-12 w-12 flex items-center justify-center rounded-full bg-secondary/50 border border-white/5 text-muted-foreground hover:text-foreground cursor-pointer transition-colors backdrop-blur-sm">
-                <Share2 size={20} />
+              <div className="relative group/share">
+                <div className="h-12 w-12 flex items-center justify-center rounded-full bg-secondary/50 border border-white/5 text-muted-foreground hover:text-foreground cursor-pointer transition-colors backdrop-blur-sm">
+                  <Share2 size={20} />
+                </div>
+                
+                <div className="absolute top-14 left-0 w-48 bg-card border border-border rounded-lg shadow-xl overflow-hidden opacity-0 invisible group-hover/share:opacity-100 group-hover/share:visible transition-all z-50 py-1 flex flex-col">
+                    <a 
+                      href={`mailto:?subject=Check out this book: ${book.book_title}&body=I thought you might like this book: ${book.book_title}${book.authors_data ? ` by ${book.authors_data.split('||').map(s=>s.split('::')[1]).join(', ')}` : ''}.%0D%0A%0D%0AView it here: ${window.location.href}`}
+                      className="px-4 py-3 hover:bg-white/5 text-xs font-bold text-foreground flex items-center gap-3 transition-colors"
+                    >
+                        <Mail size={14} />
+                        Send via Email
+                    </a>
+                    
+                    {hasPermission('userrole_readbooks') && book.file_exists && (
+                        <button 
+                            onClick={() => setShowKindleModal(true)}
+                            className="px-4 py-3 hover:bg-white/5 text-xs font-bold text-foreground flex items-center gap-3 transition-colors text-left w-full"
+                        >
+                            <Download size={14} />
+                            Send to Kindle
+                        </button>
+                    )}
+                </div>
               </div>
 
               <div 
@@ -1108,9 +1153,7 @@ export default function BookDetails() {
                 <Download size={20} />
               </div>
               
-              <div className="h-12 w-12 flex items-center justify-center rounded-full bg-secondary/50 border border-white/5 text-muted-foreground hover:text-foreground cursor-pointer transition-colors backdrop-blur-sm">
-                <MoreHorizontal size={20} />
-              </div>
+
             </div>
 
             {/* Synopsis */}
@@ -1451,6 +1494,54 @@ export default function BookDetails() {
                   ))}
               </div>
           </div>
+        )}
+
+        {/* Kindle Email Modal */}
+        {showKindleModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="bg-card border border-border rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] max-w-sm w-full p-6 animate-in zoom-in-95 duration-200">
+                    <h3 className="text-xl font-bold mb-2">Send to Kindle</h3>
+                    <p className="text-sm text-muted-foreground mb-6">
+                        Enter your Send-to-Kindle email address. The book file ({book.format_name}) will be sent as an attachment.
+                    </p>
+                    
+                    <div className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-2">
+                             <label className="text-xs font-bold uppercase text-muted-foreground">Kindle Email</label>
+                             <input 
+                                type="email" 
+                                placeholder="username@kindle.com"
+                                value={kindleEmail}
+                                onChange={(e) => setKindleEmail(e.target.value)}
+                                className="bg-secondary/50 border border-border rounded-lg px-4 py-2 text-sm outline-none focus:border-primary/50 transition-all font-medium"
+                             />
+                        </div>
+
+                        <div className="flex justify-end gap-3 mt-2">
+                            <button 
+                                onClick={() => { setShowKindleModal(false); setKindleEmail(''); }}
+                                className="px-4 py-2 text-xs font-bold uppercase text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={handleSendToKindle}
+                                disabled={!kindleEmail || sendingToKindle}
+                                className="px-6 py-2 bg-primary text-primary-foreground rounded-lg text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center gap-2"
+                            >
+                                {sendingToKindle ? (
+                                    <>
+                                        <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        Sending...
+                                    </>
+                                ) : (
+                                    'Send'
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         )}
 
         {/* Custom Confirmation Modal */}

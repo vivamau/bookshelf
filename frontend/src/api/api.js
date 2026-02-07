@@ -50,6 +50,7 @@ export const booksApi = {
   incrementDownload: (id) => api.post(`/books/${id}/download`),
   getMostRead: () => api.get('/books/most-read'),
   getMostDownloaded: () => api.get('/books/most-downloaded'),
+  sendToKindle: (id, email) => api.post(`/books/${id}/send-to-kindle`, { email }),
 };
 
 export const authorsApi = {
