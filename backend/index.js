@@ -451,15 +451,23 @@ app.use('/api/authors', (req, res, next) => {
         const params = [];
         const countParams = [];
 
+        const sort = req.query.sort || 'name';
         if (search) {
-            const searchClause = " WHERE author_name LIKE ? OR author_lastname LIKE ?";
-            countSql += searchClause;
-            sql += searchClause;
-            params.push(`%${search}%`, `%${search}%`);
-            countParams.push(`%${search}%`, `%${search}%`);
+             const searchClause = " WHERE author_name LIKE ? OR author_lastname LIKE ?";
+             countSql += searchClause;
+             sql += searchClause;
+             params.push(`%${search}%`, `%${search}%`);
+             countParams.push(`%${search}%`, `%${search}%`);
         }
 
-        sql += ` ORDER BY author_name ASC, author_lastname ASC LIMIT ? OFFSET ?`;
+        let orderBy = 'author_name ASC, author_lastname ASC';
+        if (sort === 'latest') {
+             orderBy = 'author_create_date DESC';
+        } else if (sort === 'name') {
+             orderBy = 'author_name ASC, author_lastname ASC';
+        }
+
+        sql += ` ORDER BY ${orderBy} LIMIT ? OFFSET ?`;
         params.push(limit, offset);
 
         db.get(countSql, countParams, (err, countRow) => {
@@ -508,6 +516,8 @@ app.use('/api/publishers', (req, res, next) => {
         const offset = (page - 1) * limit;
         const search = req.query.search || '';
 
+        const sort = req.query.sort || 'name';
+        
         let countSql = `SELECT COUNT(*) as total FROM Publishers`;
         let sql = `SELECT * FROM Publishers`;
         
@@ -522,7 +532,14 @@ app.use('/api/publishers', (req, res, next) => {
             countParams.push(`%${search}%`);
         }
 
-        sql += ` ORDER BY publisher_name ASC LIMIT ? OFFSET ?`;
+        let orderBy = 'publisher_name ASC';
+        if (sort === 'latest') {
+             orderBy = 'publisher_create_date DESC';
+        } else if (sort === 'name') {
+             orderBy = 'publisher_name ASC';
+        }
+
+        sql += ` ORDER BY ${orderBy} LIMIT ? OFFSET ?`;
         params.push(limit, offset);
 
         db.get(countSql, countParams, (err, countRow) => {
@@ -987,7 +1004,8 @@ booksRouter.get('/', (req, res) => {
     
     let orderBy = 'b.book_title ASC'; // Default to alphabetical
     if (sort === 'latest' || sort === 'added') orderBy = 'b.book_create_date DESC, b.ID DESC';
-    else if (sort === 'year') orderBy = 'b.book_date DESC'; /* Assuming book_date stores the publication year/date */
+    else if (sort === 'year') orderBy = 'b.book_date DESC';
+    else if (sort === 'progress') orderBy = 'bu.book_progress_percentage DESC';
     
     sql += ` ORDER BY ${orderBy} LIMIT ? OFFSET ?`;
     params.push(limit, offset);
