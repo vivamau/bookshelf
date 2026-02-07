@@ -757,7 +757,12 @@ export default function BookDetails() {
                     window.open(url, '_blank');
                   } catch (error) {
                     console.error("Error downloading PDF:", error);
-                    alert("Failed to load PDF. Please ensure you are logged in.");
+                    if (error.response && error.response.status === 401) {
+                         alert("Session expired. Please log in again.");
+                         window.location.href = '/login';
+                    } else {
+                         alert("Failed to load PDF. Please try again later.");
+                    }
                   }
                 } else if (book.book_entry_point) {
                   navigate(`/reader/${id}`);
@@ -1107,10 +1112,21 @@ export default function BookDetails() {
               
               <button 
                 disabled={!hasPermission('userrole_readbooks') || !book.file_exists}
-                onClick={() => {
+                onClick={async () => {
                   if (book.format_name === 'PDF') {
-                    const token = localStorage.getItem('token');
-                    window.open(`${import.meta.env.VITE_API_BASE_URL}/api/books/${id}/download-file?token=${token}`, '_blank');
+                    try {
+                        const response = await booksApi.downloadFile(id);
+                        const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+                        window.open(url, '_blank');
+                    } catch (error) {
+                        console.error("Error downloading PDF:", error);
+                        if (error.response && error.response.status === 401) {
+                             alert("Session expired. Please log in again.");
+                             window.location.href = '/login';
+                        } else {
+                             alert("Failed to load PDF. Please try again later.");
+                        }
+                    }
                   } else if (book.book_entry_point) {
                     navigate(`/reader/${id}`);
                   } else {
@@ -1175,8 +1191,18 @@ export default function BookDetails() {
                   if (book.file_exists && book.book_filename) {
                     try {
                       // Trigger download via API endpoint (which also increments counter)
-                      const token = localStorage.getItem('token');
-                      window.open(`${import.meta.env.VITE_API_BASE_URL}/api/books/${id}/download-file?token=${token}`, '_blank');
+                      const response = await booksApi.downloadFile(id);
+                      // Determine type from header or default to octet-stream
+                      const contentType = response.headers['content-type'] || 'application/octet-stream';
+                      const url = window.URL.createObjectURL(new Blob([response.data], { type: contentType }));
+                      
+                      // Create temporary link to force download with filename from book data
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.setAttribute('download', book.book_filename || `${book.book_title}.${book.format_name || 'epub'}`);
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
                       
                       // Update local state for immediate feedback
                       setBook(prev => ({ ...prev, book_downloads: (prev.book_downloads || 0) + 1 }));
