@@ -6,6 +6,7 @@ A full-stack web application for managing your personal book collection. Built w
 
 - **Book Management**: Add, edit, and organize your book collection
 - **Author & Genre Tracking**: Categorize books by authors and genres
+- **OPDS Feed**: Access your library via OPDS-compatible readers
 - **User Authentication**: Secure login with JWT-based authentication
 - **Responsive Design**: Modern UI built with React and TailwindCSS
 
@@ -137,7 +138,21 @@ npm run dev
 
 The frontend will be available at `http://localhost:5173` (Vite's default port).
 
-## 📁 Project Structure
+## � OPDS Feed
+
+Bookshelf provides an OPDS 1.2 catalog to access your library from external ebook reader applications.
+
+- **Feed URL**: `http://<your-server-ip>:3005/opds` (e.g., `http://192.168.1.100:3005/opds`)
+- **Authentication**: Usage of Basic Auth (use your Bookshelf username and password)
+
+### Compatible Readers
+- **iOS**: KyBook 3, Marvin, Schubert
+- **Android**: Moon+ Reader, Aldiko, Librera
+- **Desktop**: Thorium Reader
+
+**Note**: To access the feed from other devices, ensure your firewall allows connections to port 3005.
+
+## �📁 Project Structure
 
 ```
 bookshelf/
