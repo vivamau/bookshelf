@@ -785,6 +785,12 @@ booksRouter.get('/most-downloaded', (req, res) => {
     });
 });
 
+
+// OPDS Router
+const opdsRouter = require('./routes/opds');
+const opdsAuth = require('./middleware/opdsAuth');
+app.use('/opds', opdsAuth, opdsRouter);
+
 // Custom DELETE for books - removes metadata AND files
 booksRouter.delete('/:id', checkManageBooks, (req, res) => {
     const bookId = req.params.id;
