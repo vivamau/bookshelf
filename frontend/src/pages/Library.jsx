@@ -101,6 +101,8 @@ export default function Library() {
                     <div onClick={() => setFormat('all')} className={cn("px-4 py-2.5 hover:bg-white/5 text-xs font-bold", format === 'all' && "text-primary")}>All</div>
                     <div onClick={() => setFormat('EPUB')} className={cn("px-4 py-2.5 hover:bg-white/5 text-xs font-bold", format === 'EPUB' && "text-primary")}>EPUB</div>
                     <div onClick={() => setFormat('PDF')} className={cn("px-4 py-2.5 hover:bg-white/5 text-xs font-bold", format === 'PDF' && "text-primary")}>PDF</div>
+                    <div onClick={() => setFormat('CBR')} className={cn("px-4 py-2.5 hover:bg-white/5 text-xs font-bold", format === 'CBR' && "text-primary")}>CBR</div>
+                    <div onClick={() => setFormat('CBZ')} className={cn("px-4 py-2.5 hover:bg-white/5 text-xs font-bold", format === 'CBZ' && "text-primary")}>CBZ</div>
                 </div>
             </div>
 

@@ -170,10 +170,15 @@ export default function Settings() {
 
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files);
-    const validFiles = files.filter(f => 
-        f.name.toLowerCase().endsWith('.epub') || 
-        f.name.toLowerCase().endsWith('.pdf')
-    ).map(f => ({
+    const validFiles = files.filter(f => {
+        const lowerName = f.name.toLowerCase();
+        return lowerName.endsWith('.epub') || 
+               lowerName.endsWith('.pdf') ||
+               lowerName.endsWith('.cbz') || 
+               lowerName.endsWith('.cbr') ||
+               lowerName.endsWith('.zip') || 
+               lowerName.endsWith('.rar');
+    }).map(f => ({
         file: f,
         id: Math.random().toString(36).substr(2, 9),
         status: 'pending', // pending, uploading, success, error
@@ -385,7 +390,7 @@ export default function Settings() {
                         </div>
                         <h3 className="text-lg font-bold mb-2">Select a Local Folder</h3>
                         <p className="text-sm text-muted-foreground max-w-sm mb-6">
-                            Pick a folder from your device. We'll automatically identify all compatible book files (.epub, .pdf) inside.
+                            Pick a folder from your device. We'll automatically identify all compatible book files (.epub, .pdf, .cbr, .cbz) inside.
                         </p>
                         <button 
                             onClick={() => fileInputRef.current?.click()}

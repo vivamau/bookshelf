@@ -14,13 +14,21 @@ export default function AddBook() {
   const handleFileChange = (e) => {
     const selected = e.target.files[0];
     if (selected) {
-       if (selected.type === 'application/epub+zip' || selected.type === 'application/pdf' || selected.name.endsWith('.epub') || selected.name.endsWith('.pdf')) {
+       const lowerName = selected.name.toLowerCase();
+       const isValid = lowerName.endsWith('.epub') || 
+                       lowerName.endsWith('.pdf') || 
+                       lowerName.endsWith('.cbz') || 
+                       lowerName.endsWith('.cbr') || 
+                       lowerName.endsWith('.zip') || 
+                       lowerName.endsWith('.rar');
+       
+       if (isValid) {
            setFile(selected);
            setError('');
            setSuccess('');
        } else {
            setFile(null);
-           setError('Please select a valid EPUB or PDF file.');
+           setError('Please select a valid EPUB, PDF, or Comic Archive (CBR, CBZ).');
        }
     }
   };
@@ -34,12 +42,20 @@ export default function AddBook() {
     overrideEvent(e);
     const selected = e.dataTransfer.files[0];
     if (selected) {
-        if (selected.type === 'application/epub+zip' || selected.type === 'application/pdf' || selected.name.endsWith('.epub') || selected.name.endsWith('.pdf')) {
+        const lowerName = selected.name.toLowerCase();
+        const isValid = lowerName.endsWith('.epub') || 
+                        lowerName.endsWith('.pdf') || 
+                        lowerName.endsWith('.cbz') || 
+                        lowerName.endsWith('.cbr') || 
+                        lowerName.endsWith('.zip') || 
+                        lowerName.endsWith('.rar');
+        
+        if (isValid) {
             setFile(selected);
             setError('');
             setSuccess('');
         } else {
-            setError('Please select a valid EPUB or PDF file.');
+            setError('Please select a valid EPUB, PDF, or Comic Archive (CBR, CBZ).');
         }
     }
   };
@@ -87,13 +103,13 @@ export default function AddBook() {
                             <Upload size={32} />
                         </div>
                         <h3 className="text-xl font-bold mb-2">Drag & Drop your book here</h3>
-                        <p className="text-muted-foreground mb-6 text-sm">Supports EPUB and PDF formats</p>
+                        <p className="text-muted-foreground mb-6 text-sm">Supports EPUB, PDF, CBR, and CBZ formats</p>
                         
                         <label className="cursor-pointer">
                             <input 
                                 type="file" 
                                 className="hidden" 
-                                accept=".epub,.pdf"
+                                accept=".epub,.pdf,.cbr,.cbz,.zip,.rar"
                                 onChange={handleFileChange}
                             />
                             <span className="bg-primary text-primary-foreground font-bold px-6 py-3 rounded-full hover:bg-primary/90 transition-transform hover:scale-105 inline-block">

@@ -1113,25 +1113,31 @@ export default function BookDetails() {
               <button 
                 disabled={!hasPermission('userrole_readbooks') || !book.file_exists}
                 onClick={async () => {
-                  if (book.format_name === 'PDF') {
-                    try {
-                        const response = await booksApi.downloadFile(id);
-                        const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
-                        window.open(url, '_blank');
-                    } catch (error) {
-                        console.error("Error downloading PDF:", error);
-                        if (error.response && error.response.status === 401) {
-                             alert("Session expired. Please log in again.");
-                             window.location.href = '/login';
-                        } else {
-                             alert("Failed to load PDF. Please try again later.");
-                        }
-                    }
-                  } else if (book.book_entry_point) {
-                    navigate(`/reader/${id}`);
-                  } else {
-                    console.warn('Preview not available for this book.');
-                  }
+                   const formatName = book.format_name ? book.format_name.toUpperCase() : 'EPUB';
+                   
+                   if (formatName === 'PDF') {
+                      try {
+                          const response = await booksApi.downloadFile(id);
+                          const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+                          window.open(url, '_blank');
+                      } catch (error) {
+                          console.error("Error downloading PDF:", error);
+                          if (error.response && error.response.status === 401) {
+                               alert("Session expired. Please log in again.");
+                               window.location.href = '/login';
+                          } else {
+                               alert("Failed to load PDF. Please try again later.");
+                          }
+                      }
+                   } 
+                   else if (['CBR', 'CBZ', 'ZIP', 'RAR'].includes(formatName)) {
+                      navigate(`/reader/${id}`);
+                   }
+                   else if (book.book_entry_point) {
+                      navigate(`/reader/${id}`);
+                   } else {
+                      console.warn('Preview not available for this book.');
+                   }
                 }}
                 className={cn(
                   "flex items-center gap-3 px-8 py-3 rounded-full font-black text-sm uppercase tracking-wider transition-all shadow-lg active:scale-95",
