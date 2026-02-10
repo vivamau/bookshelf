@@ -1195,26 +1195,15 @@ export default function BookDetails() {
                       return; // Guest cannot download
                   }
                   if (book.file_exists && book.book_filename) {
-                    try {
-                      // Trigger download via API endpoint (which also increments counter)
-                      const response = await booksApi.downloadFile(id);
-                      // Determine type from header or default to octet-stream
-                      const contentType = response.headers['content-type'] || 'application/octet-stream';
-                      const url = window.URL.createObjectURL(new Blob([response.data], { type: contentType }));
+                      // Use direct navigation to download endpoint.
+                      // Authentication is handled via Cookies which are sent automatically with the request.
+                      const downloadUrl = `${import.meta.env.VITE_API_BASE_URL}/api/books/${id}/download-file`;
                       
-                      // Create temporary link to force download with filename from book data
-                      const link = document.createElement('a');
-                      link.href = url;
-                      link.setAttribute('download', book.book_filename || `${book.book_title}.${book.format_name || 'epub'}`);
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
-                      
-                      // Update local state for immediate feedback
+                      // Increment local counter immediately for UI feedback
                       setBook(prev => ({ ...prev, book_downloads: (prev.book_downloads || 0) + 1 }));
-                    } catch (err) {
-                      console.error("Failed to trigger download", err);
-                    }
+                      
+                      // Trigger download
+                      window.location.href = downloadUrl;
                   }
                 }}
               >

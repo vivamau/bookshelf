@@ -94,15 +94,14 @@ export default function Library() {
       <div className="flex items-center justify-between px-8 py-4 border-b border-white/5 bg-background/95 backdrop-blur z-20">
         <div className="flex items-center gap-6">
             <div className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer hover:text-primary transition-colors relative group/filter">
-                <span>{format === 'all' ? 'All' : format}</span>
+                <span>{format === 'all' ? 'All' : (format === 'COMICS' ? 'Comics' : format)}</span>
                 <ChevronDown size={14} className="text-muted-foreground" />
                 
                 <div className="absolute top-full left-0 mt-2 w-40 bg-card border border-border rounded-lg shadow-xl overflow-hidden opacity-0 invisible group-hover/filter:opacity-100 group-hover/filter:visible transition-all z-50 py-1">
                     <div onClick={() => setFormat('all')} className={cn("px-4 py-2.5 hover:bg-white/5 text-xs font-bold", format === 'all' && "text-primary")}>All</div>
                     <div onClick={() => setFormat('EPUB')} className={cn("px-4 py-2.5 hover:bg-white/5 text-xs font-bold", format === 'EPUB' && "text-primary")}>EPUB</div>
                     <div onClick={() => setFormat('PDF')} className={cn("px-4 py-2.5 hover:bg-white/5 text-xs font-bold", format === 'PDF' && "text-primary")}>PDF</div>
-                    <div onClick={() => setFormat('CBR')} className={cn("px-4 py-2.5 hover:bg-white/5 text-xs font-bold", format === 'CBR' && "text-primary")}>CBR</div>
-                    <div onClick={() => setFormat('CBZ')} className={cn("px-4 py-2.5 hover:bg-white/5 text-xs font-bold", format === 'CBZ' && "text-primary")}>CBZ</div>
+                    <div onClick={() => setFormat('COMICS')} className={cn("px-4 py-2.5 hover:bg-white/5 text-xs font-bold", format === 'COMICS' && "text-primary")}>Comics (CB*/RAR)</div>
                 </div>
             </div>
 

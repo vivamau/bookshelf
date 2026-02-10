@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const AdmZip = require('adm-zip');
 const xml2js = require('xml2js');
+const Unrar = require('node-unrar-js');
 
 const BOOKS_DIR = path.join(__dirname, '..', 'books');
 const COVERS_DIR = path.join(__dirname, '..', 'covers');
@@ -105,12 +106,278 @@ const walkSync = (dir, filelist = [], baseDir = dir) => {
         const filePath = path.join(dir, file);
         if (fs.statSync(filePath).isDirectory()) {
             filelist = walkSync(filePath, filelist, baseDir);
-        } else if (file.toLowerCase().endsWith('.epub') || file.toLowerCase().endsWith('.pdf')) {
-            // Store relative path from baseDir
-            filelist.push(path.relative(baseDir, filePath));
+        } else {
+            const lower = file.toLowerCase();
+            if (lower.endsWith('.epub') || lower.endsWith('.pdf') || 
+                lower.endsWith('.cbz') || lower.endsWith('.cbr') || 
+                lower.endsWith('.zip') || lower.endsWith('.rar')) {
+                // Store relative path from baseDir
+                filelist.push(path.relative(baseDir, filePath));
+            }
         }
     });
     return filelist;
+};
+
+// Helper function to extract images from archives (CBZ/CBR)
+const processArchiveBook = async (db, filename, formatId, onProgress, options = {}) => {
+    const { forceRefreshCovers = false } = options;
+    return new Promise(async (resolve) => {
+        try {
+            if (onProgress) onProgress(filename);
+            console.log(`\nProcessing Comic: ${filename}`);
+
+            const filePath = path.join(BOOKS_DIR, filename);
+            // SECURITY: Check for path traversal
+            if (!path.resolve(filePath).startsWith(path.resolve(BOOKS_DIR))) {
+                 console.error(`Security Warning: Attempted path traversal with filename: ${filename}`);
+                 return resolve({ isNew: false, bookId: null, error: 'Invalid path' });
+            }
+
+            const ext = path.extname(filename).toLowerCase();
+            let entries = [];
+            let getFileBuffer = null; // Function to get file content buffer
+
+            // Detect actual format by reading first few bytes
+            let realFormat = 'unknown';
+            try {
+                const fd = fs.openSync(filePath, 'r');
+                const buffer = Buffer.alloc(7);
+                fs.readSync(fd, buffer, 0, 7, 0);
+                fs.closeSync(fd);
+                
+                if (buffer[0] === 0x52 && buffer[1] === 0x61 && buffer[2] === 0x72 && buffer[3] === 0x21) {
+                    realFormat = 'rar';
+                } else if (buffer[0] === 0x50 && buffer[1] === 0x4B) {
+                    realFormat = 'zip';
+                }
+            } catch (sigErr) {
+                console.warn('  -> Could not read file signature, falling back to extension.');
+            }
+
+            // Fallback for detection
+            if (realFormat === 'unknown') {
+                if (ext === '.cbz' || ext === '.zip' || ext === '.epub') realFormat = 'zip';
+                else if (ext === '.cbr' || ext === '.rar') realFormat = 'rar';
+            }
+
+            console.log(`  -> Detected format: ${realFormat} (Extension: ${ext})`);
+
+            // --- ZIP (CBZ) Handler ---
+            if (realFormat === 'zip') {
+                try {
+                    const zip = new AdmZip(filePath);
+                    const zipEntries = zip.getEntries();
+                    entries = zipEntries.map(e => e.entryName);
+                    getFileBuffer = async (entryName) => {
+                        const entry = zipEntries.find(e => e.entryName === entryName);
+                        return entry ? entry.getData() : null;
+                    };
+                } catch (zipErr) {
+                    console.error('  -> Error reading ZIP:', zipErr.message);
+                    return resolve({ isNew: false, bookId: null, error: 'ZIP Error: ' + zipErr.message });
+                }
+            } 
+            // --- RAR (CBR) Handler ---
+            else if (realFormat === 'rar') {
+                try {
+                    // Use buffer to avoid WASM FS issues
+                    const fileData = fs.readFileSync(filePath);
+                    const extractor = await Unrar.createExtractorFromData({ data: fileData });
+                    
+                    const list = extractor.getFileList();
+                    const fileHeaders = [...list.fileHeaders]; // Iterate generator
+                    entries = fileHeaders.map(h => h.name);
+                    
+                    getFileBuffer = async (entryName) => {
+                         const result = extractor.extract({ files: [entryName] });
+                         const extracted = [...result.files]; // Iterate generator
+                         if (extracted.length > 0 && extracted[0].extraction) {
+                             return Buffer.from(extracted[0].extraction);
+                         }
+                         return null;
+                    };
+                } catch (e) {
+                    console.error('  -> Error reading RAR:', e.message);
+                    return resolve({ isNew: false, bookId: null, error: 'RAR Error: ' + e.message });
+                }
+            } else {
+                return resolve({ isNew: false, bookId: null, error: 'Unsupported format' });
+            }
+
+            // Filter for images
+            const imageEntries = entries.filter(e => {
+                const lower = e.toLowerCase();
+                // Filter out __MACOSX and hidden files
+                if (lower.includes('__macosx') || path.basename(lower).startsWith('.')) return false;
+                
+                return lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.webp') || lower.endsWith('.gif');
+            }).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+
+            if (imageEntries.length === 0) {
+                 console.log('  -> No images found in archive, skipping');
+                 return resolve({ isNew: false, bookId: null, error: 'No images found' });
+            }
+
+            // Extract Metadata (ComicInfo.xml)
+            let title = path.basename(filename, ext);
+            let authorName = null;
+            let summary = null;
+            let date = null;
+            let series = null;
+            let number = null;
+            let publisherName = null;
+            let languageCode = 'en'; // Default
+            
+            const metadataEntry = entries.find(e => e.toLowerCase() === 'comicinfo.xml');
+            if (metadataEntry) {
+                try {
+                    const xmlBuffer = await getFileBuffer(metadataEntry);
+                    if (xmlBuffer) {
+                        const parser = new xml2js.Parser();
+                        const result = await parser.parseStringPromise(xmlBuffer.toString('utf8'));
+                        if (result && result.ComicInfo) {
+                            const info = result.ComicInfo;
+                            const getText = (field) => (field && field[0]) ? field[0] : null;
+                            
+                            const xmlTitle = getText(info.Title);
+                            if (xmlTitle) title = xmlTitle;
+                            
+                            summary = getText(info.Summary) || getText(info.Notes);
+                            series = getText(info.Series);
+                            number = getText(info.Number);
+                            publisherName = getText(info.Publisher);
+                            languageCode = getText(info.LanguageISO) || 'en';
+                            
+                            // Authors: Try Writer, then Penciller
+                            authorName = getText(info.Writer) || getText(info.Penciller) || getText(info.Inker);
+                            
+                            const year = getText(info.Year);
+                            const month = getText(info.Month) || '1';
+                            const day = getText(info.Day) || '1';
+                            if (year) date = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                            
+                            console.log('  -> Parsed ComicInfo.xml metadata');
+                        }
+                    }
+                } catch (e) {
+                    console.error('  -> Error parsing ComicInfo.xml:', e.message);
+                }
+            }
+
+            // Fallback Title logic if still default (series + number)
+            if (series && number && title === path.basename(filename, ext)) {
+                title = `${series} #${number}`;
+            }
+
+            // Extract Cover (First Image)
+            const coverEntryName = imageEntries[0];
+            const uniqueBaseName = filename.replace(/[/\\]/g, '_').replace(new RegExp(ext + '$', 'i'), '');
+            const coverExt = path.extname(coverEntryName);
+            const coverFilename = `${uniqueBaseName}${coverExt}`;
+            const coverOutputPath = path.join(COVERS_DIR, coverFilename);
+
+            // SMART DUPLICATE CHECK
+            const existingBook = await new Promise((res) => {
+                db.get("SELECT ID FROM Books WHERE book_filename = ? OR (book_title = ? AND book_format_id = ?)", [filename, title, formatId], (err, row) => {
+                    res(row);
+                });
+            });
+            
+            if (existingBook) {
+                 console.log(`  -> Duplicate/Existing comic found (ID: ${existingBook.ID}). Updating metadata...`);
+            }
+            
+            // Extract cover content
+            if (!forceRefreshCovers && existingBook && fs.existsSync(coverOutputPath)) {
+                 console.log(`  -> Cover already exists: ${coverFilename}`);
+            } else {
+                 try {
+                     const coverBuffer = await getFileBuffer(coverEntryName);
+                     if (coverBuffer) {
+                         fs.writeFileSync(coverOutputPath, coverBuffer);
+                         console.log(`  -> Cover extracted: ${coverFilename}`);
+                     }
+                 } catch (e) {
+                     console.error('  -> Error extracting cover:', e.message);
+                 }
+            }
+
+            // Resolve entities
+            const now = Date.now();
+            const languageId = await getOrCreateLanguage(db, languageCode);
+            const publisherId = await getOrCreatePublisher(db, publisherName);
+            
+            // Spine data (JSON array of image filenames/paths inside archive)
+            const spineData = JSON.stringify(imageEntries);
+
+            // Insert/Update DB
+            const isNew = !existingBook;
+            const bookId = await new Promise((res, rej) => {
+                if (existingBook) {
+                    db.run(`UPDATE Books SET 
+                        book_title = ?, book_summary = ?, book_cover_img = ?, 
+                        book_date = ?, book_update_date = ?, 
+                        book_format_id = ?, language_id = ?, book_publisher_id = ?,
+                        book_spine = ?
+                        WHERE ID = ?`,
+                        [title, summary, coverFilename, date, now, 
+                         formatId, languageId, publisherId, spineData, existingBook.ID],
+                        function(err) {
+                            if (err) rej(err);
+                            else res(existingBook.ID);
+                        }
+                    );
+                } else {
+                    db.run(`INSERT INTO Books (
+                        book_title, book_summary, book_cover_img, 
+                        book_date, book_create_date, book_update_date, book_filename, 
+                        book_format_id, language_id, book_publisher_id,
+                        book_spine
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                        [title, summary, coverFilename, date, now, now, filename, 
+                         formatId, languageId, publisherId, spineData],
+                        function(err) {
+                            if (err) rej(err);
+                            else res(this.lastID);
+                        }
+                    );
+                }
+            });
+
+            console.log(`  -> Comic ID: ${bookId} (${isNew ? 'NEW' : 'UPDATED'})`);
+
+            // Process Author(s)
+            if (authorName) {
+                // Split comma separated authors if any
+                const authors = authorName.split(',').map(a => a.trim());
+                for (const auth of authors) {
+                    const parts = auth.split(' ');
+                    const firstName = parts.slice(0, -1).join(' ') || auth;
+                    const lastName = parts[parts.length - 1] || '';
+                    
+                    const authorId = await getOrCreateAuthor(db, firstName, lastName);
+                    
+                    await new Promise((res, rej) => {
+                         // Check duplicate
+                         db.get("SELECT ID FROM BooksAuthors WHERE book_id = ? AND author_id = ?", [bookId, authorId], (err, row) => {
+                             if (!row) {
+                                 db.run("INSERT INTO BooksAuthors (book_id, author_id, bookauthor_create_date) VALUES (?, ?, ?)",
+                                     [bookId, authorId, now],
+                                     (err) => err ? rej(err) : res()
+                                 );
+                             } else res();
+                         });
+                    });
+                }
+            }
+
+            resolve({ isNew, bookId });
+        } catch (err) {
+            console.error(`Error processing comic ${filename}:`, err);
+            resolve({ isNew: false, bookId: null, error: err.message });
+        }
+    });
 };
 
 const processBook = async (db, filename, formatId, onProgress, options = {}) => {
@@ -210,7 +477,6 @@ const processBook = async (db, filename, formatId, onProgress, options = {}) => 
             const publisher = getText(metadata['dc:publisher']);
             const language = getText(metadata['dc:language']) || 'en';
             const description = stripHtml(getText(metadata['dc:description']));
-            console.log(`  Title: ${title}`);
 
             // Use a unique name for folders/files to avoid collisions in subdirs
             // Replace slashes with underscores for a flat unique filename
@@ -360,12 +626,6 @@ const processBook = async (db, filename, formatId, onProgress, options = {}) => 
                 }
             }
 
-            // Extract content if new or missing
-             if (isNew || forceRefreshCovers) {
-                // If it is new, we might want to extract content (not doing here for now to save time/space)
-                // But generally we do. For now let's just mark as new.
-             }
-
             resolve({ isNew, bookId });
 
         } catch (err) {
@@ -462,6 +722,9 @@ const scanLibrary = async (db, onProgress, options = {}) => {
         
         const epubFormatId = await getOrCreateFormat(db, 'EPUB');
         const pdfFormatId = await getOrCreateFormat(db, 'PDF');
+        const cbzFormatId = await getOrCreateFormat(db, 'CBZ');
+        const cbrFormatId = await getOrCreateFormat(db, 'CBR'); // Also covers RAR
+        
         const files = walkSync(BOOKS_DIR);
         
         console.log(`Found ${files.length} files across all directories.`);
@@ -470,17 +733,30 @@ const scanLibrary = async (db, onProgress, options = {}) => {
         let newBooksCount = 0;
         for (const file of files) {
             let isNew = false;
-            if (file.toLowerCase().endsWith('.epub')) {
+            const lowerFile = file.toLowerCase();
+            
+            if (lowerFile.endsWith('.epub')) {
                 const res = await processBook(db, file, epubFormatId, (msg) => {
                     if (onProgress) onProgress(`Processing: ${msg}`, processedCount + 1, files.length);
                 }, options);
                 isNew = res.isNew;
-            } else if (file.toLowerCase().endsWith('.pdf')) {
+            } else if (lowerFile.endsWith('.pdf')) {
                 const res = await processPdf(db, file, pdfFormatId, (msg) => {
                     if (onProgress) onProgress(`Processing: ${msg}`, processedCount + 1, files.length);
                 });
                 isNew = res.isNew;
+            } else if (lowerFile.endsWith('.cbz') || lowerFile.endsWith('.zip')) {
+                 const res = await processArchiveBook(db, file, cbzFormatId, (msg) => {
+                    if (onProgress) onProgress(`Processing: ${msg}`, processedCount + 1, files.length);
+                }, options);
+                isNew = res.isNew;
+            } else if (lowerFile.endsWith('.cbr') || lowerFile.endsWith('.rar')) {
+                 const res = await processArchiveBook(db, file, cbrFormatId, (msg) => {
+                    if (onProgress) onProgress(`Processing: ${msg}`, processedCount + 1, files.length);
+                }, options);
+                isNew = res.isNew;
             }
+
             processedCount++;
             if (isNew) newBooksCount++;
         }
@@ -524,9 +800,6 @@ const importFiles = async (db, onProgress) => {
     try {
         console.log('Starting import from external directories...');
         
-        // Custom recursive walk that follows symlinks or just standard dirs
-        // We reuse or adapt walkSync but for specific list of dirs
-        
         const directories = await new Promise((resolve, reject) => {
             db.all("SELECT path FROM ScanDirectories", [], (err, rows) => {
                 if (err) reject(err);
@@ -546,7 +819,6 @@ const importFiles = async (db, onProgress) => {
             try {
                 if (onProgress) {
                     onProgress(`Scanning folder: ${dir}...`);
-                    // Yield to event loop to allow flush
                     await new Promise(resolve => setTimeout(resolve, 1200));
                 }
 
@@ -555,7 +827,6 @@ const importFiles = async (db, onProgress) => {
                     continue;
                 }
 
-                // We need a recursive walk for this dir
                 const files = [];
                 const getFiles = (d) => {
                     try {
@@ -566,7 +837,10 @@ const importFiles = async (db, onProgress) => {
                             if (stat && stat.isDirectory()) {
                                 getFiles(fullPath);
                             } else {
-                                if (file.toLowerCase().endsWith('.epub') || file.toLowerCase().endsWith('.pdf')) {
+                                const lower = file.toLowerCase();
+                                if (lower.endsWith('.epub') || lower.endsWith('.pdf') || 
+                                    lower.endsWith('.cbz') || lower.endsWith('.cbr') ||
+                                    lower.endsWith('.zip') || lower.endsWith('.rar')) {
                                     files.push(fullPath);
                                 }
                             }
@@ -581,7 +855,6 @@ const importFiles = async (db, onProgress) => {
                     const filename = path.basename(srcPath);
                     const destPath = path.join(BOOKS_DIR, filename);
 
-                    // Duplicate check based on filename presence in destination
                     if (!fs.existsSync(destPath)) {
                         if (onProgress) onProgress(`Scanning folder: ${dir}\nImporting: ${filename}`);
                         console.log(`Importing ${filename} from ${dir}`);
@@ -605,12 +878,19 @@ const importFiles = async (db, onProgress) => {
 
 const scanSingleFile = async (db, filename) => {
     try {
-        if (filename.toLowerCase().endsWith('.epub')) {
+        const lower = filename.toLowerCase();
+        if (lower.endsWith('.epub')) {
              const epubFormatId = await getOrCreateFormat(db, 'EPUB');
              return await processBook(db, filename, epubFormatId, null);
-        } else if (filename.toLowerCase().endsWith('.pdf')) {
+        } else if (lower.endsWith('.pdf')) {
              const pdfFormatId = await getOrCreateFormat(db, 'PDF');
              return await processPdf(db, filename, pdfFormatId, null);
+        } else if (lower.endsWith('.cbz') || lower.endsWith('.zip')) {
+             const cbzFormatId = await getOrCreateFormat(db, 'CBZ');
+             return await processArchiveBook(db, filename, cbzFormatId, null);
+        } else if (lower.endsWith('.cbr') || lower.endsWith('.rar')) {
+             const cbrFormatId = await getOrCreateFormat(db, 'CBR');
+             return await processArchiveBook(db, filename, cbrFormatId, null);
         }
         return false;
     } catch (err) {
@@ -619,4 +899,61 @@ const scanSingleFile = async (db, filename) => {
     }
 };
 
-module.exports = { scanLibrary, refreshCovers, importFiles, scanSingleFile };
+const getComicPage = async (db, filename, entryName) => {
+    // Note: db param kept for signature compatibility if needed, but not used here. 
+    // If caller passes (filename, entryName), handle that too.
+    if (typeof db === 'string') {
+        entryName = filename;
+        filename = db;
+    }
+
+    try {
+        const filePath = path.join(BOOKS_DIR, filename);
+        // Security check
+        if (!path.resolve(filePath).startsWith(path.resolve(BOOKS_DIR))) return null;
+
+        let realFormat = 'unknown';
+        const ext = path.extname(filename).toLowerCase();
+
+        try {
+            const fd = fs.openSync(filePath, 'r');
+            const buffer = Buffer.alloc(7);
+            fs.readSync(fd, buffer, 0, 7, 0);
+            fs.closeSync(fd);
+            
+            if (buffer[0] === 0x52 && buffer[1] === 0x61 && buffer[2] === 0x72 && buffer[3] === 0x21) {
+                realFormat = 'rar';
+            } else if (buffer[0] === 0x50 && buffer[1] === 0x4B) {
+                realFormat = 'zip';
+            }
+        } catch (sigErr) {
+            console.warn('  -> Could not read file signature, falling back to extension.');
+        }
+
+        if (realFormat === 'unknown') {
+            if (ext === '.cbz' || ext === '.zip') realFormat = 'zip';
+            else if (ext === '.cbr' || ext === '.rar') realFormat = 'rar';
+        }
+        
+        if (realFormat === 'zip') {
+             const zip = new AdmZip(filePath);
+             const zipEntries = zip.getEntries();
+             const entry = zipEntries.find(e => e.entryName === entryName);
+             if (entry) return entry.getData();
+        } else if (realFormat === 'rar') {
+             const fileData = fs.readFileSync(filePath);
+             const extractor = await Unrar.createExtractorFromData({ data: fileData });
+             const result = extractor.extract({ files: [entryName] });
+             const extracted = [...result.files];
+             if (extracted.length > 0 && extracted[0].extraction) {
+                 return Buffer.from(extracted[0].extraction);
+             }
+        }
+        return null;
+    } catch (e) {
+        console.error('Error getting comic page:', e.message);
+        return null;
+    }
+};
+
+module.exports = { scanLibrary, refreshCovers, importFiles, scanSingleFile, getComicPage };

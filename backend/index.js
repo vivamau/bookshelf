@@ -9,7 +9,7 @@ const axios = require('axios');
 const fs = require('fs');
 const fileUpload = require('express-fileupload');
 
-const { scanLibrary, refreshCovers, importFiles, scanSingleFile } = require('./utils/libraryScanner');
+const { scanLibrary, refreshCovers, importFiles, scanSingleFile, getComicPage } = require('./utils/libraryScanner');
 const { sendEmail } = require('./utils/mailer');
 
 const path = require('path');
@@ -694,11 +694,13 @@ booksRouter.post('/upload', checkManageBooks, async (req, res) => {
     const safeName = path.basename(bookFile.name).replace(/[^a-zA-Z0-9._-]/g, '_');
     
     // File Filter Logic
-    const isEpub = bookFile.mimetype === 'application/epub+zip' || safeName.toLowerCase().endsWith('.epub');
-    const isPdf = bookFile.mimetype === 'application/pdf' || safeName.toLowerCase().endsWith('.pdf');
+    const lowerName = safeName.toLowerCase();
+    const isEpub = bookFile.mimetype === 'application/epub+zip' || lowerName.endsWith('.epub');
+    const isPdf = bookFile.mimetype === 'application/pdf' || lowerName.endsWith('.pdf');
+    const isComic = lowerName.endsWith('.cbr') || lowerName.endsWith('.cbz') || lowerName.endsWith('.zip') || lowerName.endsWith('.rar');
 
-    if (!isEpub && !isPdf) {
-         return res.status(400).json({ error: 'Invalid file type. Only EPUB and PDF are allowed.' });
+    if (!isEpub && !isPdf && !isComic) {
+         return res.status(400).json({ error: 'Invalid file type. Only EPUB, PDF, CBR, CBZ, RAR, and ZIP are allowed.' });
     }
 
     const uploadPath = path.join(BOOKS_DIR, safeName);
@@ -711,6 +713,10 @@ booksRouter.post('/upload', checkManageBooks, async (req, res) => {
         try {
             const result = await scanSingleFile(db, safeName);
             
+            if (result && result.error) {
+                return res.status(400).json({ error: result.error, filename: safeName });
+            }
+
             if (result && result.isNew) {
                 res.status(201).json({ message: 'Book uploaded and processed successfully', filename: safeName, bookId: result.bookId });
             } else {
@@ -785,6 +791,37 @@ booksRouter.get('/most-downloaded', (req, res) => {
     });
 });
 
+
+// Serve Comic Page
+booksRouter.get('/:id/pages', async (req, res) => {
+    const bookId = req.params.id;
+    const file = req.query.file;
+
+    if (!file) return res.status(400).json({ error: 'File parameter required' });
+
+    db.get("SELECT book_filename FROM Books WHERE ID = ?", [bookId], async (err, book) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!book) return res.status(404).json({ error: 'Book not found' });
+
+        try {
+            const buffer = await getComicPage(book.book_filename, file);
+            if (!buffer) return res.status(404).json({ error: 'Page not found' });
+
+            const ext = path.extname(file).toLowerCase();
+            let mimeType = 'image/jpeg';
+            if (ext === '.png') mimeType = 'image/png';
+            if (ext === '.webp') mimeType = 'image/webp';
+            if (ext === '.gif') mimeType = 'image/gif';
+
+            res.setHeader('Content-Type', mimeType);
+            res.setHeader('Cache-Control', 'public, max-age=86400');
+            res.send(buffer);
+        } catch (e) {
+            console.error('Error serving page:', e);
+            res.status(500).json({ error: 'Failed to retrieve page' });
+        }
+    });
+});
 
 // OPDS Router
 const opdsRouter = require('./routes/opds');
@@ -972,31 +1009,38 @@ booksRouter.get('/', (req, res) => {
     }
 
     if (format && format.toLowerCase() !== 'all') {
-        whereClauses.push("f.format_name = ?");
-        params.push(format.toUpperCase()); // Assuming 'EPUB', 'PDF' are stored uppercase
-        countParams.push(format.toUpperCase());
+        if (format.toUpperCase() === 'COMICS') {
+             // Group filter for comics
+             whereClauses.push("f.format_name IN ('CBR', 'CBZ', 'RAR', 'ZIP')");
+             // No params push needed for literals
+        } else {
+             whereClauses.push("f.format_name = ?");
+             params.push(format.toUpperCase());
+        }
     }
 
     const whereSql = " WHERE " + whereClauses.join(" AND ");
 
-    let countSql = `SELECT COUNT(*) as total FROM Books b LEFT JOIN Formats f ON b.book_format_id = f.ID` + whereSql.replace("1=1 AND ", "").replace("1=1", "");
-    
-    // For count query, we don't need the user join, but we do need the format join if filtering
-    // Re-adjust count params: removing userId which is at index 0 of params
-    // Actually, constructing countParams separately is safer
-    let finalCountParams = [];
-    if (search) finalCountParams.push(`%${search}%`);
-    if (format && format.toLowerCase() !== 'all') finalCountParams.push(format.toUpperCase());
-
-    // If whereSql is just " WHERE 1=1", clean it up for cleaner logs/logic, though SQL handles it fine.
-    // Let's rely on the separate params construction above.
-    
-    // Fix countSql construction to match params
+    // Count Query Logic
     let countWhere = [];
-    if (search) countWhere.push("b.book_title LIKE ?");
-    if (format && format.toLowerCase() !== 'all') countWhere.push("f.format_name = ?");
+    let finalCountParams = [];
+
+    if (search) {
+        countWhere.push("b.book_title LIKE ?");
+        finalCountParams.push(`%${search}%`);
+    }
+
+    if (format && format.toLowerCase() !== 'all') {
+         if (format.toUpperCase() === 'COMICS') {
+             countWhere.push("f.format_name IN ('CBR', 'CBZ', 'RAR', 'ZIP')");
+         } else {
+             countWhere.push("f.format_name = ?");
+             finalCountParams.push(format.toUpperCase());
+         }
+    }
+
     let countWhereStr = countWhere.length > 0 ? " WHERE " + countWhere.join(" AND ") : "";
-    countSql = `SELECT COUNT(*) as total FROM Books b LEFT JOIN Formats f ON b.book_format_id = f.ID` + countWhereStr;
+    let countSql = `SELECT COUNT(*) as total FROM Books b LEFT JOIN Formats f ON b.book_format_id = f.ID` + countWhereStr;
 
 
     let sql = `
@@ -1417,6 +1461,46 @@ settingsRouter.delete('/directories/:id', (req, res) => {
 });
 
 app.use('/api/settings', auth, checkManageBooks, settingsRouter);
+
+// Serve comic pages
+booksRouter.get('/:id/pages', async (req, res) => {
+    const bookId = req.params.id;
+    const file = req.query.file;
+
+    if (!file) {
+        return res.status(400).send('File parameter required');
+    }
+
+    try {
+        const row = await new Promise((resolve, reject) => {
+             db.get("SELECT book_filename FROM Books WHERE ID = ?", [bookId], (err, row) => {
+                 if (err) reject(err);
+                 else resolve(row);
+             });
+        });
+
+        if (!row || !row.book_filename) return res.status(404).send('Book not found');
+
+        const result = await getComicPage(db, row.book_filename, file);
+        if (result) {
+            // Determine mime type
+            const ext = path.extname(file).toLowerCase();
+            let mime = 'image/jpeg';
+            if (ext === '.png') mime = 'image/png';
+            if (ext === '.webp') mime = 'image/webp';
+            if (ext === '.gif') mime = 'image/gif';
+            
+            res.setHeader('Content-Type', mime);
+            res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 1 day
+            res.send(result);
+        } else {
+            res.status(404).send('Page not found');
+        }
+    } catch (e) {
+        console.error('Error serving comic page:', e);
+        res.status(500).send(e.message);
+    }
+});
 
 // -----------------------------------------------------------------
 // READLISTS ROUTES

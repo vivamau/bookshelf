@@ -9,6 +9,7 @@ A full-stack web application for managing your personal book collection. Built w
 - **OPDS Feed**: Access your library via OPDS-compatible readers
 - **User Authentication**: Secure login with JWT-based authentication
 - **Responsive Design**: Modern UI built with React and TailwindCSS
+- **Comic Support**: Native support for CBR, CBZ, RAR, and ZIP comic archives with a built-in web reader
 
 ## 📋 Prerequisites
 
