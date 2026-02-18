@@ -410,7 +410,6 @@ export default function Reader() {
                                     key={font}
                                     onClick={() => {
                                         setFontFamily(font);
-                                        setShowFontMenu(false);
                                     }}
                                     className={`w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/5 transition-colors ${fontFamily === font ? 'text-[#f1184c] font-bold' : 'text-white/80'}`}
                                 >
