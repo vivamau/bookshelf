@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, X, RotateCcw, ChevronLeft, ChevronRight, Maximize2, Minimize2 } from 'lucide-react';
+import { ArrowLeft, X, RotateCcw, ChevronLeft, ChevronRight, Maximize2, Minimize2, Type, Sun, Moon, BookOpen } from 'lucide-react';
 import { booksApi } from '../api/api';
 
 export default function Reader() {
@@ -17,6 +17,32 @@ export default function Reader() {
   // Reader Mode
   const [isComic, setIsComic] = useState(false);
   const [fitMode, setFitMode] = useState('contain'); // 'contain' | 'width'
+  const [fontFamily, setFontFamily] = useState('sans'); // 'sans' | 'serif' | 'mono'
+  const fontRef = useRef('sans'); // To access in loadChapter without dependency
+  const [fontSize, setFontSize] = useState(18);
+  const fontSizeRef = useRef(18);
+
+  const [theme, setTheme] = useState('light'); // 'light' | 'dark'
+  const themeRef = useRef('light');
+  const [showFontMenu, setShowFontMenu] = useState(false);
+
+  useEffect(() => { 
+      fontRef.current = fontFamily; 
+      fontSizeRef.current = fontSize;
+      themeRef.current = theme;
+  }, [fontFamily, fontSize, theme]);
+
+  const themes = {
+      light: { bg: '#ffffff', text: '#1a1a1a' },
+      dark: { bg: '#1a1a1a', text: '#e0e0e0' },
+      sepia: { bg: '#f4ecd8', text: '#5b4636' }
+  };
+
+  const fontInternalNames = {
+      sans: "'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+      serif: "'Georgia', 'Times New Roman', serif",
+      mono: "'Menlo', 'Consolas', 'Monaco', 'Courier New', monospace"
+  };
 
   // EPUB Specific
   const iframeRef = useRef(null);
@@ -193,9 +219,10 @@ export default function Reader() {
               column-gap: 120px !important;
               column-fill: auto !important;
               transition: transform 0.3s ease-in-out !important;
-              font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+              transition: transform 0.3s ease-in-out !important;
+              font-family: ${fontInternalNames[fontRef.current]} !important;
               line-height: 1.7 !important;
-              color: #1a1a1a !important; background-color: white !important; font-size: 18px !important;
+              color: ${themes[themeRef.current].text} !important; background-color: ${themes[themeRef.current].bg} !important; font-size: ${fontSizeRef.current}px !important;
             }
             @media (max-width: 768px) {
               body { padding: 20px 20px !important; column-width: calc(100vw - 40px) !important; column-gap: 40px !important; font-size: 16px !important; }
@@ -219,6 +246,39 @@ export default function Reader() {
 
     loadChapter();
   }, [currentIndex, book, spine, isComic, id]);
+
+  // Update Font Family & Re-calculate Pages
+  useEffect(() => {
+    if (!iframeRef.current || isComic) return;
+    try {
+        const doc = iframeRef.current.contentDocument || iframeRef.current.contentWindow.document;
+        if (doc && doc.body) {
+
+            // Apply Font & Size & Theme
+            doc.body.style.setProperty('font-family', fontInternalNames[fontFamily], 'important');
+            doc.body.style.setProperty('font-size', `${fontSize}px`, 'important');
+            doc.body.style.setProperty('color', themes[theme].text, 'important');
+            doc.body.style.setProperty('background-color', themes[theme].bg, 'important');
+            
+            // Recalculate Pages (Wait for reflow)
+            setTimeout(() => {
+                 const clientWidth = doc.documentElement.clientWidth;
+                 const scrollWidth = doc.documentElement.scrollWidth;
+                 if (clientWidth && scrollWidth) {
+                     const pages = Math.max(1, Math.ceil(scrollWidth / clientWidth));
+                     setTotalPages(pages);
+                     setInternalPage(prev => {
+                         const newPage = Math.min(prev, pages - 1);
+                         if (doc.body) doc.body.style.transform = `translateX(-${newPage * clientWidth}px)`;
+                         return newPage;
+                     });
+                 }
+            }, 100);
+        }
+    } catch (e) {
+        console.error("Failed to update font/layout", e);
+    }
+  }, [fontFamily, fontSize, theme, isComic]);
 
   // Save Progress
   useEffect(() => {
@@ -327,6 +387,96 @@ export default function Reader() {
                     {fitMode === 'contain' ? <Maximize2 size={18} /> : <Minimize2 size={18} />}
                 </button>
             )}
+
+
+
+            {!isComic && (
+                <div className="relative">
+                    <button 
+                        onClick={() => setShowFontMenu(!showFontMenu)}
+                        className="p-2 hover:bg-white/10 rounded-full text-white/70 hover:text-white transition-colors"
+                        title="Font Settings"
+                    >
+                        <Type size={20} />
+                    </button>
+                    
+                    {showFontMenu && (
+                        <div className="absolute top-full right-0 mt-2 w-72 bg-[#0a0a0a] border border-white/10 rounded-xl shadow-xl overflow-hidden py-1 z-50">
+                            <div className="px-3 py-2 text-xs font-bold text-white/40 uppercase tracking-wider border-b border-white/5 mb-1">
+                                Font Style
+                            </div>
+                            {Object.keys(fontInternalNames).map((font) => (
+                                <button
+                                    key={font}
+                                    onClick={() => {
+                                        setFontFamily(font);
+                                        setShowFontMenu(false);
+                                    }}
+                                    className={`w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/5 transition-colors ${fontFamily === font ? 'text-[#f1184c] font-bold' : 'text-white/80'}`}
+                                >
+                                    <span style={{ fontFamily: font === 'mono' ? 'monospace' : font === 'serif' ? 'serif' : 'sans-serif' }} className="text-base">
+                                        Aa
+                                    </span>
+                                    <span className="capitalize">{font}</span>
+                                    {fontFamily === font && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#f1184c]" />}
+                                </button>
+                            ))}
+
+                            <div className="px-3 py-2 text-xs font-bold text-white/40 uppercase tracking-wider border-b border-white/5 mt-2 mb-1">
+                                Font Size
+                            </div>
+                            <div className="flex items-center justify-between px-3 py-2">
+                                <button 
+                                    onClick={() => setFontSize(prev => Math.max(12, prev - 2))}
+                                    className="w-10 h-10 rounded-lg hover:bg-white/10 flex items-center justify-center text-white/70 hover:text-white transition-colors border border-white/10"
+                                >
+                                    <span className="text-xs font-bold">A-</span>
+                                </button>
+                                <span className="text-sm font-bold text-white">{fontSize}px</span>
+                                <button 
+                                    onClick={() => setFontSize(prev => Math.min(32, prev + 2))}
+                                    className="w-10 h-10 rounded-lg hover:bg-white/10 flex items-center justify-center text-white/70 hover:text-white transition-colors border border-white/10"
+                                >
+                                    <span className="text-lg font-bold">A+</span>
+                                </button>
+                            </div>
+
+
+                            <div className="px-3 py-2 text-xs font-bold text-white/40 uppercase tracking-wider border-b border-white/5 mt-2 mb-1">
+                                Theme
+                            </div>
+                            <div className="flex items-center gap-2 px-3 py-2">
+                                <button 
+                                    onClick={() => setTheme('light')}
+                                    className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors border ${theme === 'light' ? 'bg-white text-black border-white' : 'bg-transparent text-white/70 border-white/10 hover:bg-white/5'}`}
+                                >
+                                    <Sun size={16} />
+                                    <span className="text-xs font-bold">Light</span>
+                                </button>
+                                <button 
+                                    onClick={() => setTheme('dark')}
+                                    className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors border ${theme === 'dark' ? 'bg-[#1a1a1a] text-white border-white/20' : 'bg-transparent text-white/70 border-white/10 hover:bg-white/5'}`}
+                                >
+                                    <Moon size={16} />
+                                    <span className="text-xs font-bold">Dark</span>
+                                </button>
+                                <button 
+                                    onClick={() => setTheme('sepia')}
+                                    className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors border ${theme === 'sepia' ? 'bg-[#f4ecd8] text-[#5b4636] border-[#5b4636]/20' : 'bg-transparent text-white/70 border-white/10 hover:bg-white/5'}`}
+                                >
+                                    <BookOpen size={16} />
+                                    <span className="text-xs font-bold">Sepia</span>
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+             
+             {/* Font Menu Overlay to close */}
+             {showFontMenu && (
+                 <div className="fixed inset-0 z-40" onClick={() => setShowFontMenu(false)} />
+             )}            
 
             <div className="flex items-center bg-white/5 rounded-full px-1.5 py-1 border border-white/10">
                 <button 
