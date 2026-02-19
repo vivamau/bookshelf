@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, X, RotateCcw, ChevronLeft, ChevronRight, Maximize2, Minimize2, Type, Sun, Moon, BookOpen } from 'lucide-react';
-import { booksApi } from '../api/api';
+import { booksApi, usersApi } from '../api/api';
+import { useAuth } from '../context/AuthContext';
 
 export default function Reader() {
   const { id } = useParams();
@@ -13,17 +14,18 @@ export default function Reader() {
   const [preparing, setPreparing] = useState(false);
   const [error, setError] = useState(null);
   const isInitialized = useRef(false);
+  const { user, checkAuth } = useAuth();
 
   // Reader Mode
   const [isComic, setIsComic] = useState(false);
   const [fitMode, setFitMode] = useState('contain'); // 'contain' | 'width'
-  const [fontFamily, setFontFamily] = useState('sans'); // 'sans' | 'serif' | 'mono'
-  const fontRef = useRef('sans'); // To access in loadChapter without dependency
-  const [fontSize, setFontSize] = useState(18);
-  const fontSizeRef = useRef(18);
+  const [fontFamily, setFontFamily] = useState(user?.user_font_family || 'sans'); // 'sans' | 'serif' | 'mono'
+  const fontRef = useRef(fontFamily); 
+  const [fontSize, setFontSize] = useState(user?.user_font_size || 18);
+  const fontSizeRef = useRef(fontSize);
 
-  const [theme, setTheme] = useState('light'); // 'light' | 'dark'
-  const themeRef = useRef('light');
+  const [theme, setTheme] = useState(user?.user_theme || 'light'); // 'light' | 'dark'
+  const themeRef = useRef(theme);
   const [showFontMenu, setShowFontMenu] = useState(false);
 
   useEffect(() => { 
@@ -31,6 +33,40 @@ export default function Reader() {
       fontSizeRef.current = fontSize;
       themeRef.current = theme;
   }, [fontFamily, fontSize, theme]);
+
+  // Sync with User Preferences
+  useEffect(() => {
+    if (user) {
+        if (!isInitialized.current) {
+            // First load: sync state with user prefs if they differ and we haven't touched them yet
+            // Actually, initial state should handle it. But if user loads LATE, we might need this.
+            if (user.user_font_family && user.user_font_family !== fontFamily) setFontFamily(user.user_font_family);
+            if (user.user_font_size && user.user_font_size !== fontSize) setFontSize(user.user_font_size);
+            if (user.user_theme && user.user_theme !== theme) setTheme(user.user_theme);
+        }
+    }
+  }, [user]);
+
+  // Auto-save Preferences
+  useEffect(() => {
+      if (!user || !isInitialized.current) return;
+      
+      const timeoutId = setTimeout(() => {
+          if (fontFamily !== user.user_font_family || fontSize !== user.user_font_size || theme !== user.user_theme) {
+              usersApi.update(user.id, {
+                  user_username: user.username,
+                  user_email: user.email,
+                  user_font_family: fontFamily,
+                  user_font_size: fontSize,
+                  user_theme: theme
+              }).then(() => {
+                  checkAuth(); // Refresh user context silently
+              }).catch(err => console.error("Failed to save prefs", err));
+          }
+      }, 2000); // 2s debounce
+      
+      return () => clearTimeout(timeoutId);
+  }, [fontFamily, fontSize, theme, user]);
 
   const themes = {
       light: { bg: '#ffffff', text: '#1a1a1a' },

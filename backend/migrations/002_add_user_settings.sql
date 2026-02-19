@@ -1,0 +1,3 @@
+ALTER TABLE Users ADD COLUMN user_font_family TEXT DEFAULT 'sans';
+ALTER TABLE Users ADD COLUMN user_font_size INTEGER DEFAULT 18;
+ALTER TABLE Users ADD COLUMN user_theme TEXT DEFAULT 'light';

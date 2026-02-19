@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { settingsApi, booksApi } from '../api/api';
+import { settingsApi, booksApi, usersApi } from '../api/api';
 import { 
     FolderPlus, 
     Trash2, 
@@ -15,7 +15,9 @@ import {
     CheckCircle2, 
     AlertCircle,
     Server,
-    Laptop
+    Laptop,
+    Type,
+    Palette
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { useAuth } from '../context/AuthContext';
@@ -114,8 +116,9 @@ const BrowserModal = ({ isOpen, onClose, onSelect }) => {
 };
 
 export default function Settings() {
-  const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('server');
+  const { user, checkAuth } = useAuth();
+  const isLibrarian = !!user?.userrole_managebooks;
+  const [activeTab, setActiveTab] = useState(isLibrarian ? 'server' : 'reader');
   const [directories, setDirectories] = useState([]);
   const [newPath, setNewPath] = useState('');
   const [loading, setLoading] = useState(true);
@@ -127,7 +130,12 @@ export default function Settings() {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
 
-  const isLibrarian = user?.userrole_managebooks;
+  // Reader Preferences States
+  const [fontFamily, setFontFamily] = useState(user?.user_font_family || 'sans');
+  const [fontSize, setFontSize] = useState(user?.user_font_size || 18);
+  const [theme, setTheme] = useState(user?.user_theme || 'light');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
 
   const fetchDirectories = async () => {
     try {
@@ -141,10 +149,40 @@ export default function Settings() {
   };
 
   useEffect(() => {
-    if (isLibrarian) {
+    if (user) {
+        setFontFamily(user.user_font_family || 'sans');
+        setFontSize(user.user_font_size || 18);
+        setTheme(user.user_theme || 'light');
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (isLibrarian && activeTab === 'server') {
         fetchDirectories();
     }
-  }, [isLibrarian]);
+  }, [isLibrarian, activeTab]);
+
+  const handleSavePreferences = async () => {
+        setIsSaving(true);
+        setSaveMessage('');
+        try {
+            await usersApi.update(user.id, {
+                user_username: user.username,
+                user_email: user.email,
+                user_font_family: fontFamily,
+                user_font_size: fontSize,
+                user_theme: theme,
+            });
+            await checkAuth();
+            setSaveMessage('Preferences saved successfully!');
+            setTimeout(() => setSaveMessage(''), 3000);
+        } catch (err) {
+            console.error(err);
+            setSaveMessage('Failed to save preferences.');
+        } finally {
+            setIsSaving(false);
+        }
+  };
 
   const handleAdd = async (e) => {
     e.preventDefault();
@@ -234,19 +272,7 @@ export default function Settings() {
     setIsUploading(false);
   };
 
-  if (!isLibrarian) {
-    return (
-        <div className="flex-1 flex items-center justify-center bg-background p-8">
-            <div className="text-center max-w-md">
-                <AlertCircle size={48} className="text-destructive mx-auto mb-4" />
-                <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
-                <p className="text-muted-foreground">
-                    Only librarians are allowed to manage server libraries and perform bulk uploads.
-                </p>
-            </div>
-        </div>
-    );
-  }
+
 
   return (
     <div className="flex-1 overflow-y-auto bg-background p-4 md:p-8">
@@ -256,28 +282,134 @@ export default function Settings() {
         {/* Tabs */}
         <div className="flex gap-2 mb-6 bg-secondary/20 p-1 rounded-xl w-fit">
             <button 
-                onClick={() => setActiveTab('server')}
+                onClick={() => setActiveTab('reader')}
                 className={cn(
                     "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all",
-                    activeTab === 'server' ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                    activeTab === 'reader' ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                 )}
             >
-                <Server size={16} />
-                Server Libraries
+                <Palette size={16} />
+                Reader Preferences
             </button>
-            <button 
-                onClick={() => setActiveTab('local')}
-                className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all",
-                    activeTab === 'local' ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                )}
-            >
-                <Laptop size={16} />
-                Local Bulk Upload
-            </button>
+            
+            {isLibrarian && (
+                <>
+                    <button 
+                        onClick={() => setActiveTab('server')}
+                        className={cn(
+                            "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all",
+                            activeTab === 'server' ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                        )}
+                    >
+                        <Server size={16} />
+                        Server Libraries
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('local')}
+                        className={cn(
+                            "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all",
+                            activeTab === 'local' ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                        )}
+                    >
+                        <Laptop size={16} />
+                        Local Bulk Upload
+                    </button>
+                </>
+            )}
         </div>
 
-        {activeTab === 'server' ? (
+        {activeTab === 'reader' && (
+            <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="p-6 border-b border-border bg-muted/20">
+                    <h2 className="text-xl font-bold flex items-center gap-2">
+                        <Type className="text-primary" />
+                        Type & Theme Settings
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        Customize your default reading experience. These settings will apply to all your books.
+                    </p>
+                </div>
+                
+                <div className="p-6 max-w-2xl">
+                    <div className="space-y-6">
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold">Font Family</label>
+                            <div className="flex flex-wrap gap-2">
+                                {['sans', 'serif', 'mono'].map((f) => (
+                                    <button
+                                        key={f}
+                                        onClick={() => setFontFamily(f)}
+                                        className={cn(
+                                            "px-4 py-2 rounded-lg border transition-all capitalize flex-1 md:flex-none",
+                                            fontFamily === f ? "bg-primary text-primary-foreground border-primary" : "bg-secondary/10 border-border hover:border-primary/50"
+                                        )}
+                                    >
+                                        {f}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold">Font Size ({fontSize}px)</label>
+                            <div className="flex items-center gap-4">
+                                <input 
+                                    type="range" 
+                                    min="12" 
+                                    max="32" 
+                                    step="1" 
+                                    value={fontSize} 
+                                    onChange={(e) => setFontSize(parseInt(e.target.value))}
+                                    className="flex-1 accent-primary h-2 bg-secondary/30 rounded-lg appearance-none cursor-pointer"
+                                />
+                                <span className="font-mono bg-secondary/20 px-3 py-1 rounded text-sm w-12 text-center">{fontSize}</span>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold">Theme</label>
+                            <div className="flex flex-wrap gap-2">
+                                {[
+                                    { id: 'light', label: 'Light', bg: 'bg-white', text: 'text-black' },
+                                    { id: 'dark', label: 'Dark', bg: 'bg-zinc-900', text: 'text-white' },
+                                    { id: 'sepia', label: 'Sepia', bg: 'bg-[#f4ecd8]', text: 'text-[#5b4636]' }
+                                ].map((t) => (
+                                    <button
+                                        key={t.id}
+                                        onClick={() => setTheme(t.id)}
+                                        className={cn(
+                                            "px-4 py-3 rounded-lg border transition-all flex items-center gap-2 flex-1 md:flex-none",
+                                            theme === t.id ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : "hover:border-primary/50",
+                                            t.bg, t.text
+                                        )}
+                                    >
+                                        {theme === t.id && <CheckCircle2 size={16} />}
+                                        {t.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="pt-4 border-t border-border flex items-center gap-4">
+                            <button 
+                                onClick={handleSavePreferences}
+                                disabled={isSaving}
+                                className="bg-primary text-primary-foreground font-black px-8 py-2.5 rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 active:scale-95 disabled:opacity-50 disabled:scale-100"
+                            >
+                                {isSaving ? <Loader className="animate-spin" size={20} /> : 'Save Preferences'}
+                            </button>
+                            {saveMessage && (
+                                <span className={cn("text-sm font-bold animate-in fade-in", saveMessage.includes('Failed') ? "text-destructive" : "text-green-500")}>
+                                    {saveMessage}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {activeTab === 'server' && (
             <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="p-6 border-b border-border bg-muted/20">
                     <h2 className="text-xl font-bold flex items-center gap-2">
@@ -363,7 +495,9 @@ export default function Settings() {
                     </div>
                 </div>
             </div>
-        ) : (
+        )}
+        
+        {activeTab === 'local' && (
             <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="p-6 border-b border-border bg-muted/20">
                     <h2 className="text-xl font-bold flex items-center gap-2">

@@ -242,12 +242,12 @@ const Layout = ({ children }) => {
     { label: 'Authors', icon: UsersIcon, to: '/authors' },
     { label: 'Publishers', icon: Building2, to: '/publishers' },
     { label: 'Library', icon: LibraryIcon, to: '/library' },
+    { label: 'Settings', icon: SlidersHorizontal, permission: 'userrole_readbooks', to: '/settings' },
   ];
 
   const adminItems = [
     { label: 'Manage Users', icon: UsersIcon, permission: 'userrole_manageusers', to: '/users' },
     { label: 'Add Book', icon: Plus, permission: 'userrole_managebooks', to: '/add-book' },
-    { label: 'Settings', icon: SlidersHorizontal, permission: 'userrole_managebooks', to: '/settings' },
   ];
 
   return (
@@ -284,7 +284,7 @@ const Layout = ({ children }) => {
         </div>
 
         <nav className="flex-1 flex flex-col gap-1">
-          {navItems.map((item) => (
+          {navItems.filter(item => !item.permission || hasPermission(item.permission)).map((item) => (
             <SidebarItem 
               key={item.label} 
               icon={item.icon} 
@@ -724,7 +724,7 @@ function AuthenticatedApp() {
       <Route path="/genre/:id" element={user ? <Layout><GenreDetails /></Layout> : <Navigate to="/login" />} />
       <Route path="/library" element={user ? <Layout><Library /></Layout> : <Navigate to="/login" />} />
       <Route path="/users" element={user ? (hasPermission('userrole_manageusers') ? <Layout><UsersPage /></Layout> : <Navigate to="/" />) : <Navigate to="/login" />} />
-      <Route path="/settings" element={user ? (hasPermission('userrole_managebooks') ? <Layout><SettingsPage /></Layout> : <Navigate to="/" />) : <Navigate to="/login" />} />
+      <Route path="/settings" element={user ? (hasPermission('userrole_readbooks') ? <Layout><SettingsPage /></Layout> : <Navigate to="/" />) : <Navigate to="/login" />} />
       <Route path="/add-book" element={user ? (hasPermission('userrole_managebooks') ? <Layout><AddBook /></Layout> : <Navigate to="/" />) : <Navigate to="/login" />} />
       <Route path="/reader/:id" element={user ? <Reader /> : <Navigate to="/login" />} />
       <Route path="*" element={<Navigate to="/" />} />

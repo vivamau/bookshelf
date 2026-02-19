@@ -105,6 +105,7 @@ app.post('/login', (req, res) => {
                 { 
                     user_id: user.ID, 
                     username: user.user_username,
+                    userrole_id: user.userrole_id,
                     userrole_manageusers: user.userrole_manageusers,
                     userrole_managebooks: user.userrole_managebooks,
                     userrole_readbooks: user.userrole_readbooks,
@@ -128,7 +129,10 @@ app.post('/login', (req, res) => {
                 userrole_manageusers: user.userrole_manageusers,
                 userrole_managebooks: user.userrole_managebooks,
                 userrole_readbooks: user.userrole_readbooks,
-                userrole_viewbooks: user.userrole_viewbooks
+                userrole_viewbooks: user.userrole_viewbooks,
+                user_font_family: user.user_font_family,
+                user_font_size: user.user_font_size,
+                user_theme: user.user_theme
             };
             
             return res.status(200).json(userInfo);
@@ -170,6 +174,7 @@ app.post('/register', async (req, res) => {
                 { 
                     user_id: this.lastID, 
                     email,
+                    userrole_id: defaultRoleId,
                     userrole_manageusers: 0,
                     userrole_managebooks: 0,
                     userrole_readbooks: 0,
@@ -206,7 +211,7 @@ app.use('/api', auth);
 app.get('/api/me', auth, (req, res) => {
     // req.user is set by auth middleware
     const sql = `
-        SELECT u.ID, u.user_username, u.user_email, u.user_name, u.user_lastname, u.user_avatar, u.userrole_id, 
+        SELECT u.ID, u.user_username, u.user_email, u.user_name, u.user_lastname, u.user_avatar, u.userrole_id, u.user_font_family, u.user_font_size, u.user_theme, 
                r.userrole_name, r.userrole_manageusers, r.userrole_managebooks, r.userrole_readbooks, r.userrole_viewbooks
         FROM Users u
         LEFT JOIN UserRoles r ON u.userrole_id = r.ID
@@ -226,7 +231,10 @@ app.get('/api/me', auth, (req, res) => {
             userrole_manageusers: user.userrole_manageusers,
             userrole_managebooks: user.userrole_managebooks,
             userrole_readbooks: user.userrole_readbooks,
-            userrole_viewbooks: user.userrole_viewbooks
+            userrole_viewbooks: user.userrole_viewbooks,
+            user_font_family: user.user_font_family,
+            user_font_size: user.user_font_size,
+            user_theme: user.user_theme
         };
         res.json(userInfo);
     });
@@ -573,7 +581,7 @@ const checkManageUsers = (req, res, next) => {
 
 usersRouter.get('/', checkManageUsers, (req, res) => {
     const sql = `
-        SELECT u.ID, u.user_username, u.user_email, u.user_name, u.user_lastname, u.user_avatar, u.user_create_date, u.user_update_date, u.userrole_id, 
+        SELECT u.ID, u.user_username, u.user_email, u.user_name, u.user_lastname, u.user_avatar, u.user_create_date, u.user_update_date, u.userrole_id, u.user_font_family, u.user_font_size, u.user_theme,
                r.userrole_name, r.userrole_manageusers, r.userrole_managebooks, r.userrole_readbooks, r.userrole_viewbooks
         FROM Users u
         LEFT JOIN UserRoles r ON u.userrole_id = r.ID
@@ -586,7 +594,8 @@ usersRouter.get('/', checkManageUsers, (req, res) => {
 
 usersRouter.get('/:id', (req, res) => {
     const sql = `
-        SELECT u.ID, u.user_username, u.user_email, u.user_name, u.user_lastname, u.user_avatar, u.user_create_date, u.user_update_date, u.userrole_id, 
+
+        SELECT u.ID, u.user_username, u.user_email, u.user_name, u.user_lastname, u.user_avatar, u.user_create_date, u.user_update_date, u.userrole_id, u.user_font_family, u.user_font_size, u.user_theme,
                r.userrole_name, r.userrole_manageusers, r.userrole_managebooks, r.userrole_readbooks, r.userrole_viewbooks
         FROM Users u
         LEFT JOIN UserRoles r ON u.userrole_id = r.ID
@@ -626,7 +635,7 @@ usersRouter.post('/', checkManageUsers, async (req, res) => {
 });
 
 usersRouter.put('/:id', async (req, res) => {
-    const { user_username, user_email, user_password, userrole_id, user_name, user_lastname, user_avatar } = req.body;
+    const { user_username, user_email, user_password, userrole_id, user_name, user_lastname, user_avatar, user_font_family, user_font_size, user_theme } = req.body;
     const userId = parseInt(req.params.id);
     const now = Date.now();
 
@@ -644,17 +653,36 @@ usersRouter.put('/:id', async (req, res) => {
     }
 
     // Security: only admin can change roles
-    const targetRoleId = isAdmin ? (userrole_id || 3) : req.user.userrole_id; // Default to old role if not admin
+    // Security: only admin can change roles
+    let targetRoleId;
+    try {
+        const currentUser = await new Promise((resolve, reject) => {
+            db.get("SELECT userrole_id FROM Users WHERE ID = ?", [userId], (err, row) => {
+                if (err) reject(err);
+                else resolve(row);
+            });
+        });
+        if (!currentUser) return res.status(404).json({ error: 'User not found' });
+        
+        // If admin AND role provided, use it. Otherwise keep existing.
+        if (isAdmin && userrole_id !== undefined) {
+             targetRoleId = userrole_id;
+        } else {
+             targetRoleId = currentUser.userrole_id;
+        }
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
 
     const defaultAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user_username}`;
-    let sql = "UPDATE Users SET user_username = ?, user_email = ?, user_name = ?, user_lastname = ?, user_avatar = ?, userrole_id = ?, user_update_date = ?";
-    let params = [user_username, user_email, user_name || null, user_lastname || null, user_avatar || defaultAvatar, targetRoleId, now];
+    let sql = "UPDATE Users SET user_username = ?, user_email = ?, user_name = ?, user_lastname = ?, user_avatar = ?, userrole_id = ?, user_update_date = ?, user_font_family = ?, user_font_size = ?, user_theme = ?";
+    let params = [user_username, user_email, user_name || null, user_lastname || null, user_avatar || defaultAvatar, targetRoleId, now, user_font_family || 'sans', user_font_size || 18, user_theme || 'light'];
 
     if (user_password && user_password.trim() !== "") {
         try {
             const hashedPassword = await bcrypt.hash(user_password, 10);
-            sql = "UPDATE Users SET user_username = ?, user_email = ?, user_password = ?, user_name = ?, user_lastname = ?, user_avatar = ?, userrole_id = ?, user_update_date = ?";
-            params = [user_username, user_email, hashedPassword, user_name || null, user_lastname || null, user_avatar || defaultAvatar, targetRoleId, now];
+            sql = "UPDATE Users SET user_username = ?, user_email = ?, user_password = ?, user_name = ?, user_lastname = ?, user_avatar = ?, userrole_id = ?, user_update_date = ?, user_font_family = ?, user_font_size = ?, user_theme = ?";
+            params = [user_username, user_email, hashedPassword, user_name || null, user_lastname || null, user_avatar || defaultAvatar, targetRoleId, now, user_font_family || 'sans', user_font_size || 18, user_theme || 'light'];
         } catch (err) {
             return res.status(500).json({ error: err.message });
         }
