@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, X, RotateCcw, ChevronLeft, ChevronRight, Maximize2, Minimize2, Type, Sun, Moon, BookOpen } from 'lucide-react';
+import { ArrowLeft, X, RotateCcw, ChevronLeft, ChevronRight, Maximize2, Minimize2, Type, Sun, Moon, BookOpen, Play, Pause, Square } from 'lucide-react';
 import { booksApi, usersApi } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -91,6 +91,80 @@ export default function Reader() {
 
   // Comic Specific
   const [comicImageLoading, setComicImageLoading] = useState(false);
+
+  // TTS Specific
+  const [isPlaying, setIsPlaying] = useState(false);
+  const synthRef = useRef(window.speechSynthesis);
+  const utteranceRef = useRef(null);
+
+  useEffect(() => {
+      // Ensure voices are loaded
+      synthRef.current.getVoices();
+      return () => {
+          if (synthRef.current) {
+              synthRef.current.cancel();
+          }
+      };
+  }, []);
+
+  const stopTTS = useCallback(() => {
+      synthRef.current.cancel();
+      setIsPlaying(false);
+      utteranceRef.current = null;
+  }, []);
+
+  useEffect(() => {
+      stopTTS();
+  }, [currentIndex, isComic, id, stopTTS]);
+
+  const handlePlayTTS = () => {
+      if (isPlaying) {
+          synthRef.current.pause();
+          setIsPlaying(false);
+          return;
+      }
+      
+      if (synthRef.current.paused && utteranceRef.current) {
+          synthRef.current.resume();
+          setIsPlaying(true);
+          return;
+      }
+      
+      if (!iframeRef.current) return;
+      const doc = iframeRef.current.contentDocument || iframeRef.current.contentWindow.document;
+      const text = doc.body.innerText;
+      if (!text || !text.trim()) return;
+      
+      const utterance = new SpeechSynthesisUtterance(text);
+      
+      // Detect language from book metadata
+      let rawLang = (book?.language_name || 'EN').toLowerCase();
+      let langCode = 'en';
+      if (rawLang.startsWith('it')) langCode = 'it';
+      else if (rawLang.startsWith('fr')) langCode = 'fr';
+      else if (rawLang.startsWith('es') || rawLang.startsWith('sp')) langCode = 'es';
+      
+      if (['en', 'it', 'fr', 'es'].includes(langCode)) {
+          const storedURI = localStorage.getItem(`tts_voice_${langCode}`);
+          if (storedURI) {
+              const voices = synthRef.current.getVoices();
+              const selectedVoice = voices.find(v => v.voiceURI === storedURI);
+              if (selectedVoice) {
+                  utterance.voice = selectedVoice;
+              }
+          }
+          utterance.lang = langCode === 'en' ? 'en-US' : langCode + '-' + langCode.toUpperCase();
+      }
+      
+      utterance.onend = () => {
+          setIsPlaying(false);
+          utteranceRef.current = null;
+      };
+      
+      utteranceRef.current = utterance;
+      synthRef.current.speak(utterance);
+      setIsPlaying(true);
+  };
 
   // Inject styles and calculate pages when iframe content loads (EPUB only)
   const handleIframeLoad = () => {
@@ -425,6 +499,26 @@ export default function Reader() {
             )}
 
 
+
+            {!isComic && (
+                <div className="flex items-center gap-1 bg-white/5 rounded-full px-1.5 py-1 border border-white/10 mr-2">
+                    <button 
+                        onClick={handlePlayTTS}
+                        className="p-1.5 hover:bg-white/10 rounded-full text-white/70 hover:text-white transition-colors"
+                        title={isPlaying ? "Pause Reading" : "Read Aloud"}
+                    >
+                        {isPlaying ? <Pause size={18} /> : <Play size={18} />}
+                    </button>
+                    <div className="w-px h-4 bg-white/10" />
+                    <button 
+                        onClick={stopTTS}
+                        className="p-1.5 hover:bg-white/10 rounded-full text-white/70 hover:text-white transition-colors"
+                        title="Stop Reading"
+                    >
+                        <Square size={16} />
+                    </button>
+                </div>
+            )}
 
             {!isComic && (
                 <div className="relative">
