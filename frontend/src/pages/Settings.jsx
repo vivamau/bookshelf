@@ -17,7 +17,8 @@ import {
     Server,
     Laptop,
     Type,
-    Palette
+    Palette,
+    Volume2
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { useAuth } from '../context/AuthContext';
@@ -136,6 +137,28 @@ export default function Settings() {
   const [theme, setTheme] = useState(user?.user_theme || 'light');
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+
+  // TTS Preferences States
+  const [voices, setVoices] = useState([]);
+  const [ttsVoices, setTtsVoices] = useState({
+    en: localStorage.getItem('tts_voice_en') || '',
+    it: localStorage.getItem('tts_voice_it') || '',
+    fr: localStorage.getItem('tts_voice_fr') || '',
+    es: localStorage.getItem('tts_voice_es') || '',
+  });
+
+  useEffect(() => {
+    const updateVoices = () => {
+        setVoices(window.speechSynthesis.getVoices());
+    };
+    updateVoices();
+    window.speechSynthesis.onvoiceschanged = updateVoices;
+  }, []);
+
+  const handleVoiceChange = (lang, voiceURI) => {
+    setTtsVoices(prev => ({ ...prev, [lang]: voiceURI }));
+    localStorage.setItem(`tts_voice_${lang}`, voiceURI);
+  };
 
   const fetchDirectories = async () => {
     try {
@@ -387,6 +410,33 @@ export default function Settings() {
                                         {t.label}
                                     </button>
                                 ))}
+                            </div>
+                        </div>
+
+                        <div className="space-y-4 pt-4 border-t border-border">
+                            <h3 className="text-sm font-bold flex items-center gap-2">
+                                <Volume2 size={16} /> Text-to-Speech Voices
+                            </h3>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {[{ id: 'en', label: 'English' }, { id: 'it', label: 'Italian' }, { id: 'fr', label: 'French' }, { id: 'es', label: 'Spanish' }].map(lang => {
+                                    const langVoices = voices.filter(v => v.lang.toLowerCase().startsWith(lang.id));
+                                    return (
+                                        <div key={lang.id} className="space-y-1">
+                                            <label className="text-xs font-bold text-muted-foreground">{lang.label} Voice</label>
+                                            <select 
+                                                value={ttsVoices[lang.id]}
+                                                onChange={(e) => handleVoiceChange(lang.id, e.target.value)}
+                                                className="w-full bg-secondary/30 border border-input rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                                            >
+                                                <option value="">Default System Voice</option>
+                                                {langVoices.map(v => (
+                                                    <option key={v.voiceURI} value={v.voiceURI}>{v.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
 
