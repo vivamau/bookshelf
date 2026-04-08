@@ -27,6 +27,7 @@ import { useAuth } from '../context/AuthContext';
 import { cn } from '../lib/utils';
 import AuthorSearch from '../components/AuthorSearch';
 import PublisherSearch from '../components/PublisherSearch';
+import GenreSearch from '../components/GenreSearch';
 
 const formatDateForInput = (dateValue) => {
   if (!dateValue) return '';
@@ -143,10 +144,6 @@ export default function BookDetails() {
   const [saving, setSaving] = useState(false);
   
   const [allGenres, setAllGenres] = useState([]);
-  const [showGenreInput, setShowGenreInput] = useState(false);
-  const [selectedGenreId, setSelectedGenreId] = useState('');
-  const [isCreatingGenre, setIsCreatingGenre] = useState(false);
-  const [newGenreName, setNewGenreName] = useState('');
   
   const [allAuthors, setAllAuthors] = useState([]);
   const [selectedAuthorId, setSelectedAuthorId] = useState('');
@@ -546,36 +543,6 @@ export default function BookDetails() {
     }
   };
 
-  const handleAddGenre = async () => {
-    if (!selectedGenreId && !newGenreName) return;
-    try {
-        let genreIdToObject = selectedGenreId;
-        
-        if (isCreatingGenre && newGenreName) {
-            const createRes = await genresApi.create({ genere_title: newGenreName });
-            // Assuming the backend returns { id: ..., ... } or data with insertId
-            // The crudFactory returns { data: { id: ..., ... } }
-            genreIdToObject = createRes.data.data.id || createRes.data.data.ID;
-            
-            // Refresh all genres
-            const genresRes = await genresApi.getAll();
-            setAllGenres(genresRes.data.data);
-        }
-
-        if (genreIdToObject) {
-            await booksGenresApi.create({ book_id: id, genere_id: genreIdToObject });
-             const res = await booksApi.getById(id);
-             setBook(res.data.data);
-        }
-
-         setShowGenreInput(false);
-         setSelectedGenreId('');
-         setNewGenreName('');
-         setIsCreatingGenre(false);
-    } catch (err) {
-        console.error("Failed to add genre", err);
-    }
-  };
 
   const handleRemoveGenre = (relationId) => {
     setGenreToDelete(relationId);
@@ -1233,95 +1200,77 @@ export default function BookDetails() {
             <div className="mt-8">
                <div className="flex items-center gap-2 mb-3">
                   <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground leading-none">Genres</h3>
-                  {hasPermission('userrole_managebooks') && isEditing && !showGenreInput && (
-                      <button onClick={() => setShowGenreInput(true)} className="p-1 hover:bg-white/10 rounded-full text-primary transition-colors">
-                          <Plus size={14} />
-                      </button>
-                  )}
                </div>
-               
-               <div className="flex flex-wrap gap-2 items-center">
-                  {book.genres_data ? book.genres_data.split('||').map(g => {
-                      const parts = g.split('::');
-                      if (parts.length < 3) return null;
-                      const [relId, genreId, genreTitle] = parts;
-                      return (
-                          <div key={relId} className="px-3 py-1 bg-[#3e9cbf] border border-[#3e9cbf]/30 rounded-md text-xs font-bold text-white flex items-center gap-2 group shadow-lg shadow-[#3e9cbf]/20">
-                              <Link 
-                                to={isEditing ? '#' : `/genre/${genreId}`} 
-                                className={cn("hover:underline transition-all", isEditing && "cursor-default hover:no-underline")}
-                              >
-                                {genreTitle}
-                              </Link>
-                              {hasPermission('userrole_managebooks') && isEditing && (
-                                  <button onClick={() => handleRemoveGenre(relId)} className="text-white/70 hover:text-white transition-colors">
-                                      <X size={12} />
-                                  </button>
-                              )}
-                          </div>
-                      );
-                  }) : (
-                      <span className="text-sm text-muted-foreground italic">No genres added.</span>
-                  )}
-                  
-                  {showGenreInput && (
-                      <div className="flex items-center gap-2 animate-in fade-in zoom-in duration-200">
-                          {isCreatingGenre ? (
-                              <input 
-                                  className="bg-white/10 border border-white/20 rounded-full px-3 py-1 text-xs text-foreground outline-none focus:border-primary w-32"
-                                  placeholder="New Genre Name"
-                                  value={newGenreName}
-                                  onChange={e => setNewGenreName(e.target.value)}
-                                  autoFocus
-                              />
-                          ) : (
-                              <div className="relative group/select">
-                                <select 
-                                   className="appearance-none bg-white/10 border border-white/20 hover:border-white/30 rounded-lg pl-4 pr-10 py-2 text-sm font-medium text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-all cursor-pointer min-w-[160px]"
-                                   value={selectedGenreId}
-                                   onChange={e => {
-                                       if (e.target.value === 'NEW') {
-                                           setIsCreatingGenre(true);
-                                           setSelectedGenreId('');
-                                       } else {
-                                           setSelectedGenreId(e.target.value);
-                                       }
-                                   }}
-                                >
-                                    <option value="" className="bg-slate-900 text-gray-400">Select Genre...</option>
-                                    {allGenres.filter(ag => !book.genres_data?.includes(`::${ag.ID}::`)).map(ag => (
-                                        <option key={ag.ID} value={ag.ID} className="bg-slate-900 text-white font-medium">{ag.genere_title}</option>
-                                    ))}
-                                    <option value="NEW" className="bg-slate-900 text-primary font-bold">+ Create New...</option>
-                                </select>
-                                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none group-hover/select:text-foreground transition-colors" />
-                              </div>
-                          )}
 
-                          <button 
-                            onClick={handleAddGenre} 
-                            disabled={(!isCreatingGenre && !selectedGenreId) || (isCreatingGenre && !newGenreName)} 
-                            className="p-1 bg-primary text-primary-foreground rounded-full disabled:opacity-50"
-                          >
-                              <Check size={12} />
-                          </button>
-                          
-                          <button 
-                            onClick={() => {
-                                if (isCreatingGenre) {
-                                    setIsCreatingGenre(false);
-                                    setNewGenreName('');
-                                } else {
-                                    setShowGenreInput(false);
-                                }
-                            }} 
-                            className="p-1 hover:bg-white/10 rounded-full"
-                          >
-                              <X size={12} />
-                          </button>
-                      </div>
-                  )}
-               </div>
+               {isEditing ? (
+                 <div className="flex flex-col gap-2 w-full">
+                   <div className="flex flex-wrap gap-2 mb-2">
+                     {book.genres_data && typeof book.genres_data === 'string' ? book.genres_data.split('||').map(g => {
+                       const parts = g.split('::');
+                       if (parts.length < 3) return null;
+                       const [relId, genreId, genreTitle] = parts;
+                       return (
+                         <div key={relId} className="flex items-center gap-1 bg-[#3e9cbf] px-3 py-1 rounded-md text-xs font-bold text-white border border-[#3e9cbf]/30 shadow-lg shadow-[#3e9cbf]/20">
+                           <span>{genreTitle}</span>
+                           {hasPermission('userrole_managebooks') && (
+                             <button
+                               onClick={() => handleRemoveGenre(relId)}
+                               className="text-white/70 hover:text-white transition-colors p-0.5"
+                               title="Remove genre"
+                             >
+                               <X size={12} />
+                             </button>
+                           )}
+                         </div>
+                       );
+                     }) : <span className="text-xs text-muted-foreground italic">No genres</span>}
+                   </div>
+
+                   {hasPermission('userrole_managebooks') && (
+                     <div className="flex items-center gap-2">
+                       <Plus size={14} className="text-muted-foreground" />
+                       <GenreSearch
+                         className="flex-1 min-w-[200px]"
+                         placeholder="Add another genre..."
+                         allGenres={allGenres}
+                         excludeIds={book.genres_data ? book.genres_data.split('||').map(g => { const p = g.split('::'); return p.length >= 2 ? p[1] : ''; }) : []}
+                         onSelect={async (genre, isNew) => {
+                           if (!genre) return;
+                           try {
+                             const genreId = genre.ID || genre.id;
+                             await booksGenresApi.create({ book_id: id, genere_id: genreId });
+                             if (isNew) {
+                               const genresRes = await genresApi.getAll();
+                               setAllGenres(genresRes.data.data);
+                             }
+                             const res = await booksApi.getById(id);
+                             setBook(res.data.data);
+                           } catch (err) {
+                             console.error("Failed to add genre", err);
+                           }
+                         }}
+                       />
+                     </div>
+                   )}
+                 </div>
+               ) : (
+                 <div className="flex flex-wrap gap-2 items-center">
+                   {book.genres_data ? book.genres_data.split('||').map(g => {
+                     const parts = g.split('::');
+                     if (parts.length < 3) return null;
+                     const [relId, genreId, genreTitle] = parts;
+                     return (
+                       <div key={relId} className="px-3 py-1 bg-[#3e9cbf] border border-[#3e9cbf]/30 rounded-md text-xs font-bold text-white flex items-center gap-2 group shadow-lg shadow-[#3e9cbf]/20">
+                         <Link to={`/genre/${genreId}`} className="hover:underline transition-all">
+                           {genreTitle}
+                         </Link>
+                       </div>
+                     );
+                   }) : (
+                     <span className="text-sm text-muted-foreground italic">No genres added.</span>
+                   )}
+                 </div>
+               )}
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 mt-4 pt-8 border-t border-white/5">
