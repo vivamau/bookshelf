@@ -226,7 +226,7 @@ struct BookDetailView: View {
                 Button {
                     Task { await downloadBook() }
                 } label: {
-                    actionButtonLabel("Download", icon: "arrow.down.circle.fill", filled: true)
+                    actionButtonLabel("Download this", icon: "arrow.down.circle.fill", filled: true)
                 }
                 .buttonStyle(.plain)
             }

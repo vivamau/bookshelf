@@ -31,6 +31,9 @@
 		A10022 /* ServerListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10022; };
 		A10023 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10023; };
 		A10024 /* BookshelfTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10024; };
+		A10025 /* BookshelfViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10025; };
+		A10026 /* BookshelfHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10026; };
+		A10027 /* BookshelfBookDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10027; };
 		A10030 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10030; };
 /* End PBXBuildFile section */
 
@@ -59,6 +62,9 @@
 		B10022 /* ServerListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerListView.swift; sourceTree = "<group>"; };
 		B10023 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		B10024 /* BookshelfTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookshelfTheme.swift; sourceTree = "<group>"; };
+		B10025 /* BookshelfViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookshelfViewModel.swift; sourceTree = "<group>"; };
+		B10026 /* BookshelfHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookshelfHomeView.swift; sourceTree = "<group>"; };
+		B10027 /* BookshelfBookDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookshelfBookDetailView.swift; sourceTree = "<group>"; };
 		B10030 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B10031 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B10099 /* BookshelfApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BookshelfApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -125,6 +131,7 @@
 			isa = PBXGroup;
 			children = (
 				B10013 /* CatalogViewModel.swift */,
+				B10025 /* BookshelfViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -137,8 +144,18 @@
 				G10053 /* BookDetail */,
 				G10054 /* Library */,
 				G10055 /* Settings */,
+				G10056 /* Bookshelf */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		G10056 /* Bookshelf */ = {
+			isa = PBXGroup;
+			children = (
+				B10026 /* BookshelfHomeView.swift */,
+				B10027 /* BookshelfBookDetailView.swift */,
+			);
+			path = Bookshelf;
 			sourceTree = "<group>";
 		};
 		G10006 /* Readers */ = {
@@ -329,6 +346,9 @@
 				A10022 /* ServerListView.swift in Sources */,
 				A10023 /* SettingsView.swift in Sources */,
 				A10024 /* BookshelfTheme.swift in Sources */,
+				A10025 /* BookshelfViewModel.swift in Sources */,
+				A10026 /* BookshelfHomeView.swift in Sources */,
+				A10027 /* BookshelfBookDetailView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

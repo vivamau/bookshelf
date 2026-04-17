@@ -196,53 +196,54 @@ struct LocalBookCard: View {
             coverArea
             titleArea
         }
+        .padding(4)
     }
 
     private var coverArea: some View {
-        ZStack(alignment: .bottom) {
-            coverImage
-                .aspectRatio(2/3, contentMode: .fill)
-                .clipShape(RoundedRectangle(cornerRadius: BookshelfTheme.coverRadius, style: .continuous))
-                .shadow(color: BookshelfTheme.coverShadow, radius: 6, y: 3)
-                .overlay(
-                    RoundedRectangle(cornerRadius: BookshelfTheme.coverRadius)
-                        .stroke(isHovered ? BookshelfTheme.borderHover : BookshelfTheme.border, lineWidth: 1)
-                )
-                .scaleEffect(isHovered ? 1.03 : 1.0)
-                .animation(.easeInOut(duration: 0.18), value: isHovered)
+        Color.clear
+            .aspectRatio(3/4, contentMode: .fit)
+            .overlay {
+                ZStack(alignment: .bottom) {
+                    coverImage
 
-            // Progress bar
-            if book.readingProgress > 0 {
-                GeometryReader { geo in
-                    VStack(spacing: 0) {
-                        Spacer()
-                        ZStack(alignment: .leading) {
-                            Rectangle()
-                                .fill(Color.black.opacity(0.5))
-                                .frame(height: 3)
-                            Rectangle()
-                                .fill(BookshelfTheme.accent)
-                                .frame(width: geo.size.width * book.readingProgress, height: 3)
+                    if book.readingProgress > 0 {
+                        GeometryReader { geo in
+                            VStack(spacing: 0) {
+                                Spacer()
+                                ZStack(alignment: .leading) {
+                                    Rectangle()
+                                        .fill(Color.black.opacity(0.5))
+                                        .frame(height: 3)
+                                    Rectangle()
+                                        .fill(BookshelfTheme.accent)
+                                        .frame(width: geo.size.width * book.readingProgress, height: 3)
+                                }
+                            }
                         }
+                        .allowsHitTesting(false)
+                    }
+
+                    if book.readingProgress >= 1.0 {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(5)
+                            .background(Color.black.opacity(0.6))
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                            .padding(6)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     }
                 }
-                .clipShape(RoundedRectangle(cornerRadius: BookshelfTheme.coverRadius))
-                .allowsHitTesting(false)
             }
-
-            // Completed badge
-            if book.readingProgress >= 1.0 {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(.white)
-                    .padding(5)
-                    .background(Color.black.opacity(0.6))
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-                    .padding(6)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-            }
-        }
-        .onHover { isHovered = $0 }
+            .clipShape(RoundedRectangle(cornerRadius: BookshelfTheme.coverRadius, style: .continuous))
+            .shadow(color: BookshelfTheme.coverShadow, radius: 6, y: 3)
+            .overlay(
+                RoundedRectangle(cornerRadius: BookshelfTheme.coverRadius)
+                    .stroke(isHovered ? BookshelfTheme.borderHover : BookshelfTheme.border, lineWidth: 1)
+            )
+            .scaleEffect(isHovered ? 1.03 : 1.0)
+            .animation(.easeInOut(duration: 0.18), value: isHovered)
+            .onHover { isHovered = $0 }
     }
 
     @ViewBuilder
@@ -250,11 +251,11 @@ struct LocalBookCard: View {
         if let coverURL = book.coverFileURL, FileManager.default.fileExists(atPath: coverURL.path) {
             #if os(macOS)
             if let nsImage = NSImage(contentsOf: coverURL) {
-                Image(nsImage: nsImage).resizable().aspectRatio(contentMode: .fill)
+                Image(nsImage: nsImage).resizable().scaledToFill()
             } else { placeholderCover }
             #else
             if let uiImage = UIImage(contentsOfFile: coverURL.path) {
-                Image(uiImage: uiImage).resizable().aspectRatio(contentMode: .fill)
+                Image(uiImage: uiImage).resizable().scaledToFill()
             } else { placeholderCover }
             #endif
         } else {
@@ -280,7 +281,8 @@ struct LocalBookCard: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(book.title)
                 .font(.system(size: 12, weight: .semibold))
-                .lineLimit(2)
+                .lineLimit(1)
+                .truncationMode(.tail)
                 .foregroundStyle(isHovered ? BookshelfTheme.accent : .white)
                 .animation(.easeInOut(duration: 0.15), value: isHovered)
 
@@ -328,7 +330,8 @@ struct ContinueReadingCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(book.title)
                     .font(.system(size: 11, weight: .semibold))
-                    .lineLimit(2)
+                    .lineLimit(1)
+                .truncationMode(.tail)
                     .frame(width: 90, alignment: .leading)
                     .foregroundStyle(isHovered ? BookshelfTheme.accent : .white)
                     .animation(.easeInOut(duration: 0.15), value: isHovered)

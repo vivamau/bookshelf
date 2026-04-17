@@ -12,13 +12,26 @@ struct BookCard: View {
             coverView
             titleView
         }
+        .padding(4)
     }
 
     // MARK: - Cover
 
     private var coverView: some View {
-        AsyncCoverImage(url: entry.coverURL, server: server)
-            .aspectRatio(2/3, contentMode: .fill)
+        Color.clear
+            .aspectRatio(3/4, contentMode: .fit)
+            .overlay {
+                AsyncCoverImage(url: entry.coverURL, server: server)
+            }
+            .overlay(alignment: .bottom) {
+                if isHovered {
+                    LinearGradient(
+                        colors: [BookshelfTheme.accent.opacity(0.0), BookshelfTheme.accent.opacity(0.18)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                }
+            }
             .clipShape(RoundedRectangle(cornerRadius: BookshelfTheme.coverRadius, style: .continuous))
             .shadow(color: BookshelfTheme.coverShadow, radius: 8, y: 4)
             .overlay(
@@ -28,17 +41,6 @@ struct BookCard: View {
                         lineWidth: isHovered ? 1.5 : 1
                     )
             )
-            .overlay(alignment: .bottom) {
-                if isHovered {
-                    // Subtle glow overlay on hover
-                    LinearGradient(
-                        colors: [BookshelfTheme.accent.opacity(0.0), BookshelfTheme.accent.opacity(0.18)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: BookshelfTheme.coverRadius, style: .continuous))
-                }
-            }
             .scaleEffect(isHovered ? 1.03 : 1.0)
             .animation(.easeInOut(duration: 0.18), value: isHovered)
             .onHover { isHovered = $0 }
@@ -50,7 +52,8 @@ struct BookCard: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(entry.title)
                 .font(.system(size: 12, weight: .semibold))
-                .lineLimit(2)
+                .lineLimit(1)
+                .truncationMode(.tail)
                 .foregroundStyle(isHovered ? BookshelfTheme.accent : .white)
                 .animation(.easeInOut(duration: 0.15), value: isHovered)
 
