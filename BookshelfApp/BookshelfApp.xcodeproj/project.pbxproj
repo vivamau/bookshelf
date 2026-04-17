@@ -1,0 +1,539 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10001 /* BookshelfApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001; };
+		A10002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10002; };
+		A10003 /* BookshelfAPIModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10003; };
+		A10004 /* LocalBook.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10004; };
+		A10005 /* OPDSModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10005; };
+		A10006 /* ServerConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10006; };
+		A10007 /* EPUBExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10007; };
+		A10008 /* EPUBReaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10008; };
+		A10009 /* PDFReaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10009; };
+		A10010 /* DownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10010; };
+		A10011 /* NetworkClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10011; };
+		A10012 /* OPDSParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10012; };
+		A10013 /* CatalogViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10013; };
+		A10014 /* BookDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10014; };
+		A10015 /* BookCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10015; };
+		A10016 /* CatalogFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10016; };
+		A10017 /* CatalogRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10017; };
+		A10018 /* ReaderContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10018; };
+		A10019 /* SubCatalogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10019; };
+		A10020 /* LocalLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10020; };
+		A10021 /* AddServerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10021; };
+		A10022 /* ServerListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10022; };
+		A10023 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10023; };
+		A10024 /* BookshelfTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10024; };
+		A10030 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10030; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		B10001 /* BookshelfApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookshelfApp.swift; sourceTree = "<group>"; };
+		B10002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		B10003 /* BookshelfAPIModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookshelfAPIModels.swift; sourceTree = "<group>"; };
+		B10004 /* LocalBook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalBook.swift; sourceTree = "<group>"; };
+		B10005 /* OPDSModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OPDSModels.swift; sourceTree = "<group>"; };
+		B10006 /* ServerConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerConfig.swift; sourceTree = "<group>"; };
+		B10007 /* EPUBExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EPUBExtractor.swift; sourceTree = "<group>"; };
+		B10008 /* EPUBReaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EPUBReaderView.swift; sourceTree = "<group>"; };
+		B10009 /* PDFReaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFReaderView.swift; sourceTree = "<group>"; };
+		B10010 /* DownloadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadManager.swift; sourceTree = "<group>"; };
+		B10011 /* NetworkClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkClient.swift; sourceTree = "<group>"; };
+		B10012 /* OPDSParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OPDSParser.swift; sourceTree = "<group>"; };
+		B10013 /* CatalogViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogViewModel.swift; sourceTree = "<group>"; };
+		B10014 /* BookDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookDetailView.swift; sourceTree = "<group>"; };
+		B10015 /* BookCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookCard.swift; sourceTree = "<group>"; };
+		B10016 /* CatalogFeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogFeedView.swift; sourceTree = "<group>"; };
+		B10017 /* CatalogRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogRootView.swift; sourceTree = "<group>"; };
+		B10018 /* ReaderContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderContainerView.swift; sourceTree = "<group>"; };
+		B10019 /* SubCatalogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubCatalogView.swift; sourceTree = "<group>"; };
+		B10020 /* LocalLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalLibraryView.swift; sourceTree = "<group>"; };
+		B10021 /* AddServerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddServerView.swift; sourceTree = "<group>"; };
+		B10022 /* ServerListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerListView.swift; sourceTree = "<group>"; };
+		B10023 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		B10024 /* BookshelfTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookshelfTheme.swift; sourceTree = "<group>"; };
+		B10030 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B10031 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B10099 /* BookshelfApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BookshelfApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		F10001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		G10000 = {
+			isa = PBXGroup;
+			children = (
+				G10001 /* BookshelfApp */,
+				G10099 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		G10001 /* BookshelfApp */ = {
+			isa = PBXGroup;
+			children = (
+				B10001 /* BookshelfApp.swift */,
+				B10002 /* ContentView.swift */,
+				B10031 /* Info.plist */,
+				G10002 /* Models */,
+				G10003 /* Services */,
+				G10004 /* ViewModels */,
+				G10005 /* Views */,
+				G10006 /* Readers */,
+				G10007 /* Utils */,
+				G10010 /* Resources */,
+			);
+			path = BookshelfApp;
+			sourceTree = "<group>";
+		};
+		G10002 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				B10003 /* BookshelfAPIModels.swift */,
+				B10004 /* LocalBook.swift */,
+				B10005 /* OPDSModels.swift */,
+				B10006 /* ServerConfig.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		G10003 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				B10010 /* DownloadManager.swift */,
+				B10011 /* NetworkClient.swift */,
+				B10012 /* OPDSParser.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		G10004 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				B10013 /* CatalogViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		G10005 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				G10051 /* ServerManagement */,
+				G10052 /* Catalog */,
+				G10053 /* BookDetail */,
+				G10054 /* Library */,
+				G10055 /* Settings */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		G10006 /* Readers */ = {
+			isa = PBXGroup;
+			children = (
+				G10061 /* EPUB */,
+				G10062 /* PDF */,
+			);
+			path = Readers;
+			sourceTree = "<group>";
+		};
+		G10007 /* Utils */ = {
+			isa = PBXGroup;
+			children = (
+				B10024 /* BookshelfTheme.swift */,
+			);
+			path = Utils;
+			sourceTree = "<group>";
+		};
+		G10010 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				B10030 /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		G10051 /* ServerManagement */ = {
+			isa = PBXGroup;
+			children = (
+				B10021 /* AddServerView.swift */,
+				B10022 /* ServerListView.swift */,
+			);
+			path = ServerManagement;
+			sourceTree = "<group>";
+		};
+		G10052 /* Catalog */ = {
+			isa = PBXGroup;
+			children = (
+				B10015 /* BookCard.swift */,
+				B10016 /* CatalogFeedView.swift */,
+				B10017 /* CatalogRootView.swift */,
+				B10018 /* ReaderContainerView.swift */,
+				B10019 /* SubCatalogView.swift */,
+			);
+			path = Catalog;
+			sourceTree = "<group>";
+		};
+		G10053 /* BookDetail */ = {
+			isa = PBXGroup;
+			children = (
+				B10014 /* BookDetailView.swift */,
+			);
+			path = BookDetail;
+			sourceTree = "<group>";
+		};
+		G10054 /* Library */ = {
+			isa = PBXGroup;
+			children = (
+				B10020 /* LocalLibraryView.swift */,
+			);
+			path = Library;
+			sourceTree = "<group>";
+		};
+		G10055 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				B10023 /* SettingsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		G10061 /* EPUB */ = {
+			isa = PBXGroup;
+			children = (
+				B10007 /* EPUBExtractor.swift */,
+				B10008 /* EPUBReaderView.swift */,
+			);
+			path = EPUB;
+			sourceTree = "<group>";
+		};
+		G10062 /* PDF */ = {
+			isa = PBXGroup;
+			children = (
+				B10009 /* PDFReaderView.swift */,
+			);
+			path = PDF;
+			sourceTree = "<group>";
+		};
+		G10099 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B10099 /* BookshelfApp.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		T10001 /* BookshelfApp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C10003 /* Build configuration list for PBXNativeTarget "BookshelfApp" */;
+			buildPhases = (
+				S10001 /* Sources */,
+				F10001 /* Frameworks */,
+				R10001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BookshelfApp;
+			productName = BookshelfApp;
+			productReference = B10099 /* BookshelfApp.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		P10001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1540;
+				LastUpgradeCheck = 1540;
+				TargetAttributes = {
+					T10001 = {
+						CreatedOnToolsVersion = 15.4;
+					};
+				};
+			};
+			buildConfigurationList = C10001 /* Build configuration list for PBXProject "BookshelfApp" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = G10000;
+			productRefGroup = G10099 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				T10001 /* BookshelfApp */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		R10001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10030 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		S10001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10001 /* BookshelfApp.swift in Sources */,
+				A10002 /* ContentView.swift in Sources */,
+				A10003 /* BookshelfAPIModels.swift in Sources */,
+				A10004 /* LocalBook.swift in Sources */,
+				A10005 /* OPDSModels.swift in Sources */,
+				A10006 /* ServerConfig.swift in Sources */,
+				A10007 /* EPUBExtractor.swift in Sources */,
+				A10008 /* EPUBReaderView.swift in Sources */,
+				A10009 /* PDFReaderView.swift in Sources */,
+				A10010 /* DownloadManager.swift in Sources */,
+				A10011 /* NetworkClient.swift in Sources */,
+				A10012 /* OPDSParser.swift in Sources */,
+				A10013 /* CatalogViewModel.swift in Sources */,
+				A10014 /* BookDetailView.swift in Sources */,
+				A10015 /* BookCard.swift in Sources */,
+				A10016 /* CatalogFeedView.swift in Sources */,
+				A10017 /* CatalogRootView.swift in Sources */,
+				A10018 /* ReaderContainerView.swift in Sources */,
+				A10019 /* SubCatalogView.swift in Sources */,
+				A10020 /* LocalLibraryView.swift in Sources */,
+				A10021 /* AddServerView.swift in Sources */,
+				A10022 /* ServerListView.swift in Sources */,
+				A10023 /* SettingsView.swift in Sources */,
+				A10024 /* BookshelfTheme.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		D10001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		D10002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		D10003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = BookshelfApp/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Bookshelf;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.books";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bookshelf.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		D10004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = BookshelfApp/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Bookshelf;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.books";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bookshelf.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C10001 /* Build configuration list for PBXProject "BookshelfApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D10001 /* Debug */,
+				D10002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C10003 /* Build configuration list for PBXNativeTarget "BookshelfApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D10003 /* Debug */,
+				D10004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+	};
+	rootObject = P10001 /* Project object */;
+}
