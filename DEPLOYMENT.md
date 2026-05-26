@@ -245,6 +245,120 @@ Follow the prompts to configure SSL automatically.
 
 ---
 
+## 13b. Alternative: HTTPS via Tailscale
+
+If your server isn't reachable from the public internet (home server, private network) you can still get a real HTTPS certificate by exposing Bookshelf over your tailnet. Tailscale provisions a Let's Encrypt cert for `<machine>.<tailnet>.ts.net` automatically, which is enough to satisfy the browser's secure-context requirement.
+
+### 1. Enable HTTPS for your tailnet
+
+In the Tailscale admin console: **DNS → HTTPS Certificates → Enable**.
+
+### 2. Install Tailscale on the server (if not already)
+
+```bash
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up
+```
+
+Note your tailnet hostname (something like `bookshelf.tailnet-name.ts.net`).
+
+### 3. Start `tailscale serve` in front of Nginx
+
+```bash
+sudo tailscale serve --bg --https=443 http://localhost:80
+```
+
+This fetches a Let's Encrypt cert and proxies `https://<machine>.<tailnet>.ts.net/` → `http://localhost:80` (where Nginx lives). Verify:
+
+```bash
+sudo tailscale serve status
+```
+
+### 4. Update the Nginx config to redirect HTTP → HTTPS
+
+Because `tailscale serve` proxies back to `localhost:80`, a blanket redirect would loop. Split on the `Host` header — redirect direct HTTP hits, but still serve the app when the request comes from `tailscale serve` (which preserves the original `Host`).
+
+Replace your `/etc/nginx/sites-available/bookshelf` with:
+
+```nginx
+# Redirect all direct HTTP hits to the Tailscale HTTPS URL
+server {
+    listen 80 default_server;
+    server_name _;
+    return 301 https://<machine>.<tailnet>.ts.net$request_uri;
+}
+
+# Serve the app — only matches when tailscale serve forwards to localhost:80
+server {
+    listen 80;
+    server_name <machine>.<tailnet>.ts.net localhost;
+
+    root /var/www/bookshelf/frontend/dist;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /api/ {
+        rewrite ^/api/(.*) /$1 break;
+        proxy_pass http://localhost:3005;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+Reload Nginx:
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### 5. Update the frontend API URL
+
+Edit `frontend/.env`:
+
+```env
+VITE_API_BASE_URL=https://<machine>.<tailnet>.ts.net/api
+```
+
+Rebuild:
+
+```bash
+cd /var/www/bookshelf/frontend && npm run build
+```
+
+### 6. Verify
+
+```bash
+# Direct HTTP hit should 301 to the HTTPS tailnet URL
+curl -I http://localhost/
+# → HTTP/1.1 301 Moved Permanently
+# → Location: https://<machine>.<tailnet>.ts.net/
+
+# Tailscale HTTPS URL should serve the app
+curl -I https://<machine>.<tailnet>.ts.net/
+# → HTTP/2 200
+```
+
+Open `https://<machine>.<tailnet>.ts.net/` from any tailnet device — the Caffeine button will be active and the URL bar will show a valid cert.
+
+### Notes
+
+- Hitting the raw Tailscale IP (`http://100.x.y.z/`) is still plain HTTP — the redirect block above handles that case.
+- Want it reachable from outside the tailnet? Use `tailscale funnel` instead of `tailscale serve` (same syntax). Be aware Funnel exposes the URL to the public internet.
+- To tear down: `sudo tailscale serve reset`.
+
+---
+
 ## 14. Configure Firewall
 
 ```bash
