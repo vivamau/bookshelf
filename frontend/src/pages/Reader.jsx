@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, X, RotateCcw, ChevronLeft, ChevronRight, Maximize2, Minimize2, Type, Sun, Moon, BookOpen, Play, Pause, Square } from 'lucide-react';
+import { ArrowLeft, X, RotateCcw, ChevronLeft, ChevronRight, Maximize2, Minimize2, Type, Sun, Moon, BookOpen, Play, Pause, Square, Coffee } from 'lucide-react';
 import { booksApi, usersApi } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -96,6 +96,65 @@ export default function Reader() {
   const [isPlaying, setIsPlaying] = useState(false);
   const synthRef = useRef(window.speechSynthesis);
   const utteranceRef = useRef(null);
+
+  // Caffeine (Wake Lock) — keep system awake while reading / TTS playback
+  const [caffeineOn, setCaffeineOn] = useState(false);
+  const wakeLockRef = useRef(null);
+
+  const releaseWakeLock = useCallback(async () => {
+      try {
+          if (wakeLockRef.current) {
+              await wakeLockRef.current.release();
+              wakeLockRef.current = null;
+          }
+      } catch (e) {
+          console.warn("Wake Lock release failed", e);
+      }
+  }, []);
+
+  const requestWakeLock = useCallback(async () => {
+      if (!('wakeLock' in navigator)) {
+          console.warn("Wake Lock API not supported in this browser");
+          return false;
+      }
+      try {
+          wakeLockRef.current = await navigator.wakeLock.request('screen');
+          wakeLockRef.current.addEventListener('release', () => {
+              wakeLockRef.current = null;
+          });
+          return true;
+      } catch (e) {
+          console.warn("Wake Lock request failed", e);
+          wakeLockRef.current = null;
+          return false;
+      }
+  }, []);
+
+  const toggleCaffeine = async () => {
+      if (caffeineOn) {
+          await releaseWakeLock();
+          setCaffeineOn(false);
+      } else {
+          const ok = await requestWakeLock();
+          if (ok) setCaffeineOn(true);
+      }
+  };
+
+  // Re-acquire wake lock when tab becomes visible again (browsers auto-release on hide)
+  useEffect(() => {
+      const handleVisibility = async () => {
+          if (caffeineOn && document.visibilityState === 'visible' && !wakeLockRef.current) {
+              await requestWakeLock();
+          }
+      };
+      document.addEventListener('visibilitychange', handleVisibility);
+      return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [caffeineOn, requestWakeLock]);
+
+  // Release wake lock on unmount
+  useEffect(() => {
+      return () => { releaseWakeLock(); };
+  }, [releaseWakeLock]);
 
   useEffect(() => {
       // Ensure voices are loaded
@@ -500,9 +559,17 @@ export default function Reader() {
 
 
 
+            <button
+                onClick={toggleCaffeine}
+                className={`p-2 rounded-full transition-colors border ${caffeineOn ? 'bg-[#f1184c]/20 text-[#f1184c] border-[#f1184c]/40' : 'bg-white/5 text-white/70 hover:text-white hover:bg-white/10 border-white/10'}`}
+                title={caffeineOn ? "Caffeine ON — system will stay awake" : "Caffeine OFF — enable to keep system awake"}
+            >
+                <Coffee size={18} />
+            </button>
+
             {!isComic && (
                 <div className="flex items-center gap-1 bg-white/5 rounded-full px-1.5 py-1 border border-white/10 mr-2">
-                    <button 
+                    <button
                         onClick={handlePlayTTS}
                         className="p-1.5 hover:bg-white/10 rounded-full text-white/70 hover:text-white transition-colors"
                         title={isPlaying ? "Pause Reading" : "Read Aloud"}

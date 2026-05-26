@@ -120,11 +120,15 @@ This will:
 
 ### Default Users (Security Warning ⚠️)
 
-On the first run, the system will create the following default users:
+On the first run, the system seeds the following default users (only if the `Users` table is empty):
 
-- **Admin (Librarian)**: `admin` / `adminpassword`
-- **Reader**: `reader1` / `readerpassword`
-- **Guest**: `guest1` / `guestpassword`
+| Role | Username | Email | Password |
+|------|----------|----------------------|------------------|
+| Librarian (Admin) | `admin` | `admin@bookshelf.com` | `adminpassword` |
+| Reader | `reader1` | `reader@bookshelf.com` | `readerpassword` |
+| Guest | `guest1` | `guest@bookshelf.com` | `guestpassword` |
+
+Seeding logic lives in `backend/seed_userroles.js` (roles) and `backend/seed_users.js` (users) and is invoked automatically by `backend/index.js` at startup.
 
 **IMPORTANT**: Please change these passwords or remove these users immediately after your first login to secure your installation.
 
