@@ -232,7 +232,7 @@ sudo systemctl reload nginx
 
 ---
 
-## 13. (Optional) Enable HTTPS with Let's Encrypt
+## 13. Enable HTTPS with Let's Encrypt (Recommended)
 
 ```bash
 sudo apt install -y certbot python3-certbot-nginx
@@ -240,6 +240,8 @@ sudo certbot --nginx -d yourdomain.com
 ```
 
 Follow the prompts to configure SSL automatically.
+
+> ⚠️ **HTTPS is required for several reader features.** The browser-side **Caffeine (Wake Lock)** toggle that keeps the system awake during TTS playback only works in a secure context (HTTPS or `localhost`). On a plain `http://` deployment the button is disabled. Other browser APIs (PWA install, clipboard, service workers) also require HTTPS.
 
 ---
 

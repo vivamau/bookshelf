@@ -98,8 +98,10 @@ export default function Reader() {
   const utteranceRef = useRef(null);
 
   // Caffeine (Wake Lock) — keep system awake while reading / TTS playback
+  // Requires a secure context (HTTPS or localhost); unsupported on plain http://
   const [caffeineOn, setCaffeineOn] = useState(false);
   const wakeLockRef = useRef(null);
+  const wakeLockSupported = typeof navigator !== 'undefined' && 'wakeLock' in navigator;
 
   const releaseWakeLock = useCallback(async () => {
       try {
@@ -131,12 +133,17 @@ export default function Reader() {
   }, []);
 
   const toggleCaffeine = async () => {
+      if (!wakeLockSupported) {
+          alert("Caffeine mode is unavailable: the Wake Lock API requires HTTPS (or localhost). This site is served over plain HTTP — ask the admin to enable HTTPS.");
+          return;
+      }
       if (caffeineOn) {
           await releaseWakeLock();
           setCaffeineOn(false);
       } else {
           const ok = await requestWakeLock();
           if (ok) setCaffeineOn(true);
+          else alert("Could not enable Caffeine mode. Your browser may not support the Wake Lock API.");
       }
   };
 
@@ -561,8 +568,8 @@ export default function Reader() {
 
             <button
                 onClick={toggleCaffeine}
-                className={`p-2 rounded-full transition-colors border ${caffeineOn ? 'bg-[#f1184c]/20 text-[#f1184c] border-[#f1184c]/40' : 'bg-white/5 text-white/70 hover:text-white hover:bg-white/10 border-white/10'}`}
-                title={caffeineOn ? "Caffeine ON — system will stay awake" : "Caffeine OFF — enable to keep system awake"}
+                className={`p-2 rounded-full transition-colors border ${!wakeLockSupported ? 'bg-white/5 text-white/30 border-white/10 cursor-help' : caffeineOn ? 'bg-[#f1184c]/20 text-[#f1184c] border-[#f1184c]/40' : 'bg-white/5 text-white/70 hover:text-white hover:bg-white/10 border-white/10'}`}
+                title={!wakeLockSupported ? "Caffeine unavailable — requires HTTPS (or localhost)" : caffeineOn ? "Caffeine ON — system will stay awake" : "Caffeine OFF — enable to keep system awake"}
             >
                 <Coffee size={18} />
             </button>
