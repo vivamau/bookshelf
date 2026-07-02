@@ -197,6 +197,9 @@ server {
     listen 80;
     server_name yourdomain.com;
 
+    # Allow large file uploads (books up to 100MB)
+    client_max_body_size 100M;
+
     # Frontend - serve static files
     root /var/www/bookshelf/frontend/dist;
     index index.html;

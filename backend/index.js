@@ -52,12 +52,15 @@ app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 }));
-app.use(express.json());
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 app.use(fileUpload({
     createParentPath: true,
     limits: { 
         fileSize: 100 * 1024 * 1024 // 100MB max file size
     },
+    abortOnLimit: true,
+    responseOnLimit: 'File size limit has been reached (max 100MB)',
 }));
 app.use('/covers', express.static(path.join(__dirname, 'covers')));
 const BOOKS_DIR = path.join(__dirname, 'books');
