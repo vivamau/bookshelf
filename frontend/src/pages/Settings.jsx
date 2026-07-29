@@ -23,6 +23,22 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from '../context/AuthContext';
 
+const OPENAI_TTS_VOICES = [
+  { id: 'marin', label: 'Marin', hint: 'Best quality' },
+  { id: 'cedar', label: 'Cedar', hint: 'Best quality' },
+  { id: 'alloy', label: 'Alloy', hint: 'Balanced' },
+  { id: 'ash', label: 'Ash', hint: 'Calm' },
+  { id: 'ballad', label: 'Ballad', hint: 'Expressive' },
+  { id: 'coral', label: 'Coral', hint: 'Warm' },
+  { id: 'echo', label: 'Echo', hint: 'Clear' },
+  { id: 'fable', label: 'Fable', hint: 'Story-like' },
+  { id: 'onyx', label: 'Onyx', hint: 'Deep' },
+  { id: 'nova', label: 'Nova', hint: 'Bright' },
+  { id: 'sage', label: 'Sage', hint: 'Measured' },
+  { id: 'shimmer', label: 'Shimmer', hint: 'Soft' },
+  { id: 'verse', label: 'Verse', hint: 'Natural' }
+];
+
 const BrowserModal = ({ isOpen, onClose, onSelect }) => {
     const [currentPath, setCurrentPath] = useState('');
     const [folders, setFolders] = useState([]);
@@ -146,6 +162,7 @@ export default function Settings() {
     fr: localStorage.getItem('tts_voice_fr') || '',
     es: localStorage.getItem('tts_voice_es') || '',
   });
+  const [openAITtsVoice, setOpenAITtsVoice] = useState(localStorage.getItem('openai_tts_voice') || 'marin');
 
   useEffect(() => {
     const updateVoices = () => {
@@ -158,6 +175,11 @@ export default function Settings() {
   const handleVoiceChange = (lang, voiceURI) => {
     setTtsVoices(prev => ({ ...prev, [lang]: voiceURI }));
     localStorage.setItem(`tts_voice_${lang}`, voiceURI);
+  };
+
+  const handleOpenAIVoiceChange = (voice) => {
+    setOpenAITtsVoice(voice);
+    localStorage.setItem('openai_tts_voice', voice);
   };
 
   const fetchDirectories = async () => {
@@ -417,6 +439,21 @@ export default function Settings() {
                             <h3 className="text-sm font-bold flex items-center gap-2">
                                 <Volume2 size={16} /> Text-to-Speech Voices
                             </h3>
+
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-muted-foreground">AI Narration Voice</label>
+                                <select
+                                    value={openAITtsVoice}
+                                    onChange={(e) => handleOpenAIVoiceChange(e.target.value)}
+                                    className="w-full bg-secondary/30 border border-input rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                                >
+                                    {OPENAI_TTS_VOICES.map((voice) => (
+                                        <option key={voice.id} value={voice.id}>
+                                            {voice.label} - {voice.hint}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {[{ id: 'en', label: 'English' }, { id: 'it', label: 'Italian' }, { id: 'fr', label: 'French' }, { id: 'es', label: 'Spanish' }].map(lang => {

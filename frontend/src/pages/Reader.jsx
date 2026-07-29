@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, X, RotateCcw, ChevronLeft, ChevronRight, Maximize2, Minimize2, Type, Sun, Moon, BookOpen, Play, Pause, Square, Coffee } from 'lucide-react';
+import { ArrowLeft, X, RotateCcw, ChevronLeft, ChevronRight, Maximize2, Minimize2, Type, Sun, Moon, BookOpen, Play, Pause, Square, Coffee, Loader2, Download } from 'lucide-react';
 import { booksApi, usersApi } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -94,8 +94,19 @@ export default function Reader() {
 
   // TTS Specific
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isTtsLoading, setIsTtsLoading] = useState(false);
+  const [ttsError, setTtsError] = useState(null);
+  const [ttsDownloadUrl, setTtsDownloadUrl] = useState(null);
+  const [ttsDownloadName, setTtsDownloadName] = useState('book-narration.mp3');
   const synthRef = useRef(window.speechSynthesis);
   const utteranceRef = useRef(null);
+  const audioRef = useRef(null);
+  const audioUrlRef = useRef(null);
+  const ttsModeRef = useRef(null);
+  const ttsChunksRef = useRef([]);
+  const ttsChunkIndexRef = useRef(0);
+  const ttsSessionRef = useRef(0);
+  const isTtsReadyNotice = ttsError?.startsWith('The AI voice is ready.');
 
   // Caffeine (Wake Lock) — keep system awake while reading / TTS playback
   // Requires a secure context (HTTPS or localhost); unsupported on plain http://
@@ -167,49 +178,201 @@ export default function Reader() {
       // Ensure voices are loaded
       synthRef.current.getVoices();
       return () => {
-          if (synthRef.current) {
-              synthRef.current.cancel();
-          }
+          if (synthRef.current) synthRef.current.cancel();
+          if (audioRef.current) audioRef.current.pause();
+          if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
       };
   }, []);
 
+  const releaseCurrentAudio = useCallback(() => {
+      if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.src = '';
+          audioRef.current = null;
+      }
+      if (audioUrlRef.current) {
+          URL.revokeObjectURL(audioUrlRef.current);
+          audioUrlRef.current = null;
+      }
+      setTtsDownloadUrl(null);
+  }, []);
+
+  const cleanupOpenAIAudio = useCallback(() => {
+      releaseCurrentAudio();
+      ttsChunksRef.current = [];
+      ttsChunkIndexRef.current = 0;
+  }, [releaseCurrentAudio]);
+
   const stopTTS = useCallback(() => {
       synthRef.current.cancel();
-      setIsPlaying(false);
       utteranceRef.current = null;
-  }, []);
+      ttsSessionRef.current += 1;
+      ttsModeRef.current = null;
+      cleanupOpenAIAudio();
+      setIsPlaying(false);
+      setIsTtsLoading(false);
+  }, [cleanupOpenAIAudio]);
 
   useEffect(() => {
       stopTTS();
   }, [currentIndex, isComic, id, stopTTS]);
 
-  const handlePlayTTS = () => {
-      if (isPlaying) {
-          synthRef.current.pause();
-          setIsPlaying(false);
-          return;
-      }
-      
-      if (synthRef.current.paused && utteranceRef.current) {
-          synthRef.current.resume();
-          setIsPlaying(true);
-          return;
-      }
-      
-      if (!iframeRef.current) return;
+  const getReaderLanguageCode = useCallback(() => {
+      const rawLang = (book?.language_name || 'EN').toLowerCase();
+      if (rawLang.startsWith('it')) return 'it';
+      if (rawLang.startsWith('fr')) return 'fr';
+      if (rawLang.startsWith('es') || rawLang.startsWith('sp')) return 'es';
+      return 'en';
+  }, [book]);
+
+  const getCurrentReaderText = useCallback(() => {
+      if (!iframeRef.current) return '';
       const doc = iframeRef.current.contentDocument || iframeRef.current.contentWindow.document;
-      const text = doc.body.innerText;
-      if (!text || !text.trim()) return;
-      
+      return doc?.body?.innerText?.replace(/\s+/g, ' ').trim() || '';
+  }, []);
+
+  const splitTextForTTS = useCallback((text, maxChars = 3200) => {
+      const normalized = text.replace(/\s+/g, ' ').trim();
+      if (!normalized) return [];
+
+      const chunks = [];
+      let remaining = normalized;
+
+      while (remaining.length > maxChars) {
+          let splitAt = remaining.lastIndexOf('.', maxChars);
+          if (splitAt < maxChars * 0.5) splitAt = remaining.lastIndexOf(' ', maxChars);
+          if (splitAt < maxChars * 0.5) splitAt = maxChars;
+
+          const chunk = remaining.slice(0, splitAt + (splitAt === maxChars ? 0 : 1)).trim();
+          if (chunk) chunks.push(chunk);
+          remaining = remaining.slice(splitAt + (splitAt === maxChars ? 0 : 1)).trim();
+      }
+
+      if (remaining) chunks.push(remaining);
+      return chunks;
+  }, []);
+
+  const getReadAloudErrorMessage = useCallback(async (error) => {
+      let message = error?.message || 'AI narration could not be started.';
+      if (error?.response?.data instanceof Blob) {
+          try {
+              const payload = JSON.parse(await error.response.data.text());
+              message = payload?.error || message;
+          } catch (parseError) {
+              // Keep the Axios error when the server response is not JSON.
+          }
+      } else if (error?.response?.data?.error) {
+          message = error.response.data.error;
+      }
+      return message;
+  }, []);
+
+  const getNarrationDownloadName = useCallback(() => {
+      const rawTitle = book?.book_title || book?.title || `book-${id}`;
+      const safeTitle = rawTitle
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '')
+          .slice(0, 60) || `book-${id}`;
+      const chunkNumber = ttsChunkIndexRef.current + 1;
+      return `${safeTitle}-narration-${chunkNumber}.mp3`;
+  }, [book, id]);
+
+  const startOpenAIAudio = useCallback(async (audio, sessionId) => {
+      try {
+          setTtsError(null);
+          await audio.play();
+      } catch (playError) {
+          if (sessionId !== ttsSessionRef.current) return;
+          setIsPlaying(false);
+          setIsTtsLoading(false);
+          if (playError?.name === 'NotAllowedError') {
+              setTtsError('The AI voice is ready. Press Play again to start audio.');
+          } else {
+              setTtsError(playError?.message || 'AI narration audio could not be played.');
+          }
+      }
+  }, []);
+
+  const playOpenAIChunk = useCallback(async (sessionId) => {
+      if (sessionId !== ttsSessionRef.current) return;
+      const chunk = ttsChunksRef.current[ttsChunkIndexRef.current];
+
+      if (!chunk) {
+          ttsModeRef.current = null;
+          setIsPlaying(false);
+          setIsTtsLoading(false);
+          cleanupOpenAIAudio();
+          return;
+      }
+
+      setIsTtsLoading(true);
+      const selectedOpenAIVoice = localStorage.getItem('openai_tts_voice') || 'marin';
+      const response = await booksApi.readAloud(id, {
+          text: chunk,
+          language: getReaderLanguageCode(),
+          voice: selectedOpenAIVoice
+      });
+
+      if (sessionId !== ttsSessionRef.current) return;
+
+      releaseCurrentAudio();
+      if (!(response.data instanceof Blob) || response.data.size === 0) {
+          throw new Error('AI narration returned empty audio.');
+      }
+
+      const contentType = response.headers?.['content-type'] || response.data.type || '';
+      if (contentType.includes('application/json')) {
+          let message = 'AI narration returned an error instead of audio.';
+          try {
+              const payload = JSON.parse(await response.data.text());
+              message = payload?.error || message;
+          } catch (parseError) {}
+          throw new Error(message);
+      }
+
+      audioUrlRef.current = URL.createObjectURL(response.data);
+      setTtsDownloadUrl(audioUrlRef.current);
+      setTtsDownloadName(getNarrationDownloadName());
+      const audio = new Audio(audioUrlRef.current);
+      audio.preload = 'auto';
+      audioRef.current = audio;
+
+      audio.onplay = () => {
+          if (sessionId !== ttsSessionRef.current) return;
+          setIsPlaying(true);
+          setIsTtsLoading(false);
+      };
+      audio.onpause = () => {
+          if (sessionId !== ttsSessionRef.current) return;
+          setIsPlaying(false);
+      };
+      audio.onerror = () => {
+          if (sessionId !== ttsSessionRef.current) return;
+          setTtsError('AI narration audio could not be played.');
+          stopTTS();
+      };
+      audio.onended = async () => {
+          if (sessionId !== ttsSessionRef.current) return;
+          ttsChunkIndexRef.current += 1;
+          try {
+              await playOpenAIChunk(sessionId);
+          } catch (error) {
+              console.error('Failed to continue AI narration', error);
+              stopTTS();
+          }
+      };
+
+      await startOpenAIAudio(audio, sessionId);
+  }, [getNarrationDownloadName, getReaderLanguageCode, id, releaseCurrentAudio, startOpenAIAudio, stopTTS]);
+
+  const handlePlayBrowserTTS = useCallback(() => {
+      const text = getCurrentReaderText();
+      if (!text) return false;
+
       const utterance = new SpeechSynthesisUtterance(text);
-      
-      // Detect language from book metadata
-      let rawLang = (book?.language_name || 'EN').toLowerCase();
-      let langCode = 'en';
-      if (rawLang.startsWith('it')) langCode = 'it';
-      else if (rawLang.startsWith('fr')) langCode = 'fr';
-      else if (rawLang.startsWith('es') || rawLang.startsWith('sp')) langCode = 'es';
-      
+      const langCode = getReaderLanguageCode();
+
       if (['en', 'it', 'fr', 'es'].includes(langCode)) {
           const storedURI = localStorage.getItem(`tts_voice_${langCode}`);
           if (storedURI) {
@@ -219,18 +382,73 @@ export default function Reader() {
                   utterance.voice = selectedVoice;
               }
           }
-          utterance.lang = langCode === 'en' ? 'en-US' : langCode + '-' + langCode.toUpperCase();
+          utterance.lang = langCode === 'en' ? 'en-US' : `${langCode}-${langCode.toUpperCase()}`;
       }
-      
+
       utterance.onend = () => {
           setIsPlaying(false);
           utteranceRef.current = null;
+          ttsModeRef.current = null;
       };
-      
+      utterance.onpause = () => setIsPlaying(false);
+      utterance.onresume = () => setIsPlaying(true);
+
       utteranceRef.current = utterance;
+      ttsModeRef.current = 'browser';
       synthRef.current.speak(utterance);
       setIsPlaying(true);
-  };
+      return true;
+  }, [getCurrentReaderText, getReaderLanguageCode]);
+
+  const handlePlayTTS = useCallback(async () => {
+      if (isTtsLoading && !audioRef.current) return;
+
+      if (ttsModeRef.current === 'openai' && audioRef.current) {
+          if (audioRef.current.paused) {
+              await startOpenAIAudio(audioRef.current, ttsSessionRef.current);
+          } else {
+              audioRef.current.pause();
+              setIsPlaying(false);
+          }
+          return;
+      }
+
+      if (ttsModeRef.current === 'browser' && utteranceRef.current) {
+          if (isPlaying) {
+              synthRef.current.pause();
+              setIsPlaying(false);
+          } else if (synthRef.current.paused) {
+              synthRef.current.resume();
+              setIsPlaying(true);
+          }
+          return;
+      }
+
+      const text = getCurrentReaderText();
+      if (!text) return;
+
+      setTtsError(null);
+
+      const sessionId = ttsSessionRef.current + 1;
+      ttsSessionRef.current = sessionId;
+      ttsModeRef.current = 'openai';
+      ttsChunksRef.current = splitTextForTTS(text);
+      ttsChunkIndexRef.current = 0;
+
+      try {
+          await playOpenAIChunk(sessionId);
+      } catch (error) {
+          const message = await getReadAloudErrorMessage(error);
+
+          stopTTS();
+          if (error?.response?.status === 503 && message.includes('OPENAI_API_KEY is not configured')) {
+              handlePlayBrowserTTS();
+          } else {
+              console.error('OpenAI narration failed:', error);
+              setTtsError(message);
+          }
+      }
+  }, [getCurrentReaderText, getReadAloudErrorMessage, handlePlayBrowserTTS, isPlaying, isTtsLoading, playOpenAIChunk, splitTextForTTS, startOpenAIAudio, stopTTS]);
 
   // Inject styles and calculate pages when iframe content loads (EPUB only)
   const handleIframeLoad = () => {
@@ -578,10 +796,11 @@ export default function Reader() {
                 <div className="flex items-center gap-1 bg-white/5 rounded-full px-1.5 py-1 border border-white/10 mr-2">
                     <button
                         onClick={handlePlayTTS}
-                        className="p-1.5 hover:bg-white/10 rounded-full text-white/70 hover:text-white transition-colors"
-                        title={isPlaying ? "Pause Reading" : "Read Aloud"}
+                        disabled={isTtsLoading && !audioRef.current}
+                        className="p-1.5 hover:bg-white/10 rounded-full text-white/70 hover:text-white transition-colors disabled:cursor-wait disabled:text-white/45 disabled:hover:bg-transparent"
+                        title={isTtsLoading ? "Preparing AI narration" : isPlaying ? "Pause Reading" : "Read Aloud"}
                     >
-                        {isPlaying ? <Pause size={18} /> : <Play size={18} />}
+                        {isTtsLoading ? <Loader2 size={18} className="animate-spin" /> : isPlaying ? <Pause size={18} /> : <Play size={18} />}
                     </button>
                     <div className="w-px h-4 bg-white/10" />
                     <button 
@@ -591,7 +810,34 @@ export default function Reader() {
                     >
                         <Square size={16} />
                     </button>
+                    <div className="w-px h-4 bg-white/10" />
+                    {ttsDownloadUrl ? (
+                        <a
+                            href={ttsDownloadUrl}
+                            download={ttsDownloadName}
+                            className="p-1.5 hover:bg-white/10 rounded-full text-white/70 hover:text-white transition-colors"
+                            title="Download AI narration MP3"
+                        >
+                            <Download size={16} />
+                        </a>
+                    ) : (
+                        <span
+                            className="p-1.5 rounded-full text-white/25"
+                            title="Prepare AI narration before downloading"
+                        >
+                            <Download size={16} />
+                        </span>
+                    )}
                 </div>
+            )}
+
+            {ttsError && (
+                <span
+                    className={`max-w-[280px] truncate text-xs ${isTtsReadyNotice ? 'text-emerald-400' : 'text-[#f1184c]'}`}
+                    title={ttsError}
+                >
+                    {ttsError}
+                </span>
             )}
 
             {!isComic && (

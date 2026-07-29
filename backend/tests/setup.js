@@ -1,5 +1,6 @@
 const db = require('../config/db');
 const runMigrations = require('../run_migrations');
+const seedUserRoles = require('../seed_userroles');
 const seedUsers = require('../seed_users');
 
 const setupTestDb = async () => {

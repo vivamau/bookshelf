@@ -11,6 +11,7 @@ const fileUpload = require('express-fileupload');
 
 const { scanLibrary, refreshCovers, importFiles, scanSingleFile, getComicPage } = require('./utils/libraryScanner');
 const { sendEmail } = require('./utils/mailer');
+const { OpenAIConfigError, OpenAIRequestError, synthesizeSpeech } = require('./utils/openaiAudio');
 
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
@@ -1221,6 +1222,64 @@ booksRouter.post('/:id/send-to-kindle', async (req, res) => {
             res.status(500).json({ error: 'Failed to send email. Check server logs.' });
         }
     });
+});
+
+booksRouter.post('/:id/read-aloud', async (req, res) => {
+    const bookId = req.params.id;
+    const { text, voice, speed } = req.body || {};
+
+    if (!req.user.userrole_readbooks) {
+        return res.status(403).json({ error: 'Permission denied: Reader access required' });
+    }
+
+    if (typeof text !== 'string' || !text.trim()) {
+        return res.status(400).json({ error: 'Text is required' });
+    }
+
+    try {
+        const book = await new Promise((resolve, reject) => {
+            db.get("SELECT ID FROM Books WHERE ID = ?", [bookId], (err, row) => {
+                if (err) reject(err);
+                else resolve(row);
+            });
+        });
+
+        if (!book) {
+            return res.status(404).json({ error: 'Book not found' });
+        }
+
+        const audioBuffer = await synthesizeSpeech({ text, voice, speed });
+        res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('Cache-Control', 'no-store');
+        return res.send(audioBuffer);
+    } catch (error) {
+        console.error('Read aloud failed:', error);
+        if (error instanceof OpenAIConfigError) {
+            return res.status(503).json({ error: error.message });
+        }
+        if (error instanceof OpenAIRequestError) {
+            const errorText = `${error.code || ''} ${error.message || ''}`.toLowerCase();
+            if (error.code === 'insufficient_quota' || /quota|credit|billing/.test(errorText)) {
+                return res.status(402).json({
+                    code: 'OPENAI_QUOTA_EXCEEDED',
+                    error: 'OpenAI API credits are unavailable. Check your OpenAI billing, credits, and project limits.'
+                });
+            }
+            if (error.status === 401) {
+                return res.status(502).json({
+                    code: 'OPENAI_AUTH_FAILED',
+                    error: 'The OpenAI API key was rejected. Check that the key is active and belongs to the correct project.'
+                });
+            }
+            if (error.status === 429) {
+                return res.status(429).json({
+                    code: 'OPENAI_RATE_LIMITED',
+                    error: 'OpenAI temporarily rate-limited narration. Please wait a moment and try again.'
+                });
+            }
+        }
+        return res.status(500).json({ error: 'Failed to generate speech audio' });
+    }
 });
 
 // Ensure extracted directory exists
