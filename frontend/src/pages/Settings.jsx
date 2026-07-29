@@ -162,6 +162,7 @@ export default function Settings() {
     fr: localStorage.getItem('tts_voice_fr') || '',
     es: localStorage.getItem('tts_voice_es') || '',
   });
+  const [openAITtsEnabled, setOpenAITtsEnabled] = useState(localStorage.getItem('openai_tts_enabled') === 'true');
   const [openAITtsVoice, setOpenAITtsVoice] = useState(localStorage.getItem('openai_tts_voice') || 'marin');
 
   useEffect(() => {
@@ -175,6 +176,11 @@ export default function Settings() {
   const handleVoiceChange = (lang, voiceURI) => {
     setTtsVoices(prev => ({ ...prev, [lang]: voiceURI }));
     localStorage.setItem(`tts_voice_${lang}`, voiceURI);
+  };
+
+  const handleOpenAITtsEnabledChange = (enabled) => {
+    setOpenAITtsEnabled(enabled);
+    localStorage.setItem('openai_tts_enabled', enabled ? 'true' : 'false');
   };
 
   const handleOpenAIVoiceChange = (voice) => {
@@ -441,10 +447,37 @@ export default function Settings() {
                             </h3>
 
                             <div className="space-y-2">
+                                <label className="text-xs font-bold text-muted-foreground">Read Aloud Engine</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleOpenAITtsEnabledChange(false)}
+                                        className={cn(
+                                            "px-3 py-2 rounded-lg border text-sm font-bold transition-all",
+                                            !openAITtsEnabled ? "bg-primary text-primary-foreground border-primary" : "bg-secondary/10 border-border hover:border-primary/50"
+                                        )}
+                                    >
+                                        Browser
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleOpenAITtsEnabledChange(true)}
+                                        className={cn(
+                                            "px-3 py-2 rounded-lg border text-sm font-bold transition-all",
+                                            openAITtsEnabled ? "bg-primary text-primary-foreground border-primary" : "bg-secondary/10 border-border hover:border-primary/50"
+                                        )}
+                                    >
+                                        AI MP3
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
                                 <label className="text-xs font-bold text-muted-foreground">AI Narration Voice</label>
                                 <select
                                     value={openAITtsVoice}
                                     onChange={(e) => handleOpenAIVoiceChange(e.target.value)}
+                                    disabled={!openAITtsEnabled}
                                     className="w-full bg-secondary/30 border border-input rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
                                 >
                                     {OPENAI_TTS_VOICES.map((voice) => (

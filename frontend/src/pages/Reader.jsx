@@ -429,6 +429,11 @@ export default function Reader() {
 
       setTtsError(null);
 
+      if (localStorage.getItem('openai_tts_enabled') !== 'true') {
+          handlePlayBrowserTTS();
+          return;
+      }
+
       const sessionId = ttsSessionRef.current + 1;
       ttsSessionRef.current = sessionId;
       ttsModeRef.current = 'openai';
