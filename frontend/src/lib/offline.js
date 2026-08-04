@@ -347,6 +347,21 @@ export const ensureOfflineFolderPermission = async (folderHandle, request = fals
   return true;
 };
 
+export const requestOfflineStoragePersistence = async (storageManager = globalThis.navigator?.storage) => {
+  if (!storageManager?.persist) return false;
+  if (storageManager.persisted && await storageManager.persisted()) return true;
+  return storageManager.persist();
+};
+
+export const getOfflineStorageEstimate = async (storageManager = globalThis.navigator?.storage) => {
+  if (!storageManager?.estimate) return null;
+  const estimate = await storageManager.estimate();
+  return {
+    usage: Number(estimate.usage) || 0,
+    quota: Number(estimate.quota) || 0
+  };
+};
+
 const getDirectoryForFilePath = async (folderHandle, filePath) => {
   const parts = normalizeOfflinePath(filePath).split('/').filter(Boolean);
   const fileName = parts.pop();

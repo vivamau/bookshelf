@@ -29,11 +29,12 @@ import {
   ensureOfflineFolderPermission,
   getOfflineBook,
   getOfflineFolderHandle,
+  requestOfflineStoragePersistence,
   saveOfflineBooks,
   saveOfflineFolder,
   writeOfflineBookToFolder
 } from '../lib/offline';
-import { downloadBookToOfflineFolder, isEpubBook } from '../lib/offlineBookDownload';
+import { downloadBookForOfflineReading, isEpubBook } from '../lib/offlineBookDownload';
 import AuthorSearch from '../components/AuthorSearch';
 import PublisherSearch from '../components/PublisherSearch';
 import GenreSearch from '../components/GenreSearch';
@@ -627,20 +628,20 @@ export default function BookDetails() {
 
     try {
       let targetFolder = offlineFolderHandle;
-      if (!targetFolder) {
-        if (!window.showDirectoryPicker) {
-          throw new Error('Offline folders require a Chromium-based browser over HTTPS.');
-        }
-
+      if (!targetFolder && typeof window.showDirectoryPicker === 'function') {
         targetFolder = await window.showDirectoryPicker({ mode: 'readwrite' });
         await saveOfflineFolder(user.id, targetFolder);
         setOfflineFolderHandle(targetFolder);
       }
 
-      const permissionGranted = await ensureOfflineFolderPermission(targetFolder, true);
-      if (!permissionGranted) throw new Error('Bookshelf needs write permission for the selected offline folder.');
+      if (targetFolder) {
+        const permissionGranted = await ensureOfflineFolderPermission(targetFolder, true);
+        if (!permissionGranted) throw new Error('Bookshelf needs write permission for the selected offline folder.');
+      } else {
+        await requestOfflineStoragePersistence().catch(() => false);
+      }
 
-      await downloadBookToOfflineFolder({
+      await downloadBookForOfflineReading({
         book,
         bookId: id,
         userId: user.id,
@@ -655,10 +656,14 @@ export default function BookDetails() {
         ...previous,
         book_downloads: (previous.book_downloads || 0) + 1
       }));
-      setOfflineDownloadMessage(`Saved ${book.book_title || book.book_filename} to ${targetFolder.name}.`);
+      setOfflineDownloadMessage(targetFolder
+        ? `Saved ${book.book_title || book.book_filename} to ${targetFolder.name}.`
+        : `Saved ${book.book_title || book.book_filename} inside Bookshelf on this device.`);
     } catch (error) {
       if (error.name === 'AbortError') {
         setOfflineDownloadMessage('Offline folder selection was cancelled.');
+      } else if (error.name === 'QuotaExceededError') {
+        setOfflineDownloadMessage('There is not enough device storage available for this EPUB.');
       } else {
         console.error('Failed to save book for offline reading', error);
         setOfflineDownloadMessage(error.response?.data?.error || error.message || 'Could not save this book for offline reading.');

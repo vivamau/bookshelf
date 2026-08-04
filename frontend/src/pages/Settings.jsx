@@ -33,6 +33,8 @@ import {
     ensureOfflineFolderPermission,
     getOfflineBooks,
     getOfflineFolderMeta,
+    getOfflineStorageEstimate,
+    requestOfflineStoragePersistence,
     saveOfflineBooks,
     saveOfflineFolder,
     writeOfflineBookToFolder
@@ -53,6 +55,13 @@ const OPENAI_TTS_VOICES = [
   { id: 'shimmer', label: 'Shimmer', hint: 'Soft' },
   { id: 'verse', label: 'Verse', hint: 'Natural' }
 ];
+
+const formatStorageSize = (bytes) => {
+    if (!bytes) return '0 MB';
+    const megabytes = bytes / (1024 * 1024);
+    if (megabytes < 1024) return `${megabytes.toFixed(megabytes < 10 ? 1 : 0)} MB`;
+    return `${(megabytes / 1024).toFixed(1)} GB`;
+};
 
 const BrowserModal = ({ isOpen, onClose, onSelect }) => {
     const [currentPath, setCurrentPath] = useState('');
@@ -189,6 +198,8 @@ export default function Settings() {
   const [isOfflineDownloading, setIsOfflineDownloading] = useState(false);
   const [offlineDownloadCount, setOfflineDownloadCount] = useState(0);
   const [offlineMessage, setOfflineMessage] = useState('');
+  const [offlineStorageEstimate, setOfflineStorageEstimate] = useState(null);
+  const supportsOfflineFolderPicker = typeof window.showDirectoryPicker === 'function';
 
   useEffect(() => {
     const updateVoices = () => {
@@ -216,13 +227,15 @@ export default function Settings() {
   const refreshOfflineState = async (userId = user?.id) => {
     if (!userId) return;
     try {
-        const [books, folderMeta] = await Promise.all([
+        const [books, folderMeta, storageEstimate] = await Promise.all([
             getOfflineBooks(userId),
-            getOfflineFolderMeta(userId)
+            getOfflineFolderMeta(userId),
+            getOfflineStorageEstimate().catch(() => null)
         ]);
         setOfflineBooks(books);
         setOfflineFolderMeta(folderMeta);
         setOfflineFolderHandle(folderMeta?.folderHandle || null);
+        setOfflineStorageEstimate(storageEstimate);
         if (navigator.onLine) {
             const catalogResponse = await booksApi.getOfflineCatalog();
             setOfflineCatalog(catalogResponse.data.data || []);
@@ -255,7 +268,7 @@ export default function Settings() {
   };
 
   const handleDownloadOfflineBooks = async () => {
-    if (!offlineFolderHandle) {
+    if (!offlineFolderHandle && supportsOfflineFolderPicker) {
         setOfflineMessage('Choose an offline folder first.');
         return;
     }
@@ -268,29 +281,43 @@ export default function Settings() {
     setOfflineDownloadCount(0);
     setOfflineMessage(`Downloading 0 of ${offlineCatalog.length} EPUBs...`);
     try {
-        const permissionGranted = await ensureOfflineFolderPermission(offlineFolderHandle, true);
-        if (!permissionGranted) throw new Error('Bookshelf needs write permission for the selected folder.');
+        if (offlineFolderHandle) {
+            const permissionGranted = await ensureOfflineFolderPermission(offlineFolderHandle, true);
+            if (!permissionGranted) throw new Error('Bookshelf needs write permission for the selected folder.');
+        } else {
+            await requestOfflineStoragePersistence().catch(() => false);
+        }
 
         let completedCount = 0;
         for (const catalogBook of offlineCatalog) {
             const response = await booksApi.downloadFile(catalogBook.ID);
-            const fileHandle = await writeOfflineBookToFolder(offlineFolderHandle, catalogBook.book_filename, response.data);
-            await saveOfflineBooks(user.id, [{
+            const offlineRecord = {
                 bookId: catalogBook.ID,
                 filename: catalogBook.book_filename,
-                fileHandle,
                 metadata: catalogBook
-            }]);
+            };
+            if (offlineFolderHandle) {
+                offlineRecord.fileHandle = await writeOfflineBookToFolder(offlineFolderHandle, catalogBook.book_filename, response.data);
+                offlineRecord.storageType = 'folder';
+            } else {
+                offlineRecord.blob = response.data;
+                offlineRecord.storageType = 'browser';
+            }
+            await saveOfflineBooks(user.id, [offlineRecord]);
             completedCount += 1;
             setOfflineDownloadCount(completedCount);
             setOfflineMessage(`Downloading ${completedCount} of ${offlineCatalog.length} EPUBs...`);
         }
 
         await refreshOfflineState(user.id);
-        setOfflineMessage(`Downloaded ${offlineCatalog.length} EPUBs to ${offlineFolderHandle.name}.`);
+        setOfflineMessage(offlineFolderHandle
+            ? `Downloaded ${offlineCatalog.length} EPUBs to ${offlineFolderHandle.name}.`
+            : `Downloaded ${offlineCatalog.length} EPUBs inside Bookshelf on this device.`);
     } catch (err) {
         console.error('Offline book download failed', err);
-        setOfflineMessage(err.response?.data?.error || err.message || 'Could not download the offline books.');
+        setOfflineMessage(err.name === 'QuotaExceededError'
+            ? 'There is not enough device storage available for the remaining EPUBs.'
+            : err.response?.data?.error || err.message || 'Could not download the offline books.');
     } finally {
         setIsOfflineDownloading(false);
     }
@@ -298,11 +325,16 @@ export default function Settings() {
 
   const handleClearOfflineBooks = async () => {
     try {
+        const removedBrowserCopies = offlineBooks.some((book) => book.storageType === 'browser' || book.blob);
         await clearOfflineBooks(user.id);
         await clearOfflineFolderMeta(user.id);
         setOfflineBooks([]);
         setOfflineFolderMeta(null);
-        setOfflineMessage('Bookshelf removed the offline metadata. Files already written to the folder were left untouched.');
+        setOfflineFolderHandle(null);
+        setOfflineStorageEstimate(await getOfflineStorageEstimate().catch(() => null));
+        setOfflineMessage(removedBrowserCopies
+            ? 'Bookshelf removed the offline EPUB copies stored on this device. Files written to an external folder were left untouched.'
+            : 'Bookshelf removed the offline metadata. Files already written to the folder were left untouched.');
     } catch (err) {
         setOfflineMessage(err.message || 'Could not clear offline EPUB copies.');
     }
@@ -676,7 +708,7 @@ export default function Settings() {
                                 Offline Library
                             </h2>
                             <p className="text-sm text-muted-foreground mt-1">
-                                Download EPUBs to a folder on your device and keep reading with your saved metadata and progress when you are offline.
+                                Download EPUBs to your selected folder or store them privately inside Bookshelf for offline reading on iPad and Safari.
                             </p>
                         </div>
                         <span className="shrink-0 text-xs font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full">
@@ -689,15 +721,26 @@ export default function Settings() {
                     <div className="space-y-4">
                         <div className="flex flex-col gap-3">
                             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                                <button
-                                    type="button"
-                                    onClick={handleOfflineFolderPick}
-                                    disabled={isOfflineDownloading}
-                                    className="bg-primary text-primary-foreground font-black px-5 py-2.5 rounded-xl hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-60"
-                                >
-                                    <FolderSearch size={17} />
-                                    {offlineFolderHandle ? 'Change Offline Folder' : 'Choose Offline Folder'}
-                                </button>
+                                {supportsOfflineFolderPicker ? (
+                                    <button
+                                        type="button"
+                                        onClick={handleOfflineFolderPick}
+                                        disabled={isOfflineDownloading}
+                                        className="bg-primary text-primary-foreground font-black px-5 py-2.5 rounded-xl hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-60"
+                                    >
+                                        <FolderSearch size={17} />
+                                        {offlineFolderHandle ? 'Change Offline Folder' : 'Choose Offline Folder'}
+                                    </button>
+                                ) : (
+                                    <div className="flex items-center gap-3 text-sm text-muted-foreground bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 w-full">
+                                        <Laptop size={18} className="text-primary shrink-0" />
+                                        <div>
+                                            <p className="font-bold text-foreground">Private device storage</p>
+                                            <p className="text-xs mt-0.5">EPUBs stay inside Bookshelf and do not appear in the Files app.</p>
+                                            <p className="text-xs mt-1">For best persistence on iPad, use Share → Add to Home Screen. Removing the app or its Safari website data also removes these copies.</p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {offlineFolderMeta?.name && (
@@ -708,8 +751,14 @@ export default function Settings() {
                                 </div>
                             )}
 
+                            {!offlineFolderHandle && offlineStorageEstimate?.quota > 0 && (
+                                <div className="text-xs text-muted-foreground bg-secondary/10 border border-border rounded-lg px-3 py-2">
+                                    {formatStorageSize(offlineStorageEstimate.usage)} used of approximately {formatStorageSize(offlineStorageEstimate.quota)} available to Bookshelf
+                                </div>
+                            )}
+
                             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                                {offlineFolderHandle && (
+                                {(offlineFolderHandle || !supportsOfflineFolderPicker) && (
                                     <button
                                         type="button"
                                         onClick={handleDownloadOfflineBooks}
@@ -727,7 +776,7 @@ export default function Settings() {
                                         disabled={isOfflineDownloading}
                                         className="text-xs font-bold text-muted-foreground hover:text-destructive transition-colors flex items-center justify-center gap-2 px-3 py-2"
                                     >
-                                        <Trash2 size={15} /> Remove offline metadata
+                                        <Trash2 size={15} /> Remove offline copies
                                     </button>
                                 )}
                             </div>
@@ -754,7 +803,11 @@ export default function Settings() {
                             <div className="flex flex-col items-center justify-center text-center py-12 px-6 bg-secondary/10 border border-dashed border-border rounded-xl">
                                 <BookOpen size={36} className="text-muted-foreground mb-3" />
                                 <p className="font-bold">No books available offline</p>
-                                <p className="text-sm text-muted-foreground mt-1">Choose a folder and download your EPUB library to see it here.</p>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                    {supportsOfflineFolderPicker
+                                        ? 'Choose a folder and download your EPUB library to see it here.'
+                                        : 'Download an EPUB from its book page or use the button above.'}
+                                </p>
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
