@@ -39,6 +39,7 @@ import ReadlistDetails from './pages/ReadlistDetails';
 import { booksApi, libraryApi, genresApi, searchApi } from './api/api';
 import ProfileModal from './components/ProfileModal';
 import InstallPWA from './components/InstallPWA';
+import { syncPendingProgress } from './lib/offline';
 
 // UI Components
 // ... (rest)
@@ -701,6 +702,19 @@ function Dashboard() {
 
 function AuthenticatedApp() {
   const { user, loading, hasPermission } = useAuth();
+
+  useEffect(() => {
+    if (!user) return undefined;
+
+    const syncProgress = () => {
+      syncPendingProgress(user.id, (bookId, progress) => booksApi.updateProgress(bookId, progress))
+        .catch((err) => console.error('Offline progress sync failed', err));
+    };
+
+    syncProgress();
+    window.addEventListener('online', syncProgress);
+    return () => window.removeEventListener('online', syncProgress);
+  }, [user]);
   
   if (loading) return (
     <div className="h-screen w-full bg-background flex items-center justify-center">

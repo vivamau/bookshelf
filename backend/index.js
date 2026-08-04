@@ -1108,6 +1108,31 @@ booksRouter.get('/', (req, res) => {
 });
 
 // Get progress for a specific book for current user
+booksRouter.get('/offline-catalog', (req, res) => {
+    if (!req.user.userrole_readbooks) {
+        return res.status(403).json({ error: 'Permission denied: Reader access required' });
+    }
+
+    const userId = req.user.user_id;
+    const sql = `
+        SELECT b.ID, b.book_title, b.book_summary, b.book_cover_img, b.book_date,
+               b.book_filename, b.book_entry_point, b.book_spine, b.language_id,
+               b.book_format_id, l.language_name, f.format_name,
+               bu.book_current_index, bu.book_current_page, bu.book_progress_percentage
+        FROM Books b
+        LEFT JOIN Languages l ON b.language_id = l.ID
+        LEFT JOIN Formats f ON b.book_format_id = f.ID
+        LEFT JOIN BooksUsers bu ON b.ID = bu.book_id AND bu.user_id = ?
+        WHERE lower(b.book_filename) LIKE '%.epub'
+        ORDER BY b.book_title COLLATE NOCASE ASC
+    `;
+
+    db.all(sql, [userId], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ data: rows });
+    });
+});
+
 booksRouter.get('/:id/progress', (req, res) => {
     const userId = req.user.user_id;
     const bookId = req.params.id;

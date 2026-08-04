@@ -1,8 +1,11 @@
 {
   "name": "Bookshelf App",
   "short_name": "Bookshelf",
+  "id": "/",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "description": "A private web library for reading and managing books.",
   "background_color": "#09090b",
   "theme_color": "#09090b",
   "orientation": "portrait-primary",

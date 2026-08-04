@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { settingsApi, booksApi, usersApi } from '../api/api';
 import { 
     FolderPlus, 
@@ -12,16 +13,30 @@ import {
     X, 
     Upload, 
     FileText, 
+    BookOpen,
     CheckCircle2, 
     AlertCircle,
     Server,
     Laptop,
     Type,
     Palette,
-    Volume2
+    Volume2,
+    CloudOff,
+    RefreshCw,
+    Download
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { useAuth } from '../context/AuthContext';
+import {
+    clearOfflineBooks,
+    clearOfflineFolderMeta,
+    ensureOfflineFolderPermission,
+    getOfflineBooks,
+    getOfflineFolderMeta,
+    saveOfflineBooks,
+    saveOfflineFolder,
+    writeOfflineBookToFolder
+} from '../lib/offline';
 
 const OPENAI_TTS_VOICES = [
   { id: 'marin', label: 'Marin', hint: 'Best quality' },
@@ -134,6 +149,7 @@ const BrowserModal = ({ isOpen, onClose, onSelect }) => {
 
 export default function Settings() {
   const { user, checkAuth } = useAuth();
+  const navigate = useNavigate();
   const isLibrarian = !!user?.userrole_managebooks;
   const [activeTab, setActiveTab] = useState(isLibrarian ? 'server' : 'reader');
   const [directories, setDirectories] = useState([]);
@@ -165,6 +181,15 @@ export default function Settings() {
   const [openAITtsEnabled, setOpenAITtsEnabled] = useState(localStorage.getItem('openai_tts_enabled') === 'true');
   const [openAITtsVoice, setOpenAITtsVoice] = useState(localStorage.getItem('openai_tts_voice') || 'marin');
 
+  // Offline library states
+  const [offlineBooks, setOfflineBooks] = useState([]);
+  const [offlineFolderMeta, setOfflineFolderMeta] = useState(null);
+  const [offlineFolderHandle, setOfflineFolderHandle] = useState(null);
+  const [offlineCatalog, setOfflineCatalog] = useState([]);
+  const [isOfflineDownloading, setIsOfflineDownloading] = useState(false);
+  const [offlineDownloadCount, setOfflineDownloadCount] = useState(0);
+  const [offlineMessage, setOfflineMessage] = useState('');
+
   useEffect(() => {
     const updateVoices = () => {
         setVoices(window.speechSynthesis.getVoices());
@@ -188,6 +213,101 @@ export default function Settings() {
     localStorage.setItem('openai_tts_voice', voice);
   };
 
+  const refreshOfflineState = async (userId = user?.id) => {
+    if (!userId) return;
+    try {
+        const [books, folderMeta] = await Promise.all([
+            getOfflineBooks(userId),
+            getOfflineFolderMeta(userId)
+        ]);
+        setOfflineBooks(books);
+        setOfflineFolderMeta(folderMeta);
+        setOfflineFolderHandle(folderMeta?.folderHandle || null);
+        if (navigator.onLine) {
+            const catalogResponse = await booksApi.getOfflineCatalog();
+            setOfflineCatalog(catalogResponse.data.data || []);
+        }
+    } catch (err) {
+        setOfflineMessage(err.message || 'Offline storage is unavailable in this browser.');
+    }
+  };
+
+  const handleOfflineFolderPick = async () => {
+    if (!window.showDirectoryPicker) {
+        setOfflineMessage('Downloading to a selected folder requires a Chromium-based browser over HTTPS.');
+        return;
+    }
+
+    try {
+        const directoryHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+        const permissionGranted = await ensureOfflineFolderPermission(directoryHandle, true);
+        if (!permissionGranted) {
+            setOfflineMessage('Bookshelf needs write permission for the selected folder.');
+            return;
+        }
+        await saveOfflineFolder(user.id, directoryHandle);
+        setOfflineFolderHandle(directoryHandle);
+        await refreshOfflineState(user.id);
+        setOfflineMessage(`Offline folder ready: ${directoryHandle.name}.`);
+    } catch (err) {
+        if (err.name !== 'AbortError') setOfflineMessage(err.message || 'Could not select the offline folder.');
+    }
+  };
+
+  const handleDownloadOfflineBooks = async () => {
+    if (!offlineFolderHandle) {
+        setOfflineMessage('Choose an offline folder first.');
+        return;
+    }
+    if (!offlineCatalog.length) {
+        setOfflineMessage('No EPUB books are available to download.');
+        return;
+    }
+
+    setIsOfflineDownloading(true);
+    setOfflineDownloadCount(0);
+    setOfflineMessage(`Downloading 0 of ${offlineCatalog.length} EPUBs...`);
+    try {
+        const permissionGranted = await ensureOfflineFolderPermission(offlineFolderHandle, true);
+        if (!permissionGranted) throw new Error('Bookshelf needs write permission for the selected folder.');
+
+        let completedCount = 0;
+        for (const catalogBook of offlineCatalog) {
+            const response = await booksApi.downloadFile(catalogBook.ID);
+            const fileHandle = await writeOfflineBookToFolder(offlineFolderHandle, catalogBook.book_filename, response.data);
+            await saveOfflineBooks(user.id, [{
+                bookId: catalogBook.ID,
+                filename: catalogBook.book_filename,
+                fileHandle,
+                metadata: catalogBook
+            }]);
+            completedCount += 1;
+            setOfflineDownloadCount(completedCount);
+            setOfflineMessage(`Downloading ${completedCount} of ${offlineCatalog.length} EPUBs...`);
+        }
+
+        await refreshOfflineState(user.id);
+        setOfflineMessage(`Downloaded ${offlineCatalog.length} EPUBs to ${offlineFolderHandle.name}.`);
+    } catch (err) {
+        console.error('Offline book download failed', err);
+        setOfflineMessage(err.response?.data?.error || err.message || 'Could not download the offline books.');
+    } finally {
+        setIsOfflineDownloading(false);
+    }
+  };
+
+  const handleClearOfflineBooks = async () => {
+    try {
+        await clearOfflineBooks(user.id);
+        await clearOfflineFolderMeta(user.id);
+        setOfflineBooks([]);
+        setOfflineFolderMeta(null);
+        setOfflineMessage('Bookshelf removed the offline metadata. Files already written to the folder were left untouched.');
+    } catch (err) {
+        setOfflineMessage(err.message || 'Could not clear offline EPUB copies.');
+    }
+  };
+
   const fetchDirectories = async () => {
     try {
       const res = await settingsApi.getDirectories();
@@ -204,6 +324,7 @@ export default function Settings() {
         setFontFamily(user.user_font_family || 'sans');
         setFontSize(user.user_font_size || 18);
         setTheme(user.user_theme || 'light');
+        refreshOfflineState(user.id);
     }
   }, [user]);
 
@@ -341,6 +462,22 @@ export default function Settings() {
             >
                 <Palette size={16} />
                 Reader Preferences
+            </button>
+
+            <button
+                onClick={() => setActiveTab('offline')}
+                className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all",
+                    activeTab === 'offline' ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                )}
+            >
+                <CloudOff size={16} />
+                Offline Library
+                {offlineBooks.length > 0 && (
+                    <span className="text-[10px] font-black text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+                        {offlineBooks.length}
+                    </span>
+                )}
             </button>
             
             {isLibrarian && (
@@ -524,6 +661,148 @@ export default function Settings() {
                                 </span>
                             )}
                         </div>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {activeTab === 'offline' && (
+            <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="p-6 border-b border-border bg-muted/20">
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <h2 className="text-xl font-bold flex items-center gap-2">
+                                <CloudOff className="text-primary" />
+                                Offline Library
+                            </h2>
+                            <p className="text-sm text-muted-foreground mt-1">
+                                Download EPUBs to a folder on your device and keep reading with your saved metadata and progress when you are offline.
+                            </p>
+                        </div>
+                        <span className="shrink-0 text-xs font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full">
+                            {offlineBooks.length} ready
+                        </span>
+                    </div>
+                </div>
+
+                <div className="p-6 space-y-8">
+                    <div className="space-y-4">
+                        <div className="flex flex-col gap-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={handleOfflineFolderPick}
+                                    disabled={isOfflineDownloading}
+                                    className="bg-primary text-primary-foreground font-black px-5 py-2.5 rounded-xl hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-60"
+                                >
+                                    <FolderSearch size={17} />
+                                    {offlineFolderHandle ? 'Change Offline Folder' : 'Choose Offline Folder'}
+                                </button>
+                            </div>
+
+                            {offlineFolderMeta?.name && (
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/10 border border-border rounded-lg px-3 py-2">
+                                    <Folder size={14} className="text-primary shrink-0" />
+                                    <span className="truncate">{offlineFolderMeta.name}</span>
+                                    <span className="ml-auto shrink-0">{offlineBooks.length} EPUBs ready</span>
+                                </div>
+                            )}
+
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                                {offlineFolderHandle && (
+                                    <button
+                                        type="button"
+                                        onClick={handleDownloadOfflineBooks}
+                                        disabled={isOfflineDownloading || !offlineCatalog.length}
+                                        className="bg-foreground text-background font-black px-5 py-2.5 rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                    >
+                                        {isOfflineDownloading ? <Loader className="animate-spin" size={17} /> : <Download size={17} />}
+                                        {isOfflineDownloading ? `Downloading ${offlineDownloadCount}/${offlineCatalog.length}` : `Download ${offlineCatalog.length} EPUBs`}
+                                    </button>
+                                )}
+                                {offlineBooks.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={handleClearOfflineBooks}
+                                        disabled={isOfflineDownloading}
+                                        className="text-xs font-bold text-muted-foreground hover:text-destructive transition-colors flex items-center justify-center gap-2 px-3 py-2"
+                                    >
+                                        <Trash2 size={15} /> Remove offline metadata
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {offlineMessage && (
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground" role="status">
+                                {isOfflineDownloading && <RefreshCw size={14} className="animate-spin text-primary" />}
+                                <span>{offlineMessage}</span>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="pt-6 border-t border-border">
+                        <div className="flex items-center justify-between gap-4 mb-4">
+                            <div>
+                                <h3 className="text-lg font-bold">Books available offline</h3>
+                                <p className="text-sm text-muted-foreground mt-1">These EPUBs are ready to open without a connection.</p>
+                            </div>
+                            <span className="text-sm font-bold text-muted-foreground">{offlineBooks.length}</span>
+                        </div>
+
+                        {offlineBooks.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center text-center py-12 px-6 bg-secondary/10 border border-dashed border-border rounded-xl">
+                                <BookOpen size={36} className="text-muted-foreground mb-3" />
+                                <p className="font-bold">No books available offline</p>
+                                <p className="text-sm text-muted-foreground mt-1">Choose a folder and download your EPUB library to see it here.</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {offlineBooks.map((offlineBook) => {
+                                    const book = offlineBook.metadata || {};
+                                    const title = book.book_title || offlineBook.filename || 'Untitled book';
+                                    const progress = Math.min(100, Math.max(0, Number(book.book_progress_percentage) || 0));
+                                    const year = book.book_date ? new Date(book.book_date).getFullYear() : 'N/A';
+
+                                    return (
+                                        <div key={offlineBook.bookId} className="flex items-center gap-3 p-3 bg-secondary/10 border border-border rounded-xl min-w-0">
+                                            <div className="w-12 aspect-[2/3] rounded-md overflow-hidden bg-primary/10 flex items-center justify-center shrink-0">
+                                                {book.book_cover_img ? (
+                                                    <img
+                                                        src={`${import.meta.env.VITE_API_BASE_URL}/covers/${book.book_cover_img}`}
+                                                        alt=""
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <BookOpen size={20} className="text-primary" />
+                                                )}
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <h4 className="font-bold truncate" title={title}>{title}</h4>
+                                                <p className="text-xs text-muted-foreground truncate mt-0.5" title={offlineBook.filename}>
+                                                    {book.format_name || 'EPUB'} · {year}
+                                                </p>
+                                                <div className="flex items-center gap-2 mt-2">
+                                                    <div className="h-1.5 flex-1 bg-background/60 rounded-full overflow-hidden">
+                                                        <div className="h-full bg-primary rounded-full" style={{ width: `${progress}%` }} />
+                                                    </div>
+                                                    <span className="text-[10px] font-bold text-muted-foreground shrink-0">{progress}%</span>
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => navigate(`/reader/${offlineBook.bookId}`)}
+                                                className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors shrink-0"
+                                                title="Read offline"
+                                                aria-label={`Read ${title}`}
+                                            >
+                                                <BookOpen size={17} />
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

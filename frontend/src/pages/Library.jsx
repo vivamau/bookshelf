@@ -16,6 +16,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { cn, formatDate } from "@/lib/utils";
+import { getOfflineBooks, getOfflineProgress } from '../lib/offline';
 
 export default function Library() {
   const [books, setBooks] = useState([]);
@@ -28,15 +29,44 @@ export default function Library() {
   const [searchTerm, setSearchTerm] = useState('');
   const [format, setFormat] = useState('all'); // 'all', 'EPUB', 'PDF'
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
 
-    const fetchBooks = async (pageToFetch, search = '', limitToFetch = 50, sortParam = 'title', formatParam = 'all') => {
+  const fetchBooks = async (pageToFetch, search = '', limitToFetch = 50, sortParam = 'title', formatParam = 'all') => {
     try {
       setLoading(true);
       const res = await booksApi.getAll({ page: pageToFetch, limit: limitToFetch, search, sort: sortParam, format: formatParam });
       setBooks(res.data.data || []);
       setTotalBooks(res.data.total || 0);
+      setIsOfflineMode(false);
     } catch (err) {
       console.error("Failed to fetch books", err);
+      try {
+        const storedBooks = await getOfflineBooks(user?.id);
+        const localBooks = await Promise.all(storedBooks.map(async (storedBook) => {
+          const localProgress = await getOfflineProgress(user.id, storedBook.bookId).catch(() => null);
+          return {
+            ...storedBook.metadata,
+            ID: storedBook.bookId,
+            book_progress_percentage: localProgress?.progress_percentage ?? storedBook.metadata.book_progress_percentage ?? 0
+          };
+        }));
+        const filteredBooks = localBooks
+          .filter((book) => !search || book.book_title?.toLowerCase().includes(search.toLowerCase()))
+          .filter((book) => formatParam === 'all' || (formatParam === 'EPUB' && book.format_name === 'EPUB'))
+          .sort((a, b) => {
+            if (sortParam === 'progress') return (b.book_progress_percentage || 0) - (a.book_progress_percentage || 0);
+            if (sortParam === 'year') return (b.book_date || 0) - (a.book_date || 0);
+            return String(a.book_title || '').localeCompare(String(b.book_title || ''));
+          });
+        setTotalBooks(filteredBooks.length);
+        setBooks(filteredBooks.slice((pageToFetch - 1) * limitToFetch, pageToFetch * limitToFetch));
+        setIsOfflineMode(true);
+      } catch (offlineError) {
+        console.error("Failed to load offline books", offlineError);
+        setBooks([]);
+        setTotalBooks(0);
+      }
     } finally {
       setLoading(false);
     }
@@ -63,9 +93,6 @@ export default function Library() {
   }, [books]);
   
   const [bookToDelete, setBookToDelete] = useState(null);
-  const { user } = useAuth();
-  
-  
   // Robust check for delete permission (handles 1/0 or true/false)
   const canDelete = !!user?.userrole_managebooks;
   // console.log("User permissions debug:", { user, canDelete });
@@ -120,6 +147,11 @@ export default function Library() {
             <div className="h-6 w-px bg-white/10 mx-2" />
             
             <span className="text-xl font-bold text-foreground">{totalBooks}</span>
+            {isOfflineMode && (
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-300 bg-amber-300/10 border border-amber-300/20 px-2 py-1 rounded-full">
+                    Offline copies
+                </span>
+            )}
         </div>
 
         <div className="flex items-center gap-4 text-muted-foreground">

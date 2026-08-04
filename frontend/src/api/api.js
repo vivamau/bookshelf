@@ -34,6 +34,7 @@ export const booksApi = {
   getAll: (params = {}) => api.get('/books', { params }),
   getContinueReading: () => api.get('/books/continue-reading'),
   getRandom: () => api.get('/books/random'),
+  getOfflineCatalog: () => api.get('/books/offline-catalog'),
   getById: (id) => api.get(`/books/${id}`),
   getProgress: (id) => api.get(`/books/${id}/progress`),
   updateProgress: (id, data) => api.post(`/books/${id}/progress`, data),

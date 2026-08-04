@@ -1,5 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authApi } from '../api/api';
+import {
+  clearOfflineBooks,
+  clearOfflineFolderMeta,
+  clearOfflineUser,
+  getOfflineUser,
+  saveOfflineUser
+} from '../lib/offline';
 
 const AuthContext = createContext(null);
 
@@ -15,9 +22,17 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await authApi.me();
       setUser(res.data);
+      await saveOfflineUser(res.data);
     } catch (err) {
-      // If 401/403 or network error, we are not logged in
-      setUser(null);
+      if (!err.response) {
+        try {
+          setUser(await getOfflineUser());
+        } catch {
+          setUser(null);
+        }
+      } else {
+        setUser(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -25,7 +40,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = (userData) => {
     setUser(userData);
-    // No localStorage storage for critical data
+    saveOfflineUser(userData).catch((err) => console.error('Failed to save offline user metadata', err));
   };
 
   const logout = async () => {
@@ -35,6 +50,18 @@ export const AuthProvider = ({ children }) => {
         console.error("Logout failed", err);
     }
     setUser(null);
+    try {
+      const parsedUser = await getOfflineUser();
+      if (parsedUser?.id) {
+        Promise.all([
+          clearOfflineBooks(parsedUser.id),
+          clearOfflineFolderMeta(parsedUser.id)
+        ]).catch((err) => console.error('Failed to clear offline books', err));
+      }
+      await clearOfflineUser();
+    } catch (err) {
+      console.error('Failed to clear offline user metadata', err);
+    }
     localStorage.removeItem('user'); // Cleanup legacy
     localStorage.removeItem('token'); // Cleanup legacy
   };

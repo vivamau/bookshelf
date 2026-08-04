@@ -1,8 +1,18 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, X, RotateCcw, ChevronLeft, ChevronRight, Maximize2, Minimize2, Type, Sun, Moon, BookOpen, Play, Pause, Square, Coffee, Loader2, Download } from 'lucide-react';
+import { ArrowLeft, X, RotateCcw, ChevronLeft, ChevronRight, Maximize2, Minimize2, Type, Sun, Moon, BookOpen, Play, Pause, Square, Coffee, Loader2, Download, CloudOff } from 'lucide-react';
 import { booksApi, usersApi } from '../api/api';
 import { useAuth } from '../context/AuthContext';
+import {
+  getOfflineBook,
+  getOfflineBookFile,
+  getOfflineProgress,
+  markProgressSynced,
+  openOfflineEpub,
+  prepareOfflineChapter,
+  readOfflineEpubEntry,
+  saveOfflineProgress
+} from '../lib/offline';
 
 export default function Reader() {
   const { id } = useParams();
@@ -13,6 +23,7 @@ export default function Reader() {
   const [loading, setLoading] = useState(true);
   const [preparing, setPreparing] = useState(false);
   const [error, setError] = useState(null);
+  const [isOfflineBook, setIsOfflineBook] = useState(false);
   const isInitialized = useRef(false);
   const { user, checkAuth } = useAuth();
 
@@ -82,6 +93,8 @@ export default function Reader() {
 
   // EPUB Specific
   const iframeRef = useRef(null);
+  const offlineZipRef = useRef(null);
+  const offlineObjectUrlsRef = useRef([]);
   const [internalPage, setInternalPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [htmlContent, setHtmlContent] = useState('');
@@ -181,7 +194,13 @@ export default function Reader() {
           if (synthRef.current) synthRef.current.cancel();
           if (audioRef.current) audioRef.current.pause();
           if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+          offlineObjectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
       };
+  }, []);
+
+  const clearOfflineObjectUrls = useCallback(() => {
+      offlineObjectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      offlineObjectUrlsRef.current = [];
   }, []);
 
   const releaseCurrentAudio = useCallback(() => {
@@ -516,8 +535,32 @@ export default function Reader() {
   useEffect(() => {
     const fetchAndPrepareBook = async () => {
       try {
-        const res = await booksApi.getById(id);
-        const bookData = res.data.data;
+        let bookData;
+        let localBook = null;
+
+        try {
+            const res = await booksApi.getById(id);
+            bookData = res.data.data;
+            setIsOfflineBook(false);
+        } catch (onlineError) {
+            localBook = await getOfflineBook(user?.id, id);
+            if (!localBook) throw onlineError;
+
+            bookData = {
+                ...localBook.metadata,
+                ID: localBook.bookId,
+                book_filename: localBook.filename,
+                file_exists: true
+            };
+            setIsOfflineBook(true);
+        }
+
+        const localProgress = user?.id ? await getOfflineProgress(user.id, id).catch(() => null) : null;
+        if (localProgress?.pending) {
+            bookData.book_current_index = localProgress.current_index;
+            bookData.book_current_page = localProgress.current_page;
+            bookData.book_progress_percentage = localProgress.progress_percentage;
+        }
         
         // Detect format
         const lowerName = bookData.book_filename?.toLowerCase() || '';
@@ -525,15 +568,18 @@ export default function Reader() {
         setIsComic(isComicFormat);
 
         // Prepare reader FIRST
-        setPreparing(true);
-        try {
-            await booksApi.prepareReader(id);
-        } catch (prepareErr) {
-            console.warn("Prepare reader warning:", prepareErr);
+        if (!localBook) {
+            setPreparing(true);
+            try {
+                await booksApi.prepareReader(id);
+            } catch (prepareErr) {
+                console.warn("Prepare reader warning:", prepareErr);
+            }
+            setPreparing(false);
         }
-        setPreparing(false);
 
         setBook(bookData);
+        offlineZipRef.current = localBook ? await openOfflineEpub(await getOfflineBookFile(localBook)) : null;
         
         if (bookData.book_spine) {
             const parsedSpine = JSON.parse(bookData.book_spine);
@@ -559,7 +605,7 @@ export default function Reader() {
         setTimeout(() => { isInitialized.current = true; }, 1000);
       } catch (err) {
         console.error("Failed to load/prepare book for reader", err);
-        setError(err.response?.data?.error || err.message || 'Failed to prepare book');
+        setError(err.response?.data?.error || err.message || 'Book is not available offline. Select its EPUB folder in Settings first.');
         setPreparing(false);
       } finally {
         setLoading(false);
@@ -574,6 +620,7 @@ export default function Reader() {
     
     // --- COMIC LOGIC ---
     if (isComic) {
+        clearOfflineObjectUrls();
         setComicImageLoading(true);
         // Preload next image
         if (currentIndex < spine.length - 1) {
@@ -587,25 +634,36 @@ export default function Reader() {
     // --- EPUB LOGIC ---
     const loadChapter = async () => {
       setContentLoading(true);
+      clearOfflineObjectUrls();
       try {
         const folderName = book.book_filename?.replace(/[/\\]/g, '_').replace(/\.epub$/i, '');
         const baseUrl = `${import.meta.env.VITE_API_BASE_URL}/extracted/${folderName}/`;
         const chapterRelativeDir = spine[currentIndex].substring(0, spine[currentIndex].lastIndexOf('/') + 1);
         const fullBaseUrl = baseUrl + chapterRelativeDir;
-        
-        const readerUrl = `${baseUrl}${spine[currentIndex]}`;
-        const response = await fetch(readerUrl, { credentials: 'include' });
-        let html = await response.text();
 
-        html = html.replace(/(src|href)="([^":]+)"/g, (match, p1, p2) => {
-          if (p2.startsWith('http') || p2.startsWith('data:') || p2.startsWith('blob:')) return match;
-          try {
-            const absoluteUrl = new URL(p2, fullBaseUrl).href;
-            return `${ p1 }="${ absoluteUrl }" crossorigin="use-credentials"`;
-          } catch(e) {
-            return `${ p1 }="${ fullBaseUrl }${ p2 }" crossorigin="use-credentials"`;
-          }
-        });
+        let html;
+        if (isOfflineBook) {
+          if (!offlineZipRef.current) throw new Error('Offline EPUB data is unavailable.');
+          const rawHtml = readOfflineEpubEntry(offlineZipRef.current, spine[currentIndex]);
+          const preparedChapter = prepareOfflineChapter(offlineZipRef.current, spine[currentIndex], rawHtml);
+          offlineObjectUrlsRef.current = preparedChapter.objectUrls;
+          html = preparedChapter.html;
+        } else {
+          const readerUrl = `${baseUrl}${spine[currentIndex]}`;
+          const response = await fetch(readerUrl, { credentials: 'include' });
+          if (!response.ok) throw new Error('Chapter content could not be loaded.');
+          html = await response.text();
+
+          html = html.replace(/(src|href)="([^":]+)"/g, (match, p1, p2) => {
+            if (p2.startsWith('http') || p2.startsWith('data:') || p2.startsWith('blob:')) return match;
+            try {
+              const absoluteUrl = new URL(p2, fullBaseUrl).href;
+              return `${ p1 }="${ absoluteUrl }" crossorigin="use-credentials"`;
+            } catch(e) {
+              return `${ p1 }="${ fullBaseUrl }${ p2 }" crossorigin="use-credentials"`;
+            }
+          });
+        }
 
         const style = `
           <style>
@@ -644,7 +702,7 @@ export default function Reader() {
     };
 
     loadChapter();
-  }, [currentIndex, book, spine, isComic, id]);
+  }, [clearOfflineObjectUrls, currentIndex, book, spine, isComic, id, isOfflineBook]);
 
   // Update Font Family & Re-calculate Pages
   useEffect(() => {
@@ -682,14 +740,23 @@ export default function Reader() {
   // Save Progress
   useEffect(() => {
     if (isInitialized.current && initialToRestore === null && !loading && !contentLoading && currentIndex !== null && spine.length > 0) {
-      const progress_percentage = ((currentIndex + (isComic ? 0 : internalPage / totalPages)) / spine.length) * 100;
-      booksApi.updateProgress(id, { 
+      const progress = {
         current_index: currentIndex, 
         current_page: isComic ? 0 : internalPage,
-        progress_percentage: Math.min(100, progress_percentage) 
-      }).catch(err => console.error("Failed to save progress", err));
+        progress_percentage: Math.min(100, ((currentIndex + (isComic ? 0 : internalPage / totalPages)) / spine.length) * 100)
+      };
+
+      if (!user?.id) return;
+
+      saveOfflineProgress(user.id, id, progress)
+        .then(() => booksApi.updateProgress(id, progress))
+        .then(async () => {
+          const localProgress = await getOfflineProgress(user.id, id).catch(() => null);
+          if (localProgress) await markProgressSynced(user.id, id, localProgress.updatedAt);
+        })
+        .catch(err => console.error("Failed to save progress online; queued for sync", err));
     }
-  }, [currentIndex, internalPage, totalPages, loading, contentLoading, initialToRestore, spine.length, id, isComic]);
+  }, [currentIndex, internalPage, totalPages, loading, contentLoading, initialToRestore, spine.length, id, isComic, user]);
 
   const updateInternalPage = (newPage) => {
     if (!iframeRef.current || isComic) return;
@@ -774,6 +841,11 @@ export default function Reader() {
             </span>
             <span className="text-sm font-bold text-white leading-none truncate max-w-[200px] md:max-w-md">{book.book_title}</span>
           </div>
+          {isOfflineBook && (
+            <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-amber-300 bg-amber-300/10 border border-amber-300/20 rounded-full px-2 py-1" title="Reading the local offline EPUB copy">
+              <CloudOff size={12} /> Offline
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-4">
