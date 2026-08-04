@@ -25,6 +25,15 @@ import {
 import { booksApi, genresApi, booksGenresApi, authorsApi, booksAuthorsApi, publishersApi, reviewsApi, readlistsApi, languagesApi } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../lib/utils';
+import {
+  ensureOfflineFolderPermission,
+  getOfflineBook,
+  getOfflineFolderHandle,
+  saveOfflineBooks,
+  saveOfflineFolder,
+  writeOfflineBookToFolder
+} from '../lib/offline';
+import { downloadBookToOfflineFolder, isEpubBook } from '../lib/offlineBookDownload';
 import AuthorSearch from '../components/AuthorSearch';
 import PublisherSearch from '../components/PublisherSearch';
 import GenreSearch from '../components/GenreSearch';
@@ -167,6 +176,10 @@ export default function BookDetails() {
   const [showKindleModal, setShowKindleModal] = useState(false);
   const [kindleEmail, setKindleEmail] = useState('');
   const [sendingToKindle, setSendingToKindle] = useState(false);
+  const [offlineFolderHandle, setOfflineFolderHandle] = useState(null);
+  const [isBookOffline, setIsBookOffline] = useState(false);
+  const [isOfflineDownloading, setIsOfflineDownloading] = useState(false);
+  const [offlineDownloadMessage, setOfflineDownloadMessage] = useState('');
 
   // ... (rest of state)
 
@@ -596,7 +609,64 @@ export default function BookDetails() {
     }
   };
 
+  const handleBookDownload = async () => {
+    if (!hasPermission('userrole_readbooks') || !book?.file_exists || !book.book_filename) return;
 
+    if (!isEpubBook(book)) {
+      window.location.href = `${import.meta.env.VITE_API_BASE_URL}/api/books/${id}/download-file`;
+      return;
+    }
+
+    if (!navigator.onLine) {
+      setOfflineDownloadMessage('Connect to the server before downloading this EPUB for offline reading.');
+      return;
+    }
+
+    setIsOfflineDownloading(true);
+    setOfflineDownloadMessage('Preparing offline download...');
+
+    try {
+      let targetFolder = offlineFolderHandle;
+      if (!targetFolder) {
+        if (!window.showDirectoryPicker) {
+          throw new Error('Offline folders require a Chromium-based browser over HTTPS.');
+        }
+
+        targetFolder = await window.showDirectoryPicker({ mode: 'readwrite' });
+        await saveOfflineFolder(user.id, targetFolder);
+        setOfflineFolderHandle(targetFolder);
+      }
+
+      const permissionGranted = await ensureOfflineFolderPermission(targetFolder, true);
+      if (!permissionGranted) throw new Error('Bookshelf needs write permission for the selected offline folder.');
+
+      await downloadBookToOfflineFolder({
+        book,
+        bookId: id,
+        userId: user.id,
+        folderHandle: targetFolder,
+        downloadFile: booksApi.downloadFile,
+        writeOfflineBook: writeOfflineBookToFolder,
+        saveOfflineRecords: saveOfflineBooks
+      });
+
+      setIsBookOffline(true);
+      setBook((previous) => ({
+        ...previous,
+        book_downloads: (previous.book_downloads || 0) + 1
+      }));
+      setOfflineDownloadMessage(`Saved ${book.book_title || book.book_filename} to ${targetFolder.name}.`);
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        setOfflineDownloadMessage('Offline folder selection was cancelled.');
+      } else {
+        console.error('Failed to save book for offline reading', error);
+        setOfflineDownloadMessage(error.response?.data?.error || error.message || 'Could not save this book for offline reading.');
+      }
+    } finally {
+      setIsOfflineDownloading(false);
+    }
+  };
 
   useEffect(() => {
     const loadGenresAndAuthors = async () => {
@@ -650,6 +720,32 @@ export default function BookDetails() {
     fetchBook();
     fetchReviews();
   }, [id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setOfflineDownloadMessage('');
+    setIsBookOffline(false);
+
+    if (!user?.id) {
+      setOfflineFolderHandle(null);
+      return undefined;
+    }
+
+    Promise.all([
+      getOfflineFolderHandle(user.id),
+      getOfflineBook(user.id, id)
+    ]).then(([folderHandle, offlineBook]) => {
+      if (cancelled) return;
+      setOfflineFolderHandle(folderHandle);
+      setIsBookOffline(Boolean(offlineBook));
+    }).catch((error) => {
+      console.error('Failed to load offline book status', error);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, user?.id]);
 
   useEffect(() => {
     if (book) {
@@ -1151,34 +1247,42 @@ export default function BookDetails() {
                 </div>
               </div>
 
-              <div 
+              <button
+                type="button"
+                disabled={!book.file_exists || !hasPermission('userrole_readbooks') || isOfflineDownloading}
                 className={cn(
                   "h-12 w-12 flex items-center justify-center rounded-full bg-secondary/50 border border-white/5 transition-colors backdrop-blur-sm",
-                  (book.file_exists && hasPermission('userrole_readbooks')) ? "text-muted-foreground hover:text-foreground cursor-pointer" : "text-muted-foreground/30 cursor-not-allowed"
+                  (book.file_exists && hasPermission('userrole_readbooks'))
+                    ? isBookOffline && isEpubBook(book)
+                      ? "text-green-500 border-green-500/30 hover:bg-green-500/10 cursor-pointer"
+                      : "text-muted-foreground hover:text-foreground cursor-pointer"
+                    : "text-muted-foreground/30 cursor-not-allowed"
                 )}
-                title={!hasPermission('userrole_readbooks') ? "Reader access required to download" : "Download book"}
-                onClick={async () => {
-                  if (!hasPermission('userrole_readbooks')) {
-                      return; // Guest cannot download
-                  }
-                  if (book.file_exists && book.book_filename) {
-                      // Use direct navigation to download endpoint.
-                      // Authentication is handled via Cookies which are sent automatically with the request.
-                      const downloadUrl = `${import.meta.env.VITE_API_BASE_URL}/api/books/${id}/download-file`;
-                      
-                      // Increment local counter immediately for UI feedback
-                      setBook(prev => ({ ...prev, book_downloads: (prev.book_downloads || 0) + 1 }));
-                      
-                      // Trigger download
-                      window.location.href = downloadUrl;
-                  }
-                }}
+                title={!hasPermission('userrole_readbooks')
+                  ? 'Reader access required to download'
+                  : isBookOffline && isEpubBook(book)
+                    ? 'Available offline — download again'
+                    : isEpubBook(book)
+                      ? 'Download to offline folder'
+                      : 'Download book'}
+                aria-label={isBookOffline && isEpubBook(book) ? 'Available offline; download again' : 'Download book'}
+                onClick={handleBookDownload}
               >
-                <Download size={20} />
-              </div>
+                {isOfflineDownloading
+                  ? <span className="h-5 w-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  : isBookOffline && isEpubBook(book)
+                    ? <Check size={20} />
+                    : <Download size={20} />}
+              </button>
               
 
             </div>
+
+            {offlineDownloadMessage && (
+              <p className="mt-3 text-xs font-medium text-muted-foreground" role="status" aria-live="polite">
+                {offlineDownloadMessage}
+              </p>
+            )}
 
             {/* Synopsis */}
             <div className="mt-4 max-w-3xl">
