@@ -538,14 +538,21 @@ export default function Reader() {
         let bookData;
         let localBook = null;
 
-        try {
+        if (navigator.onLine !== false) {
+          try {
             const res = await booksApi.getById(id);
             bookData = res.data.data;
             setIsOfflineBook(false);
-        } catch (onlineError) {
+          } catch (onlineError) {
             localBook = await getOfflineBook(user?.id, id);
             if (!localBook) throw onlineError;
+          }
+        } else {
+          localBook = await getOfflineBook(user?.id, id);
+          if (!localBook) throw new Error('This book has not been downloaded for offline reading.');
+        }
 
+        if (localBook) {
             bookData = {
                 ...localBook.metadata,
                 ID: localBook.bookId,
@@ -749,8 +756,9 @@ export default function Reader() {
       if (!user?.id) return;
 
       saveOfflineProgress(user.id, id, progress)
-        .then(() => booksApi.updateProgress(id, progress))
         .then(async () => {
+          if (navigator.onLine === false) return;
+          await booksApi.updateProgress(id, progress);
           const localProgress = await getOfflineProgress(user.id, id).catch(() => null);
           if (localProgress) await markProgressSynced(user.id, id, localProgress.updatedAt);
         })

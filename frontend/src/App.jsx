@@ -39,7 +39,7 @@ import ReadlistDetails from './pages/ReadlistDetails';
 import { booksApi, libraryApi, genresApi, searchApi } from './api/api';
 import ProfileModal from './components/ProfileModal';
 import InstallPWA from './components/InstallPWA';
-import { syncPendingProgress } from './lib/offline';
+import { getOfflineBooks, getOfflineProgress, syncPendingProgress } from './lib/offline';
 
 // UI Components
 // ... (rest)
@@ -77,7 +77,10 @@ const SidebarItem = ({ icon: Icon, label, active, onClick, to, hasMenu, onMenuCl
 const BookCard = ({ title, year, cover, progress, id }) => {
   const navigate = useNavigate();
   return (
-    <div onClick={() => navigate(`/book/${id}`)} className="flex flex-col gap-2 group cursor-pointer animate-in fade-in zoom-in duration-500">
+    <div
+      onClick={() => navigate(navigator.onLine === false ? `/reader/${id}` : `/book/${id}`)}
+      className="flex flex-col gap-2 group cursor-pointer animate-in fade-in zoom-in duration-500"
+    >
       <div className="relative aspect-[2/3] overflow-hidden rounded-sm bg-accent/50 border border-border group-hover:border-primary/50 transition-all shadow-md group-hover:shadow-[0_0_15px_rgba(241,24,76,0.3)]">
         <img src={cover || `https://api.dicebear.com/7.x/initials/svg?seed=${title}`} alt={title} className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105" />
         {progress > 0 && (
@@ -138,7 +141,7 @@ const Layout = ({ children }) => {
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(async () => {
-      if (searchQuery.length >= 2) {
+      if (searchQuery.length >= 2 && navigator.onLine !== false) {
         try {
           const res = await searchApi.search(searchQuery);
           setSearchResults(res.data.data);
@@ -534,6 +537,26 @@ function Dashboard() {
     const fetchData = async () => {
       setLoading(true);
       try {
+        if (navigator.onLine === false) {
+          const storedBooks = await getOfflineBooks(user?.id);
+          const localBooks = await Promise.all(storedBooks.map(async (storedBook) => {
+            const progress = await getOfflineProgress(user.id, storedBook.bookId).catch(() => null);
+            return {
+              ...storedBook.metadata,
+              ID: storedBook.bookId,
+              book_progress_percentage: progress?.progress_percentage
+                ?? storedBook.metadata.book_progress_percentage
+                ?? 0
+            };
+          }));
+          setBooks(localBooks);
+          setContinueReading(localBooks.filter((book) => book.book_progress_percentage > 0));
+          setMostRead(localBooks);
+          setMostDownloaded(localBooks);
+          setGenresWithBooks([]);
+          return;
+        }
+
         if (activeTab === 'Explore') {
           const [booksRes, continueRes] = await Promise.all([
               booksApi.getAll({ sort: 'latest', limit: 24 }),
@@ -559,7 +582,7 @@ function Dashboard() {
       }
     };
     fetchData();
-  }, [activeTab]);
+  }, [activeTab, user?.id]);
 
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden">

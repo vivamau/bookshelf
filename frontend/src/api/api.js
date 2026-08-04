@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { guardOnlineRequest } from '../lib/offlineNetwork';
 
 const API_URL = `${import.meta.env.VITE_API_BASE_URL}/api`;
 
@@ -6,6 +7,8 @@ const api = axios.create({
   baseURL: API_URL,
   withCredentials: true // Enable sending cookies
 });
+
+api.interceptors.request.use((config) => guardOnlineRequest(config));
 
 // Response interceptor to handle errors (like 401)
 api.interceptors.response.use(

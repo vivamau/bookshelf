@@ -20,6 +20,11 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuth = async () => {
     try {
+      if (navigator.onLine === false) {
+        setUser(await getOfflineUser());
+        return;
+      }
+
       const res = await authApi.me();
       setUser(res.data);
       await saveOfflineUser(res.data);

@@ -670,6 +670,7 @@ export default function BookDetails() {
 
   useEffect(() => {
     const loadGenresAndAuthors = async () => {
+        if (navigator.onLine === false) return;
         try {
             const [genresRes, authorsRes, publishersRes, languagesRes] = await Promise.all([
               genresApi.getAll(),
@@ -691,8 +692,20 @@ export default function BookDetails() {
   useEffect(() => {
     const fetchBook = async () => {
       try {
-        const res = await booksApi.getById(id);
-        const bookData = res.data.data;
+        let bookData;
+        if (navigator.onLine === false) {
+          const offlineBook = await getOfflineBook(user?.id, id);
+          if (!offlineBook) throw new Error('This book has not been downloaded for offline reading.');
+          bookData = {
+            ...offlineBook.metadata,
+            ID: offlineBook.bookId,
+            book_filename: offlineBook.filename,
+            file_exists: true
+          };
+        } else {
+          const res = await booksApi.getById(id);
+          bookData = res.data.data;
+        }
         setBook(bookData);
         setEditForm({
             book_title: bookData.book_title || '',
@@ -718,8 +731,8 @@ export default function BookDetails() {
       }
     };
     fetchBook();
-    fetchReviews();
-  }, [id]);
+    if (navigator.onLine !== false) fetchReviews();
+  }, [id, user?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -748,7 +761,7 @@ export default function BookDetails() {
   }, [id, user?.id]);
 
   useEffect(() => {
-    if (book) {
+    if (book && navigator.onLine !== false) {
       fetchAuthorBooks(book);
       fetchSimilarBooks(book);
     }
