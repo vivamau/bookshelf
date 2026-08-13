@@ -164,26 +164,28 @@ const BrowserModal = ({ isOpen, onClose, onSelect }) => {
     );
 };
 
-const ClearOfflineCollectionDialog = ({
+const OfflineRemovalDialog = ({
     isOpen,
     bookCount,
+    bookTitle,
     includesFolderFiles,
-    isClearing,
+    isRemoving,
     onCancel,
     onConfirm
 }) => {
     const cancelButtonRef = useRef(null);
+    const isSingleBook = Boolean(bookTitle);
 
     useEffect(() => {
         if (!isOpen) return undefined;
         cancelButtonRef.current?.focus();
 
         const handleKeyDown = (event) => {
-            if (event.key === 'Escape' && !isClearing) onCancel();
+            if (event.key === 'Escape' && !isRemoving) onCancel();
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, isClearing, onCancel]);
+    }, [isOpen, isRemoving, onCancel]);
 
     if (!isOpen) return null;
 
@@ -191,14 +193,14 @@ const ClearOfflineCollectionDialog = ({
         <div
             className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-background/80 backdrop-blur-md animate-in fade-in duration-200"
             onMouseDown={(event) => {
-                if (event.target === event.currentTarget && !isClearing) onCancel();
+                if (event.target === event.currentTarget && !isRemoving) onCancel();
             }}
         >
             <div
                 role="alertdialog"
                 aria-modal="true"
-                aria-labelledby="clear-offline-title"
-                aria-describedby="clear-offline-description"
+                aria-labelledby="offline-removal-title"
+                aria-describedby="offline-removal-description"
                 className="w-full max-w-md overflow-hidden rounded-2xl border border-border bg-card shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-2 duration-200"
             >
                 <div className="relative px-6 pt-6 pb-5 border-b border-border bg-destructive/5">
@@ -211,17 +213,21 @@ const ClearOfflineCollectionDialog = ({
                             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-destructive mb-1">
                                 Permanent removal
                             </p>
-                            <h2 id="clear-offline-title" className="text-xl font-black tracking-tight">
-                                Clear offline collection?
+                            <h2 id="offline-removal-title" className="text-xl font-black tracking-tight">
+                                {isSingleBook ? 'Remove offline copy?' : 'Clear offline collection?'}
                             </h2>
                         </div>
                     </div>
                 </div>
 
                 <div className="p-6">
-                    <p id="clear-offline-description" className="text-sm text-muted-foreground leading-relaxed">
-                        This removes {bookCount} offline {bookCount === 1 ? 'book' : 'books'} from this device.
-                        {includesFolderFiles && ' EPUB files stored in your selected offline folder will also be deleted.'}
+                    <p id="offline-removal-description" className="text-sm text-muted-foreground leading-relaxed">
+                        {isSingleBook
+                            ? <>This removes <span className="font-bold text-foreground">“{bookTitle}”</span> from offline reading on this device.</>
+                            : <>This removes {bookCount} offline {bookCount === 1 ? 'book' : 'books'} from this device.</>}
+                        {includesFolderFiles && (isSingleBook
+                            ? ' Its EPUB file in your selected offline folder will also be deleted.'
+                            : ' EPUB files stored in your selected offline folder will also be deleted.')}
                     </p>
                     <div className="mt-4 rounded-xl border border-border bg-secondary/10 px-4 py-3 text-xs text-muted-foreground">
                         Reading progress is preserved. Files downloaded separately to your laptop are not affected.
@@ -232,7 +238,7 @@ const ClearOfflineCollectionDialog = ({
                             ref={cancelButtonRef}
                             type="button"
                             onClick={onCancel}
-                            disabled={isClearing}
+                            disabled={isRemoving}
                             className="px-5 py-2.5 rounded-xl border border-border bg-card text-sm font-bold hover:bg-secondary/30 transition-colors disabled:opacity-40"
                         >
                             Keep collection
@@ -240,13 +246,17 @@ const ClearOfflineCollectionDialog = ({
                         <button
                             type="button"
                             onClick={onConfirm}
-                            disabled={isClearing}
+                            disabled={isRemoving}
                             className="px-5 py-2.5 rounded-xl bg-destructive text-destructive-foreground text-sm font-black hover:bg-destructive/90 transition-all shadow-lg shadow-destructive/15 flex items-center justify-center gap-2 disabled:opacity-60"
                         >
-                            {isClearing
+                            {isRemoving
                                 ? <Loader className="animate-spin" size={16} />
                                 : <Trash2 size={16} />}
-                            {isClearing ? 'Removing books...' : `Remove ${bookCount} ${bookCount === 1 ? 'book' : 'books'}`}
+                            {isRemoving
+                                ? 'Removing...'
+                                : isSingleBook
+                                    ? 'Remove offline copy'
+                                    : `Remove ${bookCount} ${bookCount === 1 ? 'book' : 'books'}`}
                         </button>
                     </div>
                 </div>
@@ -303,6 +313,7 @@ export default function Settings() {
   const [downloadingCatalogBookId, setDownloadingCatalogBookId] = useState(null);
   const [offlineCatalogSearch, setOfflineCatalogSearch] = useState('');
   const [isClearOfflineDialogOpen, setIsClearOfflineDialogOpen] = useState(false);
+  const [offlineBookPendingRemoval, setOfflineBookPendingRemoval] = useState(null);
   const supportsOfflineFolderPicker = typeof window.showDirectoryPicker === 'function';
   const normalizedCatalogSearch = offlineCatalogSearch.trim().toLowerCase();
   const filteredOfflineCatalog = offlineCatalog.filter((book) => !normalizedCatalogSearch || [
@@ -504,14 +515,15 @@ export default function Settings() {
     }
   };
 
-  const handleRemoveOfflineBook = async (offlineBook) => {
-    const title = offlineBook.metadata?.book_title || offlineBook.filename || 'this book';
-    const deletesFolderFile = offlineBook.storageType === 'folder' || offlineBook.fileHandle;
-    const confirmation = deletesFolderFile
-        ? `Remove “${title}” from offline reading and delete its EPUB file from the selected folder?`
-        : `Remove “${title}” from offline reading on this device?`;
-    if (!window.confirm(confirmation)) return;
+  const handleRemoveOfflineBook = (offlineBook) => {
+    setOfflineBookPendingRemoval(offlineBook);
+  };
 
+  const confirmRemoveOfflineBook = async () => {
+    const offlineBook = offlineBookPendingRemoval;
+    if (!offlineBook) return;
+
+    const title = offlineBook.metadata?.book_title || offlineBook.filename || 'this book';
     setRemovingOfflineBookId(String(offlineBook.bookId));
     setOfflineMessage(`Removing ${title}...`);
     try {
@@ -523,6 +535,7 @@ export default function Settings() {
         setOfflineMessage(err.message || 'Could not remove this offline book.');
     } finally {
         setRemovingOfflineBookId(null);
+        setOfflineBookPendingRemoval(null);
     }
   };
 
@@ -1385,13 +1398,29 @@ export default function Settings() {
             </div>
         )}
 
-        <ClearOfflineCollectionDialog
+        <OfflineRemovalDialog
             isOpen={isClearOfflineDialogOpen}
             bookCount={offlineBooks.length}
             includesFolderFiles={offlineBooks.some((book) => book.storageType === 'folder' || book.fileHandle)}
-            isClearing={removingOfflineBookId === 'all'}
+            isRemoving={removingOfflineBookId === 'all'}
             onCancel={() => setIsClearOfflineDialogOpen(false)}
             onConfirm={handleClearOfflineBooks}
+        />
+
+        <OfflineRemovalDialog
+            isOpen={Boolean(offlineBookPendingRemoval)}
+            bookCount={1}
+            bookTitle={offlineBookPendingRemoval?.metadata?.book_title || offlineBookPendingRemoval?.filename}
+            includesFolderFiles={Boolean(
+                offlineBookPendingRemoval
+                && (offlineBookPendingRemoval.storageType === 'folder' || offlineBookPendingRemoval.fileHandle)
+            )}
+            isRemoving={Boolean(
+                offlineBookPendingRemoval
+                && removingOfflineBookId === String(offlineBookPendingRemoval.bookId)
+            )}
+            onCancel={() => setOfflineBookPendingRemoval(null)}
+            onConfirm={confirmRemoveOfflineBook}
         />
       </div>
     </div>
