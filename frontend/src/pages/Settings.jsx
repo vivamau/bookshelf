@@ -23,7 +23,8 @@ import {
     Volume2,
     CloudOff,
     RefreshCw,
-    Download
+    Download,
+    Search
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { useAuth } from '../context/AuthContext';
@@ -40,7 +41,12 @@ import {
     saveOfflineFolder,
     writeOfflineBookToFolder
 } from '../lib/offline';
-import { removeBookFromOfflineReading, saveOfflineBookAsFile } from '../lib/offlineBookDownload';
+import {
+    downloadCatalogBookAsFile,
+    getOfflineCatalogFailureMessage,
+    removeBookFromOfflineReading,
+    saveOfflineBookAsFile
+} from '../lib/offlineBookDownload';
 
 const OPENAI_TTS_VOICES = [
   { id: 'marin', label: 'Marin', hint: 'Best quality' },
@@ -203,7 +209,16 @@ export default function Settings() {
   const [offlineStorageEstimate, setOfflineStorageEstimate] = useState(null);
   const [removingOfflineBookId, setRemovingOfflineBookId] = useState(null);
   const [exportingOfflineBookId, setExportingOfflineBookId] = useState(null);
+  const [downloadingCatalogBookId, setDownloadingCatalogBookId] = useState(null);
+  const [offlineCatalogSearch, setOfflineCatalogSearch] = useState('');
   const supportsOfflineFolderPicker = typeof window.showDirectoryPicker === 'function';
+  const normalizedCatalogSearch = offlineCatalogSearch.trim().toLowerCase();
+  const filteredOfflineCatalog = offlineCatalog.filter((book) => !normalizedCatalogSearch || [
+    book.book_title,
+    book.book_filename,
+    book.language_name
+  ].some((value) => String(value || '').toLowerCase().includes(normalizedCatalogSearch)));
+  const offlineBooksById = new Map(offlineBooks.map((book) => [String(book.bookId), book]));
 
   useEffect(() => {
     const updateVoices = () => {
@@ -252,9 +267,14 @@ export default function Settings() {
         } catch (err) {
             console.error('Offline catalog request failed', err);
             setOfflineCatalog([]);
-            setOfflineMessage(err.response?.status === 404
-                ? 'The offline catalog is not available on this server yet.'
-                : err.response?.data?.error || 'Could not load the offline catalog from the server.');
+            const catalogFailureMessage = getOfflineCatalogFailureMessage(err);
+            if (catalogFailureMessage) {
+                setOfflineMessage(catalogFailureMessage);
+            } else {
+                setOfflineMessage((currentMessage) => currentMessage === 'The offline catalog is not available on this server yet.'
+                    ? ''
+                    : currentMessage);
+            }
         }
     }
   };
@@ -371,6 +391,24 @@ export default function Settings() {
         setOfflineMessage(err.message || 'Could not save this offline EPUB as a file.');
     } finally {
         setExportingOfflineBookId(null);
+    }
+  };
+
+  const handleDownloadCatalogBook = async (catalogBook) => {
+    const title = catalogBook.book_title || catalogBook.book_filename || 'EPUB';
+    setDownloadingCatalogBookId(String(catalogBook.ID));
+    setOfflineMessage(`Preparing ${title} for download...`);
+    try {
+        const { filename } = await downloadCatalogBookAsFile({
+            book: catalogBook,
+            downloadFile: booksApi.downloadFile
+        });
+        setOfflineMessage(`Downloaded ${filename} to your laptop.`);
+    } catch (err) {
+        console.error('Catalog EPUB download failed', err);
+        setOfflineMessage(err.response?.data?.error || err.message || 'Could not download this EPUB file.');
+    } finally {
+        setDownloadingCatalogBookId(null);
     }
   };
 
@@ -787,7 +825,7 @@ export default function Settings() {
                                 Offline Library
                             </h2>
                             <p className="text-sm text-muted-foreground mt-1">
-                                Download EPUBs to your selected folder or store them privately inside Bookshelf for offline reading on iPad and Safari.
+                                Save one EPUB to your laptop, or keep a complete collection on this device for offline reading.
                             </p>
                         </div>
                         <span className="shrink-0 text-xs font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full">
@@ -804,7 +842,7 @@ export default function Settings() {
                                     <button
                                         type="button"
                                         onClick={handleOfflineFolderPick}
-                                        disabled={isOfflineDownloading}
+                                        disabled={isOfflineDownloading || downloadingCatalogBookId !== null}
                                         className="bg-primary text-primary-foreground font-black px-5 py-2.5 rounded-xl hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-60"
                                     >
                                         <FolderSearch size={17} />
@@ -841,26 +879,24 @@ export default function Settings() {
                                     <button
                                         type="button"
                                         onClick={handleDownloadOfflineBooks}
-                                        disabled={isOfflineDownloading || removingOfflineBookId !== null || exportingOfflineBookId !== null || !offlineCatalog.length}
+                                        disabled={isOfflineDownloading || removingOfflineBookId !== null || exportingOfflineBookId !== null || downloadingCatalogBookId !== null || !offlineCatalog.length}
                                         className="bg-foreground text-background font-black px-5 py-2.5 rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                                     >
                                         {isOfflineDownloading ? <Loader className="animate-spin" size={17} /> : <Download size={17} />}
-                                        {isOfflineDownloading ? `Downloading ${offlineDownloadCount}/${offlineCatalog.length}` : `Download ${offlineCatalog.length} EPUBs`}
+                                        {isOfflineDownloading ? `Downloading ${offlineDownloadCount}/${offlineCatalog.length}` : `Download all ${offlineCatalog.length} for offline reading`}
                                     </button>
                                 )}
-                                {offlineBooks.length > 0 && (
-                                    <button
-                                        type="button"
-                                        onClick={handleClearOfflineBooks}
-                                        disabled={isOfflineDownloading || removingOfflineBookId !== null || exportingOfflineBookId !== null}
-                                        className="text-xs font-bold text-muted-foreground hover:text-destructive transition-colors flex items-center justify-center gap-2 px-3 py-2"
-                                    >
-                                        {removingOfflineBookId === 'all'
-                                            ? <Loader className="animate-spin" size={15} />
-                                            : <Trash2 size={15} />}
-                                        Remove all offline copies
-                                    </button>
-                                )}
+                                <button
+                                    type="button"
+                                    onClick={handleClearOfflineBooks}
+                                    disabled={isOfflineDownloading || removingOfflineBookId !== null || exportingOfflineBookId !== null || downloadingCatalogBookId !== null || offlineBooks.length === 0}
+                                    className="border border-border bg-card text-foreground font-bold px-4 py-2.5 rounded-xl hover:border-destructive/50 hover:text-destructive hover:bg-destructive/5 transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:hover:text-foreground disabled:hover:border-border disabled:hover:bg-card"
+                                >
+                                    {removingOfflineBookId === 'all'
+                                        ? <Loader className="animate-spin" size={16} />
+                                        : <Trash2 size={16} />}
+                                    Clear offline collection
+                                </button>
                             </div>
                         </div>
 
@@ -868,6 +904,104 @@ export default function Settings() {
                             <div className="flex items-center gap-2 text-xs text-muted-foreground" role="status">
                                 {isOfflineDownloading && <RefreshCw size={14} className="animate-spin text-primary" />}
                                 <span>{offlineMessage}</span>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="pt-6 border-t border-border">
+                        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-4">
+                            <div>
+                                <h3 className="text-lg font-bold">Download individual EPUBs</h3>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                    Save a reusable file directly to your laptop without adding the whole offline collection.
+                                </p>
+                            </div>
+                            <span className="text-xs font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full self-start sm:self-auto">
+                                {offlineCatalog.length} available
+                            </span>
+                        </div>
+
+                        <label className="relative block mb-3">
+                            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                            <input
+                                type="search"
+                                value={offlineCatalogSearch}
+                                onChange={(event) => setOfflineCatalogSearch(event.target.value)}
+                                placeholder="Search by title, filename, or language"
+                                className="w-full bg-secondary/20 border border-input rounded-xl py-2.5 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                                aria-label="Search EPUBs available to download"
+                            />
+                        </label>
+
+                        {offlineCatalog.length === 0 ? (
+                            <div className="text-center py-8 px-6 bg-secondary/10 border border-dashed border-border rounded-xl">
+                                <p className="font-bold">No server EPUBs available</p>
+                                <p className="text-sm text-muted-foreground mt-1">The catalog will appear here when the server is connected.</p>
+                            </div>
+                        ) : filteredOfflineCatalog.length === 0 ? (
+                            <div className="text-center py-8 px-6 bg-secondary/10 border border-dashed border-border rounded-xl">
+                                <p className="font-bold">No matching EPUBs</p>
+                                <p className="text-sm text-muted-foreground mt-1">Try a different title, filename, or language.</p>
+                            </div>
+                        ) : (
+                            <div className="max-h-[28rem] overflow-y-auto rounded-xl border border-border divide-y divide-border bg-secondary/5">
+                                {filteredOfflineCatalog.map((catalogBook) => {
+                                    const title = catalogBook.book_title || catalogBook.book_filename || 'Untitled book';
+                                    const storedOfflineBook = offlineBooksById.get(String(catalogBook.ID));
+                                    const isStoredOffline = Boolean(storedOfflineBook);
+                                    const isDownloading = downloadingCatalogBookId === String(catalogBook.ID);
+                                    const isRemoving = removingOfflineBookId === String(catalogBook.ID);
+
+                                    return (
+                                        <div key={catalogBook.ID} className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 hover:bg-primary/5 transition-colors">
+                                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                                                <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                                                    <BookOpen size={17} />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="font-bold text-sm truncate" title={title}>{title}</p>
+                                                    <p className="text-xs text-muted-foreground truncate mt-0.5" title={catalogBook.book_filename}>
+                                                        {catalogBook.language_name || 'Unknown language'} · {catalogBook.book_filename}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 pl-12 sm:pl-0 shrink-0">
+                                                {isStoredOffline && (
+                                                    <span className="text-[10px] font-black uppercase tracking-wide text-primary bg-primary/10 px-2 py-1 rounded-full">
+                                                        Offline
+                                                    </span>
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDownloadCatalogBook(catalogBook)}
+                                                    disabled={isOfflineDownloading || removingOfflineBookId !== null || exportingOfflineBookId !== null || downloadingCatalogBookId !== null}
+                                                    className="bg-foreground text-background text-xs font-black px-3 py-2 rounded-lg hover:opacity-85 transition-all flex items-center justify-center gap-2 disabled:opacity-40"
+                                                    aria-label={`Download ${title} as an EPUB file`}
+                                                >
+                                                    {isDownloading
+                                                        ? <Loader className="animate-spin" size={14} />
+                                                        : <Download size={14} />}
+                                                    {isDownloading ? 'Downloading' : 'Download EPUB'}
+                                                </button>
+                                                {isStoredOffline && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleRemoveOfflineBook(storedOfflineBook)}
+                                                        disabled={isOfflineDownloading || removingOfflineBookId !== null || exportingOfflineBookId !== null || downloadingCatalogBookId !== null}
+                                                        className="border border-border bg-card text-muted-foreground text-xs font-black px-3 py-2 rounded-lg hover:border-destructive/50 hover:text-destructive hover:bg-destructive/5 transition-all flex items-center justify-center gap-2 disabled:opacity-40"
+                                                        title="Remove this book from the Bookshelf offline collection"
+                                                        aria-label={`Remove offline copy of ${title}`}
+                                                    >
+                                                        {isRemoving
+                                                            ? <Loader className="animate-spin" size={14} />
+                                                            : <Trash2 size={14} />}
+                                                        {isRemoving ? 'Removing' : 'Remove offline'}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         )}
                     </div>

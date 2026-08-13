@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'bookshelf-shell-';
-const CACHE_NAME = `${CACHE_PREFIX}v3`;
+const CACHE_NAME = `${CACHE_PREFIX}v4`;
 const CORE_ASSETS = [
   '/',
   '/index.html',
@@ -60,9 +60,20 @@ self.addEventListener('fetch', (event) => {
 
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      caches.open(CACHE_NAME)
-        .then((cache) => cache.match('/index.html'))
-        .then((cachedShell) => cachedShell || fetch(event.request))
+      caches.open(CACHE_NAME).then(async (cache) => {
+        try {
+          const response = await fetch(event.request, { cache: 'no-store' });
+          if (response.ok) {
+            await Promise.all([
+              cache.put('/', response.clone()),
+              cache.put('/index.html', response.clone())
+            ]);
+          }
+          return response;
+        } catch {
+          return await cache.match('/index.html') || Response.error();
+        }
+      })
     );
     return;
   }

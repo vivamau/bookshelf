@@ -41,6 +41,37 @@ export const downloadBookForOfflineReading = async ({
 
 export const downloadBookToOfflineFolder = downloadBookForOfflineReading;
 
+export const getOfflineCatalogFailureMessage = (error) => {
+  if (error?.response?.status === 404) return null;
+  return error?.response?.data?.error || 'Could not load the offline catalog from the server.';
+};
+
+export const downloadCatalogBookAsFile = async ({
+  book,
+  downloadFile,
+  documentRef,
+  urlApi,
+  scheduleRevoke
+}) => {
+  if (!isEpubBook(book)) throw new Error('Only EPUB books can be downloaded from the offline catalog.');
+  if (!book?.ID) throw new Error('The catalog book record is invalid.');
+  if (!downloadFile) throw new Error('Book downloads are unavailable.');
+
+  const response = await downloadFile(book.ID);
+  if (response?.data == null) throw new Error('The downloaded EPUB was empty.');
+
+  return saveOfflineBookAsFile({
+    offlineBook: {
+      bookId: book.ID,
+      filename: book.book_filename
+    },
+    getOfflineFile: async () => response.data,
+    documentRef,
+    urlApi,
+    scheduleRevoke
+  });
+};
+
 export const saveOfflineBookAsFile = async ({
   offlineBook,
   getOfflineFile,

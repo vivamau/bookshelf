@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  downloadCatalogBookAsFile,
   downloadBookForOfflineReading,
+  getOfflineCatalogFailureMessage,
   isEpubBook,
   removeBookFromOfflineReading,
   saveOfflineBookAsFile
@@ -98,6 +100,55 @@ test('downloadBookForOfflineReading rejects unsupported formats before downloadi
   );
 
   assert.equal(downloaded, false);
+});
+
+test('getOfflineCatalogFailureMessage keeps a missing optional endpoint silent', () => {
+  assert.equal(getOfflineCatalogFailureMessage({ response: { status: 404 } }), null);
+  assert.equal(
+    getOfflineCatalogFailureMessage({ response: { status: 500, data: { error: 'Catalog failed' } } }),
+    'Catalog failed'
+  );
+});
+
+test('downloadCatalogBookAsFile saves one catalog EPUB directly to the laptop', async () => {
+  const calls = [];
+  const blob = { size: 256, type: 'application/epub+zip' };
+  const link = {
+    style: {},
+    click: () => calls.push('click'),
+    remove: () => calls.push('remove')
+  };
+
+  const result = await downloadCatalogBookAsFile({
+    book: { ID: 17, book_filename: 'catalog/book.epub', format_name: 'EPUB' },
+    downloadFile: async (bookId) => {
+      calls.push(['download', bookId]);
+      return { data: blob };
+    },
+    documentRef: {
+      body: { appendChild: () => calls.push('append') },
+      createElement: () => link
+    },
+    urlApi: {
+      createObjectURL: (file) => {
+        calls.push(['url', file]);
+        return 'blob:catalog-book';
+      },
+      revokeObjectURL: (url) => calls.push(['revoke', url])
+    },
+    scheduleRevoke: (callback) => callback()
+  });
+
+  assert.deepEqual(result, { filename: 'book.epub' });
+  assert.equal(link.download, 'book.epub');
+  assert.deepEqual(calls, [
+    ['download', 17],
+    ['url', blob],
+    'append',
+    'click',
+    'remove',
+    ['revoke', 'blob:catalog-book']
+  ]);
 });
 
 test('saveOfflineBookAsFile downloads a browser-stored EPUB with a reusable filename', async () => {
