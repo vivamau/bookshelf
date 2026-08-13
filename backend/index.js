@@ -10,6 +10,7 @@ const fs = require('fs');
 const fileUpload = require('express-fileupload');
 
 const { scanLibrary, refreshCovers, importFiles, scanSingleFile, getComicPage } = require('./utils/libraryScanner');
+const { filterBooksWithAvailableFiles, resolveBookFilePath } = require('./utils/bookFileResolver');
 const { sendEmail } = require('./utils/mailer');
 const { OpenAIConfigError, OpenAIRequestError, synthesizeSpeech } = require('./utils/openaiAudio');
 
@@ -1129,7 +1130,7 @@ booksRouter.get('/offline-catalog', (req, res) => {
 
     db.all(sql, [userId], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
-        res.json({ data: rows });
+        res.json({ data: filterBooksWithAvailableFiles(rows, BOOKS_DIR) });
     });
 });
 
@@ -1190,12 +1191,12 @@ booksRouter.get('/:id/download-file', (req, res) => {
         if (err) return res.status(500).json({ error: err.message });
         if (!book) return res.status(404).json({ error: 'Book not found' });
 
-        const filePath = path.join(BOOKS_DIR, book.book_filename);
-        if (fs.existsSync(filePath)) {
+        const filePath = resolveBookFilePath(BOOKS_DIR, book.book_filename);
+        if (filePath) {
             // Increment counter on real download
             db.run("UPDATE Books SET book_downloads = COALESCE(book_downloads, 0) + 1 WHERE ID = ?", [bookId]);
             // Send file
-            res.download(filePath, book.book_filename);
+            res.download(filePath, path.basename(book.book_filename));
         } else {
             res.status(404).json({ error: 'Source file not found' });
         }

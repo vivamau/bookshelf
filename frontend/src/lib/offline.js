@@ -191,6 +191,14 @@ export const saveOfflineBooks = async (userId, records) => {
   database.close();
 };
 
+export const deleteOfflineBook = async (userId, bookId) => {
+  const database = await openDatabase();
+  const transaction = database.transaction(BOOKS_STORE, 'readwrite');
+  transaction.objectStore(BOOKS_STORE).delete(getBookKey(userId, bookId));
+  await transactionAsPromise(transaction);
+  database.close();
+};
+
 export const clearOfflineBooks = async (userId) => {
   const readDatabase = await openDatabase();
   const readTransaction = readDatabase.transaction(BOOKS_STORE, 'readonly');
@@ -362,21 +370,21 @@ export const getOfflineStorageEstimate = async (storageManager = globalThis.navi
   };
 };
 
-const getDirectoryForFilePath = async (folderHandle, filePath) => {
+const getDirectoryForFilePath = async (folderHandle, filePath, create = false) => {
   const parts = normalizeOfflinePath(filePath).split('/').filter(Boolean);
   const fileName = parts.pop();
   if (!fileName) throw new Error('A filename is required for an offline book.');
 
   let directory = folderHandle;
   for (const directoryName of parts) {
-    directory = await directory.getDirectoryHandle(directoryName, { create: true });
+    directory = await directory.getDirectoryHandle(directoryName, { create });
   }
 
   return { directory, fileName };
 };
 
 export const writeOfflineBookToFolder = async (folderHandle, filePath, blob) => {
-  const { directory, fileName } = await getDirectoryForFilePath(folderHandle, filePath);
+  const { directory, fileName } = await getDirectoryForFilePath(folderHandle, filePath, true);
   const fileHandle = await directory.getFileHandle(fileName, { create: true });
   const writable = await fileHandle.createWritable();
   try {
@@ -385,6 +393,17 @@ export const writeOfflineBookToFolder = async (folderHandle, filePath, blob) => 
     await writable.close();
   }
   return fileHandle;
+};
+
+export const removeOfflineBookFromFolder = async (folderHandle, filePath) => {
+  try {
+    const { directory, fileName } = await getDirectoryForFilePath(folderHandle, filePath);
+    await directory.removeEntry(fileName);
+    return true;
+  } catch (error) {
+    if (error.name === 'NotFoundError') return false;
+    throw error;
+  }
 };
 
 export const getOfflineBookFile = async (offlineBook) => {

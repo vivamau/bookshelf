@@ -16,8 +16,9 @@ const app = require('../../index');
 jest.setTimeout(30000);
 
 describe('Upload Endpoint Integration', () => {
-    let token;
+    let authCookie;
     const dummyFilePath = path.join(__dirname, 'test_upload.epub');
+    const uploadedFilePath = path.join(__dirname, '..', '..', 'books', 'test_upload.epub');
 
     beforeAll(async () => {
         await setupTestDb();
@@ -32,13 +33,15 @@ describe('Upload Endpoint Integration', () => {
                 username: 'admin',
                 password: 'adminpassword' 
             });
-        token = res.body.token;
-        if (!token) console.error("Login failed used for upload test", res.body);
+        authCookie = res.headers['set-cookie'][0].split(';')[0];
     });
 
     afterAll((done) => {
         if (fs.existsSync(dummyFilePath)) {
             fs.unlinkSync(dummyFilePath);
+        }
+        if (fs.existsSync(uploadedFilePath)) {
+            fs.unlinkSync(uploadedFilePath);
         }
         db.close(done);
     });
@@ -46,7 +49,7 @@ describe('Upload Endpoint Integration', () => {
     test('POST /api/books/upload should upload file using express-fileupload', async () => {
         const res = await request(app)
             .post('/api/books/upload')
-            .set('Authorization', `Bearer ${token}`)
+            .set('Cookie', authCookie)
             .attach('book', dummyFilePath); // This uses multipart/form-data
 
         if (res.statusCode !== 201) {
@@ -64,7 +67,7 @@ describe('Upload Endpoint Integration', () => {
 
         const res = await request(app)
             .post('/api/books/upload')
-            .set('Authorization', `Bearer ${token}`)
+            .set('Cookie', authCookie)
             .attach('book', dummyTxtPath);
 
         fs.unlinkSync(dummyTxtPath);

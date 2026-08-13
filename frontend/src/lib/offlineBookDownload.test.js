@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { downloadBookForOfflineReading, isEpubBook } from './offlineBookDownload.js';
+import {
+  downloadBookForOfflineReading,
+  isEpubBook,
+  removeBookFromOfflineReading,
+  saveOfflineBookAsFile
+} from './offlineBookDownload.js';
 
 test('isEpubBook recognizes EPUB metadata and filenames', () => {
   assert.equal(isEpubBook({ book_filename: 'Novel.EPUB' }), true);
@@ -93,4 +98,97 @@ test('downloadBookForOfflineReading rejects unsupported formats before downloadi
   );
 
   assert.equal(downloaded, false);
+});
+
+test('saveOfflineBookAsFile downloads a browser-stored EPUB with a reusable filename', async () => {
+  const calls = [];
+  const link = {
+    style: {},
+    click: () => calls.push('click'),
+    remove: () => calls.push('remove')
+  };
+  const file = { size: 84, type: 'application/epub+zip' };
+  const result = await saveOfflineBookAsFile({
+    offlineBook: { bookId: 8, filename: 'nested/ipad.epub', blob: file },
+    getOfflineFile: async (offlineBook) => {
+      calls.push(['file', offlineBook.bookId]);
+      return offlineBook.blob;
+    },
+    documentRef: {
+      body: { appendChild: (element) => calls.push(['append', element]) },
+      createElement: (tagName) => {
+        calls.push(['element', tagName]);
+        return link;
+      }
+    },
+    urlApi: {
+      createObjectURL: (blob) => {
+        calls.push(['url', blob]);
+        return 'blob:offline-book';
+      },
+      revokeObjectURL: (url) => calls.push(['revoke', url])
+    },
+    scheduleRevoke: (callback) => callback()
+  });
+
+  assert.deepEqual(result, { filename: 'ipad.epub' });
+  assert.equal(link.href, 'blob:offline-book');
+  assert.equal(link.download, 'ipad.epub');
+  assert.deepEqual(calls, [
+    ['file', 8],
+    ['url', file],
+    ['element', 'a'],
+    ['append', link],
+    'click',
+    'remove',
+    ['revoke', 'blob:offline-book']
+  ]);
+});
+
+test('saveOfflineBookAsFile reports when the stored EPUB is unavailable', async () => {
+  await assert.rejects(
+    saveOfflineBookAsFile({
+      offlineBook: { bookId: 9, filename: 'missing.epub' },
+      getOfflineFile: async () => null
+    }),
+    /no longer available/
+  );
+});
+
+test('removeBookFromOfflineReading deletes a browser-stored EPUB record', async () => {
+  const calls = [];
+  const result = await removeBookFromOfflineReading({
+    offlineBook: { bookId: 8, filename: 'ipad.epub', storageType: 'browser', blob: { size: 84 } },
+    userId: 4,
+    folderHandle: null,
+    ensureFolderPermission: async () => calls.push('permission'),
+    removeFolderFile: async () => calls.push('file'),
+    deleteOfflineRecord: async (userId, bookId) => calls.push(['record', userId, bookId])
+  });
+
+  assert.deepEqual(result, { storageType: 'browser' });
+  assert.deepEqual(calls, [['record', 4, 8]]);
+});
+
+test('removeBookFromOfflineReading removes a folder-backed EPUB before its record', async () => {
+  const calls = [];
+  const folderHandle = { name: 'Offline Books' };
+  const result = await removeBookFromOfflineReading({
+    offlineBook: { bookId: 7, filename: 'folder/book.epub', storageType: 'folder', fileHandle: {} },
+    userId: 3,
+    folderHandle,
+    ensureFolderPermission: async (folder, request) => {
+      calls.push(['permission', folder, request]);
+      return true;
+    },
+    removeFolderFile: async (folder, filename) => calls.push(['file', folder, filename]),
+    deleteOfflineRecord: async (userId, bookId) => calls.push(['record', userId, bookId])
+  });
+
+  assert.deepEqual(result, { storageType: 'folder' });
+  assert.deepEqual(calls, [
+    ['permission', folderHandle, true],
+    ['file', folderHandle, 'folder/book.epub'],
+    ['record', 3, 7]
+  ]);
 });

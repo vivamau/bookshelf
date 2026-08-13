@@ -49,7 +49,7 @@ describe('Auth Endpoints', () => {
             console.error('Login failed:', res.text);
         }
         expect(res.statusCode).toEqual(200);
-        expect(res.body).toHaveProperty('token');
+        expect(res.headers['set-cookie'][0]).toMatch(/^token=.*HttpOnly/);
         expect(res.body.username).toEqual(testUser.username);
     });
 

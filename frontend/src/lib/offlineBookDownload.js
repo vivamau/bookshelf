@@ -40,3 +40,65 @@ export const downloadBookForOfflineReading = async ({
 };
 
 export const downloadBookToOfflineFolder = downloadBookForOfflineReading;
+
+export const saveOfflineBookAsFile = async ({
+  offlineBook,
+  getOfflineFile,
+  documentRef = globalThis.document,
+  urlApi = globalThis.URL,
+  scheduleRevoke = (callback) => globalThis.setTimeout(callback, 1000)
+}) => {
+  if (!offlineBook?.bookId) throw new Error('The offline book record is invalid.');
+  if (!getOfflineFile) throw new Error('Offline file access is unavailable.');
+
+  const file = await getOfflineFile(offlineBook);
+  if (!file) throw new Error('The offline EPUB file is no longer available on this device.');
+  if (!documentRef?.createElement || !documentRef.body || !urlApi?.createObjectURL) {
+    throw new Error('File downloads are unavailable in this browser.');
+  }
+
+  const filename = String(offlineBook.filename || `book-${offlineBook.bookId}.epub`)
+    .replace(/\\/g, '/')
+    .split('/')
+    .filter(Boolean)
+    .pop() || `book-${offlineBook.bookId}.epub`;
+  const objectUrl = urlApi.createObjectURL(file);
+  const link = documentRef.createElement('a');
+  link.href = objectUrl;
+  link.download = filename;
+  link.style.display = 'none';
+  documentRef.body.appendChild(link);
+
+  try {
+    link.click();
+  } finally {
+    if (typeof link.remove === 'function') link.remove();
+    else documentRef.body.removeChild(link);
+    scheduleRevoke(() => urlApi.revokeObjectURL(objectUrl));
+  }
+
+  return { filename };
+};
+
+export const removeBookFromOfflineReading = async ({
+  offlineBook,
+  userId,
+  folderHandle,
+  ensureFolderPermission,
+  removeFolderFile,
+  deleteOfflineRecord
+}) => {
+  if (!offlineBook?.bookId) throw new Error('The offline book record is invalid.');
+  if (!userId) throw new Error('Sign in before removing an offline book.');
+
+  const usesFolder = offlineBook.storageType === 'folder' || Boolean(offlineBook.fileHandle);
+  if (usesFolder) {
+    if (!folderHandle) throw new Error('Select the original offline folder before removing this EPUB file.');
+    const permissionGranted = await ensureFolderPermission(folderHandle, true);
+    if (!permissionGranted) throw new Error('Bookshelf needs write permission to remove the EPUB file.');
+    await removeFolderFile(folderHandle, offlineBook.filename);
+  }
+
+  await deleteOfflineRecord(userId, offlineBook.bookId);
+  return { storageType: usesFolder ? 'folder' : 'browser' };
+};

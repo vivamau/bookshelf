@@ -28,17 +28,19 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from '../context/AuthContext';
 import {
-    clearOfflineBooks,
-    clearOfflineFolderMeta,
+    deleteOfflineBook,
     ensureOfflineFolderPermission,
+    getOfflineBookFile,
     getOfflineBooks,
     getOfflineFolderMeta,
     getOfflineStorageEstimate,
+    removeOfflineBookFromFolder,
     requestOfflineStoragePersistence,
     saveOfflineBooks,
     saveOfflineFolder,
     writeOfflineBookToFolder
 } from '../lib/offline';
+import { removeBookFromOfflineReading, saveOfflineBookAsFile } from '../lib/offlineBookDownload';
 
 const OPENAI_TTS_VOICES = [
   { id: 'marin', label: 'Marin', hint: 'Best quality' },
@@ -199,6 +201,8 @@ export default function Settings() {
   const [offlineDownloadCount, setOfflineDownloadCount] = useState(0);
   const [offlineMessage, setOfflineMessage] = useState('');
   const [offlineStorageEstimate, setOfflineStorageEstimate] = useState(null);
+  const [removingOfflineBookId, setRemovingOfflineBookId] = useState(null);
+  const [exportingOfflineBookId, setExportingOfflineBookId] = useState(null);
   const supportsOfflineFolderPicker = typeof window.showDirectoryPicker === 'function';
 
   useEffect(() => {
@@ -236,12 +240,22 @@ export default function Settings() {
         setOfflineFolderMeta(folderMeta);
         setOfflineFolderHandle(folderMeta?.folderHandle || null);
         setOfflineStorageEstimate(storageEstimate);
-        if (navigator.onLine) {
-            const catalogResponse = await booksApi.getOfflineCatalog();
-            setOfflineCatalog(catalogResponse.data.data || []);
-        }
     } catch (err) {
         setOfflineMessage(err.message || 'Offline storage is unavailable in this browser.');
+        return;
+    }
+
+    if (navigator.onLine) {
+        try {
+            const catalogResponse = await booksApi.getOfflineCatalog();
+            setOfflineCatalog(catalogResponse.data.data || []);
+        } catch (err) {
+            console.error('Offline catalog request failed', err);
+            setOfflineCatalog([]);
+            setOfflineMessage(err.response?.status === 404
+                ? 'The offline catalog is not available on this server yet.'
+                : err.response?.data?.error || 'Could not load the offline catalog from the server.');
+        }
     }
   };
 
@@ -289,30 +303,40 @@ export default function Settings() {
         }
 
         let completedCount = 0;
+        let unavailableCount = 0;
         for (const catalogBook of offlineCatalog) {
-            const response = await booksApi.downloadFile(catalogBook.ID);
-            const offlineRecord = {
-                bookId: catalogBook.ID,
-                filename: catalogBook.book_filename,
-                metadata: catalogBook
-            };
-            if (offlineFolderHandle) {
-                offlineRecord.fileHandle = await writeOfflineBookToFolder(offlineFolderHandle, catalogBook.book_filename, response.data);
-                offlineRecord.storageType = 'folder';
-            } else {
-                offlineRecord.blob = response.data;
-                offlineRecord.storageType = 'browser';
+            try {
+                const response = await booksApi.downloadFile(catalogBook.ID);
+                const offlineRecord = {
+                    bookId: catalogBook.ID,
+                    filename: catalogBook.book_filename,
+                    metadata: catalogBook
+                };
+                if (offlineFolderHandle) {
+                    offlineRecord.fileHandle = await writeOfflineBookToFolder(offlineFolderHandle, catalogBook.book_filename, response.data);
+                    offlineRecord.storageType = 'folder';
+                } else {
+                    offlineRecord.blob = response.data;
+                    offlineRecord.storageType = 'browser';
+                }
+                await saveOfflineBooks(user.id, [offlineRecord]);
+                completedCount += 1;
+                setOfflineDownloadCount(completedCount);
+            } catch (bookError) {
+                if (bookError.response?.status !== 404) throw bookError;
+                unavailableCount += 1;
+                console.warn(`Skipping unavailable offline EPUB ${catalogBook.ID}`);
             }
-            await saveOfflineBooks(user.id, [offlineRecord]);
-            completedCount += 1;
-            setOfflineDownloadCount(completedCount);
-            setOfflineMessage(`Downloading ${completedCount} of ${offlineCatalog.length} EPUBs...`);
+            setOfflineMessage(`Processed ${completedCount + unavailableCount} of ${offlineCatalog.length} EPUBs...`);
         }
 
         await refreshOfflineState(user.id);
-        setOfflineMessage(offlineFolderHandle
-            ? `Downloaded ${offlineCatalog.length} EPUBs to ${offlineFolderHandle.name}.`
-            : `Downloaded ${offlineCatalog.length} EPUBs inside Bookshelf on this device.`);
+        const destinationMessage = offlineFolderHandle
+            ? `Downloaded ${completedCount} EPUBs to ${offlineFolderHandle.name}.`
+            : `Downloaded ${completedCount} EPUBs inside Bookshelf on this device.`;
+        setOfflineMessage(unavailableCount
+            ? `${destinationMessage} Skipped ${unavailableCount} unavailable source ${unavailableCount === 1 ? 'file' : 'files'}.`
+            : destinationMessage);
     } catch (err) {
         console.error('Offline book download failed', err);
         setOfflineMessage(err.name === 'QuotaExceededError'
@@ -323,20 +347,75 @@ export default function Settings() {
     }
   };
 
-  const handleClearOfflineBooks = async () => {
+  const removeOfflineCopy = (offlineBook) => removeBookFromOfflineReading({
+    offlineBook,
+    userId: user.id,
+    folderHandle: offlineFolderHandle,
+    ensureFolderPermission: ensureOfflineFolderPermission,
+    removeFolderFile: removeOfflineBookFromFolder,
+    deleteOfflineRecord: deleteOfflineBook
+  });
+
+  const handleExportOfflineBook = async (offlineBook) => {
+    const title = offlineBook.metadata?.book_title || offlineBook.filename || 'EPUB';
+    setExportingOfflineBookId(String(offlineBook.bookId));
+    setOfflineMessage(`Preparing ${title} as an EPUB file...`);
     try {
-        const removedBrowserCopies = offlineBooks.some((book) => book.storageType === 'browser' || book.blob);
-        await clearOfflineBooks(user.id);
-        await clearOfflineFolderMeta(user.id);
-        setOfflineBooks([]);
-        setOfflineFolderMeta(null);
-        setOfflineFolderHandle(null);
-        setOfflineStorageEstimate(await getOfflineStorageEstimate().catch(() => null));
-        setOfflineMessage(removedBrowserCopies
-            ? 'Bookshelf removed the offline EPUB copies stored on this device. Files written to an external folder were left untouched.'
-            : 'Bookshelf removed the offline metadata. Files already written to the folder were left untouched.');
+        const { filename } = await saveOfflineBookAsFile({
+            offlineBook,
+            getOfflineFile: getOfflineBookFile
+        });
+        setOfflineMessage(`Saved ${filename}. You can reuse this EPUB file in other reading apps.`);
     } catch (err) {
+        console.error('Offline EPUB export failed', err);
+        setOfflineMessage(err.message || 'Could not save this offline EPUB as a file.');
+    } finally {
+        setExportingOfflineBookId(null);
+    }
+  };
+
+  const handleRemoveOfflineBook = async (offlineBook) => {
+    const title = offlineBook.metadata?.book_title || offlineBook.filename || 'this book';
+    const deletesFolderFile = offlineBook.storageType === 'folder' || offlineBook.fileHandle;
+    const confirmation = deletesFolderFile
+        ? `Remove “${title}” from offline reading and delete its EPUB file from the selected folder?`
+        : `Remove “${title}” from offline reading on this device?`;
+    if (!window.confirm(confirmation)) return;
+
+    setRemovingOfflineBookId(String(offlineBook.bookId));
+    setOfflineMessage(`Removing ${title}...`);
+    try {
+        await removeOfflineCopy(offlineBook);
+        await refreshOfflineState(user.id);
+        setOfflineMessage(`Removed ${title} from offline reading.`);
+    } catch (err) {
+        console.error('Offline book removal failed', err);
+        setOfflineMessage(err.message || 'Could not remove this offline book.');
+    } finally {
+        setRemovingOfflineBookId(null);
+    }
+  };
+
+  const handleClearOfflineBooks = async () => {
+    const includesFolderFiles = offlineBooks.some((book) => book.storageType === 'folder' || book.fileHandle);
+    const confirmation = includesFolderFiles
+        ? `Remove all ${offlineBooks.length} offline books? EPUB files stored in the selected folder will also be deleted.`
+        : `Remove all ${offlineBooks.length} offline books from this device?`;
+    if (!window.confirm(confirmation)) return;
+
+    setRemovingOfflineBookId('all');
+    try {
+        for (const offlineBook of offlineBooks) {
+            await removeOfflineCopy(offlineBook);
+        }
+        setOfflineBooks([]);
+        setOfflineStorageEstimate(await getOfflineStorageEstimate().catch(() => null));
+        setOfflineMessage('Removed all offline EPUB copies. Your reading progress was preserved.');
+    } catch (err) {
+        await refreshOfflineState(user.id);
         setOfflineMessage(err.message || 'Could not clear offline EPUB copies.');
+    } finally {
+        setRemovingOfflineBookId(null);
     }
   };
 
@@ -762,7 +841,7 @@ export default function Settings() {
                                     <button
                                         type="button"
                                         onClick={handleDownloadOfflineBooks}
-                                        disabled={isOfflineDownloading || !offlineCatalog.length}
+                                        disabled={isOfflineDownloading || removingOfflineBookId !== null || exportingOfflineBookId !== null || !offlineCatalog.length}
                                         className="bg-foreground text-background font-black px-5 py-2.5 rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                                     >
                                         {isOfflineDownloading ? <Loader className="animate-spin" size={17} /> : <Download size={17} />}
@@ -773,10 +852,13 @@ export default function Settings() {
                                     <button
                                         type="button"
                                         onClick={handleClearOfflineBooks}
-                                        disabled={isOfflineDownloading}
+                                        disabled={isOfflineDownloading || removingOfflineBookId !== null || exportingOfflineBookId !== null}
                                         className="text-xs font-bold text-muted-foreground hover:text-destructive transition-colors flex items-center justify-center gap-2 px-3 py-2"
                                     >
-                                        <Trash2 size={15} /> Remove offline copies
+                                        {removingOfflineBookId === 'all'
+                                            ? <Loader className="animate-spin" size={15} />
+                                            : <Trash2 size={15} />}
+                                        Remove all offline copies
                                     </button>
                                 )}
                             </div>
@@ -842,15 +924,42 @@ export default function Settings() {
                                                     <span className="text-[10px] font-bold text-muted-foreground shrink-0">{progress}%</span>
                                                 </div>
                                             </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => navigate(`/reader/${offlineBook.bookId}`)}
-                                                className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors shrink-0"
-                                                title="Read offline"
-                                                aria-label={`Read ${title}`}
-                                            >
-                                                <BookOpen size={17} />
-                                            </button>
+                                            <div className="flex items-center gap-1 shrink-0">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => navigate(`/reader/${offlineBook.bookId}`)}
+                                                    disabled={removingOfflineBookId !== null || exportingOfflineBookId !== null}
+                                                    className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors disabled:opacity-40"
+                                                    title="Read offline"
+                                                    aria-label={`Read ${title}`}
+                                                >
+                                                    <BookOpen size={17} />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleExportOfflineBook(offlineBook)}
+                                                    disabled={removingOfflineBookId !== null || exportingOfflineBookId !== null}
+                                                    className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors disabled:opacity-40"
+                                                    title="Save reusable EPUB file"
+                                                    aria-label={`Save ${title} as an EPUB file`}
+                                                >
+                                                    {exportingOfflineBookId === String(offlineBook.bookId)
+                                                        ? <Loader className="animate-spin" size={17} />
+                                                        : <Download size={17} />}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRemoveOfflineBook(offlineBook)}
+                                                    disabled={removingOfflineBookId !== null || exportingOfflineBookId !== null}
+                                                    className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors disabled:opacity-40"
+                                                    title="Remove offline copy"
+                                                    aria-label={`Remove offline copy of ${title}`}
+                                                >
+                                                    {removingOfflineBookId === String(offlineBook.bookId)
+                                                        ? <Loader className="animate-spin" size={17} />
+                                                        : <Trash2 size={17} />}
+                                                </button>
+                                            </div>
                                         </div>
                                     );
                                 })}
