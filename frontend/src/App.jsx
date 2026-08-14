@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useParams, Link, Navigate, useLocation } from 'react-router-dom';
 import { 
   Home, 
@@ -18,7 +18,19 @@ import {
   MoreVertical,
   RefreshCw,
   Building2,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Headphones,
+  Play,
+  Pause,
+  Music2,
+  ListMusic,
+  HardDrive,
+  Pencil,
+  Check,
+  X,
+  Loader,
+  Trash2,
+  Download
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -36,10 +48,11 @@ import SettingsPage from './pages/Settings';
 import AddBook from './pages/AddBook';
 import Readlists from './pages/Readlists';
 import ReadlistDetails from './pages/ReadlistDetails';
-import { booksApi, libraryApi, genresApi, searchApi } from './api/api';
+import { audiobooksApi, booksApi, libraryApi, genresApi, searchApi } from './api/api';
 import ProfileModal from './components/ProfileModal';
 import InstallPWA from './components/InstallPWA';
 import { getOfflineBooks, getOfflineProgress, syncPendingProgress } from './lib/offline';
+import { getHomeTabsForRole } from './lib/homeTabs';
 
 // UI Components
 // ... (rest)
@@ -99,6 +112,64 @@ const BookCard = ({ title, year, cover, progress, id }) => {
         <span className="text-xs text-muted-foreground">{year || 'N/A'}</span>
       </div>
     </div>
+  );
+};
+
+const formatFileSize = (bytes) => {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 MB';
+  const megabytes = bytes / (1024 * 1024);
+  return megabytes >= 1024
+    ? `${(megabytes / 1024).toFixed(1)} GB`
+    : `${Math.max(1, Math.round(megabytes))} MB`;
+};
+
+const AudiobookCard = ({ audiobook, index }) => {
+  const navigate = useNavigate();
+  const coverUrl = audiobook.coverPath
+    ? `${import.meta.env.VITE_API_BASE_URL}/api/audiobooks/cover?path=${encodeURIComponent(audiobook.coverPath)}`
+    : null;
+
+  return (
+    <button
+      type="button"
+      onClick={() => navigate(`/audiobook?folder=${encodeURIComponent(audiobook.folder)}`)}
+      className="group min-w-0 text-left animate-in fade-in slide-in-from-bottom-3 duration-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-4 focus-visible:ring-offset-background rounded-2xl"
+      style={{ animationDelay: `${Math.min(index, 8) * 45}ms` }}
+      aria-label={`Open ${audiobook.title}`}
+    >
+      <div className="relative aspect-square overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/15 via-card to-secondary/30 shadow-lg shadow-black/10 transition-all duration-500 group-hover:-translate-y-1 group-hover:border-primary/50 group-hover:shadow-[0_18px_40px_rgba(241,24,76,0.16)]">
+        <div className="absolute inset-0 flex items-center justify-center text-primary/35" aria-hidden="true">
+          <Headphones size={62} strokeWidth={1.25} />
+        </div>
+        {coverUrl && (
+          <img
+            src={coverUrl}
+            alt={`Cover of ${audiobook.title}`}
+            crossOrigin="use-credentials"
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+            onError={(event) => { event.currentTarget.style.display = 'none'; }}
+          />
+        )}
+        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/85 to-transparent" />
+        <div className="absolute left-3 top-3 rounded-full border border-white/15 bg-black/55 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-white backdrop-blur-md">
+          {audiobook.trackCount} {audiobook.trackCount === 1 ? 'track' : 'tracks'}
+        </div>
+        <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-3 text-white">
+          <span className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-white/75">
+            {audiobook.formats.join(' · ')}
+          </span>
+          <span className="shrink-0 text-[10px] font-bold text-white/70">{formatFileSize(audiobook.totalSize)}</span>
+        </div>
+      </div>
+      <div className="px-1 pt-3">
+        <h3 className="line-clamp-2 text-sm font-bold leading-snug transition-colors group-hover:text-primary">
+          {audiobook.title}
+        </h3>
+        <p className="mt-1 truncate text-xs text-muted-foreground">
+          {audiobook.author || audiobook.tracks[0]?.title || 'Audio collection'}
+        </p>
+      </div>
+    </button>
   );
 };
 
@@ -529,14 +600,32 @@ function Dashboard() {
   const [mostRead, setMostRead] = useState([]);
   const [mostDownloaded, setMostDownloaded] = useState([]);
   const [genresWithBooks, setGenresWithBooks] = useState([]);
-  const [activeTab, setActiveTab] = useState('Explore'); // 'Explore', 'Trending', etc.
+  const [audiobooks, setAudiobooks] = useState([]);
+  const [audiobooksError, setAudiobooksError] = useState('');
+  const [activeTab, setActiveTab] = useState(() => {
+    const requestedTab = new URLSearchParams(window.location.search).get('tab');
+    return ['Explore', 'Trending', 'Genres', 'Audiobooks'].includes(requestedTab) ? requestedTab : 'Explore';
+  });
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const currentRole = hasPermission('userrole_manageusers')
+    ? 'librarian'
+    : hasPermission('userrole_readbooks')
+      ? 'reader'
+      : 'guest';
+  const homeTabs = getHomeTabsForRole(currentRole);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
+        if (activeTab === 'Audiobooks') {
+          setAudiobooksError('');
+          const response = await audiobooksApi.getAll();
+          setAudiobooks(response.data.data || []);
+          return;
+        }
+
         if (navigator.onLine === false) {
           const storedBooks = await getOfflineBooks(user?.id);
           const localBooks = await Promise.all(storedBooks.map(async (storedBook) => {
@@ -577,6 +666,9 @@ function Dashboard() {
         }
       } catch (err) {
         console.error(`Failed to fetch ${activeTab} data`, err);
+        if (activeTab === 'Audiobooks') {
+          setAudiobooksError('The server audiobook collection could not be loaded.');
+        }
       } finally {
         setLoading(false);
       }
@@ -590,26 +682,28 @@ function Dashboard() {
         <div className="absolute top-0 left-0 w-full h-[300px] bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
 
         {/* Tabs */}
-        <div className="flex items-center gap-8 px-4 md:px-10 pt-8 pb-4 text-xs font-black uppercase tracking-[2px] text-muted-foreground overflow-x-auto whitespace-nowrap hide-scrollbar z-10">
-          <span 
-            onClick={() => setActiveTab('Explore')}
-            className={cn("pb-1 cursor-pointer transition-all", activeTab === 'Explore' ? "text-primary border-b-2 border-primary" : "hover:text-foreground")}
-          >
-            Explore
-          </span>
-          <span 
-            onClick={() => setActiveTab('Trending')}
-            className={cn("pb-1 cursor-pointer transition-all", activeTab === 'Trending' ? "text-primary border-b-2 border-primary" : "hover:text-foreground")}
-          >
-            Trending
-          </span>
-          <span className="hover:text-foreground cursor-pointer transition-colors">Recommended</span>
-          <span 
-            onClick={() => setActiveTab('Genres')}
-            className={cn("pb-1 cursor-pointer transition-all", activeTab === 'Genres' ? "text-primary border-b-2 border-primary" : "hover:text-foreground")}
-          >
-            Genres
-          </span>
+        <div className="flex items-center gap-8 px-4 md:px-10 pt-8 pb-4 text-xs font-black uppercase tracking-[2px] text-muted-foreground overflow-x-auto whitespace-nowrap hide-scrollbar z-10" role="tablist" aria-label="Home sections">
+          {homeTabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              disabled={!tab.selectable}
+              onClick={() => {
+                if (!tab.selectable) return;
+                setActiveTab(tab.id);
+                navigate(tab.id === 'Explore' ? '/' : `/?tab=${encodeURIComponent(tab.id)}`, { replace: true });
+              }}
+              className={cn(
+                "pb-1 transition-all border-b-2 border-transparent",
+                tab.selectable ? "cursor-pointer hover:text-foreground" : "cursor-default opacity-70",
+                activeTab === tab.id && "text-primary border-primary"
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         {/* Scrollable Content */}
@@ -704,6 +798,48 @@ function Dashboard() {
                 </div>
               )}
 
+              {activeTab === 'Audiobooks' && (
+                <section className="animate-in fade-in duration-500">
+                  <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <p className="mb-2 text-[10px] font-black uppercase tracking-[0.24em] text-primary">Listening room</p>
+                      <h2 className="text-3xl font-black tracking-tight md:text-4xl">Audiobooks</h2>
+                      <p className="mt-2 text-sm text-muted-foreground">Collections uploaded from Settings appear here automatically.</p>
+                    </div>
+                    {!audiobooksError && (
+                      <span className="w-fit rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary">
+                        {audiobooks.length} {audiobooks.length === 1 ? 'audiobook' : 'audiobooks'}
+                      </span>
+                    )}
+                  </div>
+
+                  {audiobooksError ? (
+                    <div role="alert" className="rounded-2xl border border-destructive/30 bg-destructive/10 p-6 text-sm text-destructive">
+                      {audiobooksError}
+                    </div>
+                  ) : audiobooks.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8">
+                      {audiobooks.map((audiobook, index) => (
+                        <AudiobookCard key={audiobook.id} audiobook={audiobook} index={index} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="relative overflow-hidden rounded-3xl border border-primary/20 bg-card p-8 shadow-xl shadow-black/10 md:p-10">
+                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.16),transparent_45%)] pointer-events-none" />
+                      <div className="relative max-w-xl">
+                        <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl border border-primary/20 bg-primary/15 text-primary">
+                          <Headphones size={28} />
+                        </div>
+                        <h3 className="text-2xl font-black tracking-tight">No audiobooks found yet.</h3>
+                        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                          A librarian can select an audiobook folder in Settings. Its supported audio files will then appear here for everyone.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </section>
+              )}
+
               {!hasPermission('userrole_readbooks') && !loading && books.length > 0 && (
                 <div className="bg-primary/5 border border-primary/20 rounded-xl p-8 mb-10 flex flex-col items-center text-center max-w-2xl mx-auto">
                     <Library size={48} className="text-primary mb-4" />
@@ -719,6 +855,561 @@ function Dashboard() {
             </>
           )}
         </div>
+    </div>
+  );
+}
+
+function AudiobookDetails() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { hasPermission } = useAuth();
+  const audioRef = useRef(null);
+  const deleteCancelButtonRef = useRef(null);
+  const folder = new URLSearchParams(location.search).get('folder') || '';
+  const [audiobook, setAudiobook] = useState(null);
+  const [selectedTrackIndex, setSelectedTrackIndex] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isEditingMetadata, setIsEditingMetadata] = useState(false);
+  const [isSavingMetadata, setIsSavingMetadata] = useState(false);
+  const [metadataError, setMetadataError] = useState('');
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [isDeletingAudiobook, setIsDeletingAudiobook] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const [metadataForm, setMetadataForm] = useState({
+    title: '',
+    author: '',
+    narrator: '',
+    language: '',
+    publishedYear: '',
+    description: ''
+  });
+
+  useEffect(() => {
+    if (!showDeleteConfirmation) return undefined;
+    deleteCancelButtonRef.current?.focus();
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape' && !isDeletingAudiobook) setShowDeleteConfirmation(false);
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [showDeleteConfirmation, isDeletingAudiobook]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadAudiobook = async () => {
+      if (!folder) {
+        setError('No audiobook collection was selected.');
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError('');
+      try {
+        const response = await audiobooksApi.getByFolder(folder);
+        if (!cancelled) {
+          const loadedAudiobook = response.data.data;
+          setAudiobook(loadedAudiobook);
+          setSelectedTrackIndex(0);
+          setMetadataForm({
+            title: loadedAudiobook.title || '',
+            author: loadedAudiobook.author || '',
+            narrator: loadedAudiobook.narrator || '',
+            language: loadedAudiobook.language || '',
+            publishedYear: loadedAudiobook.publishedYear ? String(loadedAudiobook.publishedYear) : '',
+            description: loadedAudiobook.description || ''
+          });
+        }
+      } catch (requestError) {
+        if (!cancelled) {
+          setError(requestError.response?.data?.error || 'The audiobook could not be loaded.');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    loadAudiobook();
+    return () => {
+      cancelled = true;
+      audioRef.current?.pause();
+    };
+  }, [folder]);
+
+  const selectedTrack = audiobook?.tracks[selectedTrackIndex] || null;
+  const coverUrl = audiobook?.coverPath
+    ? `${import.meta.env.VITE_API_BASE_URL}/api/audiobooks/cover?path=${encodeURIComponent(audiobook.coverPath)}`
+    : null;
+  const audioUrl = selectedTrack
+    ? `${import.meta.env.VITE_API_BASE_URL}/api/audiobooks/audio?path=${encodeURIComponent(selectedTrack.path)}`
+    : null;
+
+  const selectTrack = (index) => {
+    audioRef.current?.pause();
+    setIsPlaying(false);
+    setSelectedTrackIndex(index);
+  };
+
+  const togglePlayback = async () => {
+    if (!audioRef.current) return;
+    if (audioRef.current.paused) {
+      try {
+        await audioRef.current.play();
+      } catch (playbackError) {
+        console.error('Audiobook playback failed', playbackError);
+      }
+    } else {
+      audioRef.current.pause();
+    }
+  };
+
+  const openMetadataEditor = () => {
+    setMetadataForm({
+      title: audiobook.title || '',
+      author: audiobook.author || '',
+      narrator: audiobook.narrator || '',
+      language: audiobook.language || '',
+      publishedYear: audiobook.publishedYear ? String(audiobook.publishedYear) : '',
+      description: audiobook.description || ''
+    });
+    setMetadataError('');
+    setIsEditingMetadata(true);
+  };
+
+  const saveMetadata = async (event) => {
+    event.preventDefault();
+    setIsSavingMetadata(true);
+    setMetadataError('');
+    try {
+      const response = await audiobooksApi.updateMetadata(folder, metadataForm);
+      const updatedAudiobook = response.data.data;
+      setAudiobook(updatedAudiobook);
+      setMetadataForm({
+        title: updatedAudiobook.title || '',
+        author: updatedAudiobook.author || '',
+        narrator: updatedAudiobook.narrator || '',
+        language: updatedAudiobook.language || '',
+        publishedYear: updatedAudiobook.publishedYear ? String(updatedAudiobook.publishedYear) : '',
+        description: updatedAudiobook.description || ''
+      });
+      setIsEditingMetadata(false);
+    } catch (requestError) {
+      setMetadataError(requestError.response?.data?.error || 'The audiobook metadata could not be saved.');
+    } finally {
+      setIsSavingMetadata(false);
+    }
+  };
+
+  const downloadAudiobook = () => {
+    const downloadLink = document.createElement('a');
+    downloadLink.href = audiobooksApi.getDownloadUrl(folder);
+    downloadLink.rel = 'noopener';
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    downloadLink.remove();
+  };
+
+  const deleteAudiobook = async () => {
+    setIsDeletingAudiobook(true);
+    setDeleteError('');
+    try {
+      await audiobooksApi.remove(folder);
+      navigate('/?tab=Audiobooks', { replace: true });
+    } catch (requestError) {
+      setDeleteError(requestError.response?.data?.error || 'The audiobook could not be deleted.');
+      setIsDeletingAudiobook(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-1 items-center justify-center bg-background">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!audiobook || error) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center bg-background px-6 text-center text-muted-foreground">
+        <Headphones size={64} className="mb-5 opacity-20" />
+        <h1 className="text-2xl font-black text-foreground">Audiobook not found</h1>
+        <p className="mt-2 max-w-md text-sm">{error || 'This collection is no longer available on the server.'}</p>
+        <button type="button" onClick={() => navigate('/?tab=Audiobooks')} className="mt-6 font-bold text-primary hover:underline">
+          Return to Audiobooks
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden bg-background animate-in fade-in duration-700">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[68vh] overflow-hidden">
+        {coverUrl ? (
+          <img src={coverUrl} alt="" crossOrigin="use-credentials" className="h-full w-full scale-110 object-cover opacity-25 blur-[110px]" />
+        ) : (
+          <div className="h-full w-full bg-[radial-gradient(circle_at_25%_20%,hsl(var(--primary)/0.25),transparent_55%)]" />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/65 to-background" />
+      </div>
+
+      <div className="relative z-10 flex-1 overflow-y-auto px-4 pb-20 pt-10 custom-scrollbar md:px-12 lg:px-16">
+        <button
+          type="button"
+          onClick={() => navigate('/?tab=Audiobooks')}
+          className="group mb-8 flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft size={20} className="transition-transform group-hover:-translate-x-1" />
+          Audiobooks
+        </button>
+
+        <div className="grid items-start gap-9 lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-14">
+          <div className="mx-auto w-full max-w-[300px] lg:mx-0">
+            <div className="relative aspect-square overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-primary/20 via-card to-secondary/40 shadow-2xl shadow-black/35">
+              <div className="absolute inset-0 flex items-center justify-center text-primary/35" aria-hidden="true">
+                <Headphones size={96} strokeWidth={1} />
+              </div>
+              {coverUrl && (
+                <img
+                  src={coverUrl}
+                  alt={`Cover of ${audiobook.title}`}
+                  crossOrigin="use-credentials"
+                  className="absolute inset-0 h-full w-full object-cover"
+                  onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                />
+              )}
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <div className="rounded-xl border border-border bg-card/70 p-3 backdrop-blur-md">
+                <ListMusic size={16} className="mb-2 text-primary" />
+                <p className="text-lg font-black">{audiobook.trackCount}</p>
+                <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">Tracks</p>
+              </div>
+              <div className="rounded-xl border border-border bg-card/70 p-3 backdrop-blur-md">
+                <HardDrive size={16} className="mb-2 text-primary" />
+                <p className="text-lg font-black">{formatFileSize(audiobook.totalSize)}</p>
+                <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">On server</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="min-w-0 pt-1 lg:pt-5">
+            <div className="mb-3 flex items-start justify-between gap-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-primary">Audiobook collection</p>
+              <div className="flex shrink-0 flex-col items-stretch gap-2">
+                {hasPermission('userrole_managebooks') && !isEditingMetadata && (
+                  <button
+                    type="button"
+                    onClick={openMetadataEditor}
+                    className="flex items-center justify-center gap-2 rounded-full border border-border bg-card/70 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground backdrop-blur-md transition-colors hover:border-primary/40 hover:text-primary"
+                  >
+                    <Pencil size={13} />
+                    Edit metadata
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={downloadAudiobook}
+                  className="flex items-center justify-center gap-2 rounded-full border border-border bg-card/70 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground backdrop-blur-md transition-colors hover:border-primary/40 hover:text-primary"
+                >
+                  <Download size={13} />
+                  Download
+                </button>
+                {hasPermission('userrole_manageusers') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeleteError('');
+                      setShowDeleteConfirmation(true);
+                    }}
+                    className="flex items-center justify-center gap-2 rounded-full border border-red-500 bg-red-600 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:border-red-400 hover:bg-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
+                  >
+                    <Trash2 size={13} className="text-white" />
+                    Delete
+                  </button>
+                )}
+              </div>
+            </div>
+            <h1 className="max-w-4xl break-words text-4xl font-black leading-[0.98] tracking-tighter text-foreground md:text-6xl">
+              {audiobook.title}
+            </h1>
+            {audiobook.author && (
+              <p className="mt-4 text-lg font-semibold text-muted-foreground">by {audiobook.author}</p>
+            )}
+
+            <div className="mt-6 flex flex-wrap gap-2">
+              {audiobook.formats.map((format) => (
+                <span key={format} className="rounded-full border border-border bg-card/65 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground backdrop-blur-md">
+                  {format}
+                </span>
+              ))}
+              <span className="rounded-full border border-border bg-card/65 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground backdrop-blur-md">
+                Updated {new Date(audiobook.modifiedAt).toLocaleDateString()}
+              </span>
+              {audiobook.publishedYear && (
+                <span className="rounded-full border border-border bg-card/65 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground backdrop-blur-md">
+                  {audiobook.publishedYear}
+                </span>
+              )}
+              {audiobook.language && (
+                <span className="rounded-full border border-border bg-card/65 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground backdrop-blur-md">
+                  {audiobook.language}
+                </span>
+              )}
+              {audiobook.narrator && (
+                <span className="rounded-full border border-border bg-card/65 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground backdrop-blur-md">
+                  Narrated by {audiobook.narrator}
+                </span>
+              )}
+            </div>
+
+            {isEditingMetadata ? (
+              <form onSubmit={saveMetadata} className="mt-7 max-w-3xl rounded-2xl border border-primary/25 bg-card/85 p-5 shadow-2xl shadow-black/15 backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="mb-5 flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-primary">Collection record</p>
+                    <h2 className="mt-1 text-xl font-black">Edit metadata</h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingMetadata(false)}
+                    disabled={isSavingMetadata}
+                    className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-secondary/40 hover:text-foreground disabled:opacity-40"
+                    aria-label="Close metadata editor"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {[
+                    ['title', 'Title', 300],
+                    ['author', 'Author', 200],
+                    ['narrator', 'Narrator', 200],
+                    ['language', 'Language', 100]
+                  ].map(([field, label, maxLength]) => (
+                    <label key={field} className="block">
+                      <span className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-muted-foreground">{label}</span>
+                      <input
+                        type="text"
+                        value={metadataForm[field]}
+                        maxLength={maxLength}
+                        onChange={(event) => setMetadataForm((current) => ({ ...current, [field]: event.target.value }))}
+                        className="w-full rounded-xl border border-border bg-background/70 px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-primary"
+                      />
+                    </label>
+                  ))}
+
+                  <label className="block sm:col-span-1">
+                    <span className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-muted-foreground">Published year</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max={new Date().getFullYear() + 1}
+                      value={metadataForm.publishedYear}
+                      onChange={(event) => setMetadataForm((current) => ({ ...current, publishedYear: event.target.value }))}
+                      className="w-full rounded-xl border border-border bg-background/70 px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-primary"
+                    />
+                  </label>
+
+                  <label className="block sm:col-span-2">
+                    <span className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-muted-foreground">Description</span>
+                    <textarea
+                      value={metadataForm.description}
+                      maxLength={5000}
+                      rows={4}
+                      onChange={(event) => setMetadataForm((current) => ({ ...current, description: event.target.value }))}
+                      className="w-full resize-y rounded-xl border border-border bg-background/70 px-3.5 py-2.5 text-sm leading-relaxed outline-none transition-colors focus:border-primary"
+                    />
+                  </label>
+                </div>
+
+                {metadataError && (
+                  <p role="alert" className="mt-4 rounded-xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                    {metadataError}
+                  </p>
+                )}
+
+                <div className="mt-5 flex flex-wrap justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingMetadata(false)}
+                    disabled={isSavingMetadata}
+                    className="rounded-xl border border-border px-4 py-2.5 text-sm font-bold transition-colors hover:bg-secondary/30 disabled:opacity-40"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingMetadata}
+                    className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-black text-primary-foreground shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 disabled:opacity-60"
+                  >
+                    {isSavingMetadata ? <Loader size={16} className="animate-spin" /> : <Check size={16} />}
+                    {isSavingMetadata ? 'Saving…' : 'Save metadata'}
+                  </button>
+                </div>
+              </form>
+            ) : audiobook.description ? (
+              <p className="mt-7 max-w-3xl text-sm leading-7 text-muted-foreground">{audiobook.description}</p>
+            ) : null}
+
+            <div className="mt-8 max-w-3xl rounded-2xl border border-primary/20 bg-card/75 p-5 shadow-xl shadow-black/10 backdrop-blur-xl">
+              <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={togglePlayback}
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/25 transition-transform hover:scale-105 active:scale-95"
+                  aria-label={isPlaying ? 'Pause audiobook' : 'Play audiobook'}
+                >
+                  {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-0.5" />}
+                </button>
+                <div className="min-w-0">
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-primary">Now selected</p>
+                  <p className="mt-1 truncate text-sm font-bold">{selectedTrack?.title}</p>
+                </div>
+              </div>
+              <audio
+                key={audioUrl}
+                ref={audioRef}
+                src={audioUrl}
+                crossOrigin="use-credentials"
+                controls
+                preload="metadata"
+                className="mt-4 w-full accent-primary"
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+                onEnded={() => {
+                  setIsPlaying(false);
+                  if (selectedTrackIndex < audiobook.tracks.length - 1) {
+                    setSelectedTrackIndex((current) => current + 1);
+                  }
+                }}
+              >
+                Your browser does not support audio playback.
+              </audio>
+            </div>
+
+            <p className="mt-5 flex items-center gap-2 truncate text-xs text-muted-foreground" title={audiobook.folder}>
+              <HardDrive size={14} className="shrink-0" />
+              {audiobook.folder}
+            </p>
+          </div>
+        </div>
+
+        <section className="mt-14">
+          <div className="mb-5 flex items-end justify-between gap-4">
+            <div>
+              <p className="mb-1 text-[10px] font-black uppercase tracking-[0.2em] text-primary">Contents</p>
+              <h2 className="text-2xl font-black tracking-tight">Track list</h2>
+            </div>
+            <span className="text-xs font-bold text-muted-foreground">{audiobook.trackCount} total</span>
+          </div>
+
+          <div className="overflow-hidden rounded-2xl border border-border bg-card/65 backdrop-blur-xl">
+            {audiobook.tracks.map((track, index) => {
+              const isSelected = index === selectedTrackIndex;
+              return (
+                <button
+                  key={track.path}
+                  type="button"
+                  onClick={() => selectTrack(index)}
+                  aria-current={isSelected ? 'true' : undefined}
+                  className={cn(
+                    "group flex w-full items-center gap-4 border-b border-border px-4 py-4 text-left transition-colors last:border-b-0 md:px-5",
+                    isSelected ? "bg-primary/10" : "hover:bg-secondary/25"
+                  )}
+                >
+                  <span className={cn(
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-xs font-black transition-colors",
+                    isSelected ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground group-hover:border-primary/40 group-hover:text-primary"
+                  )}>
+                    {isSelected && isPlaying ? <Music2 size={17} /> : String(index + 1).padStart(2, '0')}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className={cn("block truncate text-sm font-bold", isSelected && "text-primary")}>{track.title}</span>
+                    <span className="mt-1 block text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{track.format}</span>
+                  </span>
+                  <span className="shrink-0 text-xs font-semibold text-muted-foreground">{formatFileSize(track.size)}</span>
+                  <Play size={16} className={cn("shrink-0 transition-all", isSelected ? "text-primary" : "text-muted-foreground opacity-0 group-hover:opacity-100")} />
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      </div>
+
+      {showDeleteConfirmation && (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-background/85 p-4 backdrop-blur-md animate-in fade-in duration-200"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !isDeletingAudiobook) {
+              setShowDeleteConfirmation(false);
+            }
+          }}
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-audiobook-title"
+            aria-describedby="delete-audiobook-description"
+            className="w-full max-w-md overflow-hidden rounded-2xl border border-destructive/30 bg-card shadow-2xl shadow-black/40 animate-in zoom-in-95 slide-in-from-bottom-2 duration-200"
+          >
+            <div className="relative border-b border-border bg-destructive/5 px-6 pb-5 pt-6">
+              <div className="absolute inset-x-0 top-0 h-1 bg-destructive" />
+              <div className="flex items-start gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+                  <Trash2 size={21} />
+                </div>
+                <div className="min-w-0">
+                  <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-destructive">Permanent removal</p>
+                  <h2 id="delete-audiobook-title" className="text-xl font-black tracking-tight">Delete this audiobook?</h2>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <p id="delete-audiobook-description" className="text-sm leading-relaxed text-muted-foreground">
+                This permanently removes <span className="font-bold text-foreground">“{audiobook.title}”</span>, including every audio track, cover, and metadata file in its server folder.
+              </p>
+              <div className="mt-4 rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-xs font-semibold text-destructive">
+                This action cannot be undone.
+              </div>
+
+              {deleteError && (
+                <p role="alert" className="mt-4 rounded-xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                  {deleteError}
+                </p>
+              )}
+
+              <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button
+                  ref={deleteCancelButtonRef}
+                  type="button"
+                  onClick={() => setShowDeleteConfirmation(false)}
+                  disabled={isDeletingAudiobook}
+                  className="rounded-xl border border-border px-5 py-2.5 text-sm font-bold transition-colors hover:bg-secondary/30 disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={deleteAudiobook}
+                  disabled={isDeletingAudiobook}
+                  className="flex items-center justify-center gap-2 rounded-xl border border-red-500 bg-red-600 px-5 py-2.5 text-sm font-black text-white transition-colors hover:border-red-400 hover:bg-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-60"
+                >
+                  {isDeletingAudiobook ? <Loader size={16} className="animate-spin text-white" /> : <Trash2 size={16} className="text-white" />}
+                  {isDeletingAudiobook ? 'Deleting…' : 'Delete permanently'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -752,6 +1443,7 @@ function AuthenticatedApp() {
       {/* Protected Routes */}
       <Route path="/" element={user ? <Layout><Dashboard /></Layout> : <Navigate to="/login" />} />
       <Route path="/book/:id" element={user ? <Layout><BookDetails /></Layout> : <Navigate to="/login" />} />
+      <Route path="/audiobook" element={user ? <Layout><AudiobookDetails /></Layout> : <Navigate to="/login" />} />
       <Route path="/author/:id" element={user ? <Layout><AuthorDetails /></Layout> : <Navigate to="/login" />} />
       <Route path="/authors" element={user ? <Layout><Authors /></Layout> : <Navigate to="/login" />} />
       <Route path="/publisher/:id" element={user ? <Layout><PublisherDetails /></Layout> : <Navigate to="/login" />} />

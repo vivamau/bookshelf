@@ -111,6 +111,7 @@ Set your production values:
 
 ```env
 PORT=3005
+MAX_UPLOAD_FILE_SIZE_MB=4096
 ```
 
 ### Frontend
@@ -197,8 +198,8 @@ server {
     listen 80;
     server_name yourdomain.com;
 
-    # Allow large file uploads (books up to 100MB)
-    client_max_body_size 100M;
+    # Allow large single-file audiobooks such as M4B files
+    client_max_body_size 4G;
 
     # Frontend - serve static files
     root /var/www/bookshelf/frontend/dist;
@@ -295,6 +296,9 @@ server {
 server {
     listen 80;
     server_name <machine>.<tailnet>.ts.net localhost;
+
+    # Keep this aligned with MAX_UPLOAD_FILE_SIZE_MB in backend/.env
+    client_max_body_size 4G;
 
     root /var/www/bookshelf/frontend/dist;
     index index.html;

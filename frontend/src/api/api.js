@@ -131,6 +131,18 @@ export const settingsApi = {
   browseFilesystem: (path) => api.get('/settings/browse', { params: { path } }),
 };
 
+export const audiobooksApi = {
+  getAll: () => api.get('/audiobooks'),
+  getByFolder: (folder) => api.get('/audiobooks/details', { params: { folder } }),
+  updateMetadata: (folder, metadata) => api.put('/audiobooks/metadata', { folder, metadata }),
+  remove: (folder) => api.delete('/audiobooks', { params: { folder } }),
+  getDownloadUrl: (folder) => `${API_URL}/audiobooks/download?folder=${encodeURIComponent(folder)}`,
+  upload: (formData, config = {}) => api.post('/audiobooks/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    ...config
+  }),
+};
+
 
 export const searchApi = {
   search: (query) => api.get('/search', { params: { q: query } }),

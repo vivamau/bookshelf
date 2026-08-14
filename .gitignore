@@ -62,6 +62,8 @@ backend/covers/*
 !backend/covers/.gitkeep
 backend/extracted/*
 !backend/extracted/.gitkeep
+backend/audiobooks/*
+!backend/audiobooks/.gitkeep
 
 
 # Agent Context

@@ -8,11 +8,21 @@ const bcrypt = require('bcryptjs');
 const axios = require('axios');
 const fs = require('fs');
 const fileUpload = require('express-fileupload');
+const { spawn } = require('child_process');
 
 const { scanLibrary, refreshCovers, importFiles, scanSingleFile, getComicPage } = require('./utils/libraryScanner');
 const { filterBooksWithAvailableFiles, resolveBookFilePath } = require('./utils/bookFileResolver');
 const { sendEmail } = require('./utils/mailer');
 const { OpenAIConfigError, OpenAIRequestError, synthesizeSpeech } = require('./utils/openaiAudio');
+const { AudiobookUploadError, resolveAudiobookUploadPath } = require('./utils/audiobookUpload');
+const {
+    AudiobookCatalogError,
+    resolveAudiobookAudioPath,
+    resolveAudiobookCoverPath,
+    resolveAudiobookDirectoryPath,
+    scanAudiobookCatalog,
+    writeAudiobookMetadata
+} = require('./utils/audiobookCatalog');
 
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
@@ -29,6 +39,10 @@ if (!TOKEN_KEY) {
 const app = express();
 const os = require('os');
 const PORT = process.env.PORT || 3005;
+const configuredUploadLimitMb = Number.parseInt(process.env.MAX_UPLOAD_FILE_SIZE_MB || '4096', 10);
+const MAX_UPLOAD_FILE_SIZE_MB = Number.isFinite(configuredUploadLimitMb) && configuredUploadLimitMb > 0
+    ? configuredUploadLimitMb
+    : 4096;
 
 app.use(cors({
     origin: function(origin, callback) {
@@ -58,14 +72,17 @@ app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 app.use(fileUpload({
     createParentPath: true,
+    useTempFiles: true,
+    tempFileDir: os.tmpdir(),
     limits: { 
-        fileSize: 100 * 1024 * 1024 // 100MB max file size
+        fileSize: MAX_UPLOAD_FILE_SIZE_MB * 1024 * 1024
     },
     abortOnLimit: true,
-    responseOnLimit: 'File size limit has been reached (max 100MB)',
+    responseOnLimit: `File size limit has been reached (max ${MAX_UPLOAD_FILE_SIZE_MB}MB)`,
 }));
 app.use('/covers', express.static(path.join(__dirname, 'covers')));
 const BOOKS_DIR = path.join(__dirname, 'books');
+const AUDIOBOOKS_DIR = path.join(__dirname, 'audiobooks');
 
 const swaggerUi = require('swagger-ui-express');
 const yaml = require('js-yaml');
@@ -1577,6 +1594,212 @@ settingsRouter.delete('/directories/:id', (req, res) => {
 });
 
 app.use('/api/settings', auth, checkManageBooks, settingsRouter);
+
+const audiobooksRouter = express.Router();
+
+audiobooksRouter.get('/', async (req, res) => {
+    try {
+        await fs.promises.mkdir(AUDIOBOOKS_DIR, { recursive: true });
+        const audiobooks = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
+        res.json({ data: audiobooks });
+    } catch (err) {
+        console.error('Audiobook catalog scan failed:', err);
+        res.status(500).json({ error: 'Could not load the audiobook catalog' });
+    }
+});
+
+audiobooksRouter.get('/details', async (req, res) => {
+    try {
+        const audiobooks = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
+        const audiobook = audiobooks.find((item) => item.folder === req.query.folder);
+        if (!audiobook) {
+            return res.status(404).json({ error: 'Audiobook not found' });
+        }
+        res.json({ data: audiobook });
+    } catch (err) {
+        console.error('Audiobook details scan failed:', err);
+        res.status(500).json({ error: 'Could not load the audiobook' });
+    }
+});
+
+audiobooksRouter.put('/metadata', checkManageBooks, async (req, res) => {
+    try {
+        const audiobooks = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
+        const audiobook = audiobooks.find((item) => item.folder === req.body.folder);
+        if (!audiobook) {
+            return res.status(404).json({ error: 'Audiobook not found' });
+        }
+
+        await writeAudiobookMetadata(AUDIOBOOKS_DIR, audiobook.folder, req.body.metadata || {});
+        const updatedAudiobooks = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
+        const updatedAudiobook = updatedAudiobooks.find((item) => item.folder === audiobook.folder);
+        res.json({ data: updatedAudiobook });
+    } catch (err) {
+        if (err instanceof AudiobookCatalogError) {
+            return res.status(400).json({ error: err.message });
+        }
+        console.error('Audiobook metadata update failed:', err);
+        res.status(500).json({ error: 'Could not update audiobook metadata' });
+    }
+});
+
+audiobooksRouter.get('/cover', (req, res) => {
+    let cover;
+    try {
+        cover = resolveAudiobookCoverPath(AUDIOBOOKS_DIR, req.query.path);
+    } catch (err) {
+        if (err instanceof AudiobookCatalogError) {
+            return res.status(400).json({ error: err.message });
+        }
+        return res.status(500).json({ error: 'Could not prepare the audiobook cover' });
+    }
+
+    fs.stat(cover.coverPath, (err, stats) => {
+        if (err || !stats.isFile()) {
+            return res.status(404).json({ error: 'Audiobook cover not found' });
+        }
+
+        res.setHeader('Cache-Control', 'private, max-age=3600');
+        res.sendFile(cover.coverPath);
+    });
+});
+
+audiobooksRouter.get('/audio', (req, res) => {
+    let audio;
+    try {
+        audio = resolveAudiobookAudioPath(AUDIOBOOKS_DIR, req.query.path);
+    } catch (err) {
+        if (err instanceof AudiobookCatalogError) {
+            return res.status(400).json({ error: err.message });
+        }
+        return res.status(500).json({ error: 'Could not prepare the audiobook track' });
+    }
+
+    fs.stat(audio.audioPath, (err, stats) => {
+        if (err || !stats.isFile()) {
+            return res.status(404).json({ error: 'Audiobook track not found' });
+        }
+
+        res.setHeader('Cache-Control', 'private, max-age=3600');
+        res.sendFile(audio.audioPath);
+    });
+});
+
+const safeDownloadName = (title, fallback = 'audiobook') => {
+    const sanitized = String(title || fallback)
+        .replace(/[\\/:*?"<>|]/g, '_')
+        .replace(/\s+/g, ' ')
+        .trim();
+    return sanitized || fallback;
+};
+
+audiobooksRouter.get('/download', async (req, res) => {
+    try {
+        const audiobooks = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
+        const audiobook = audiobooks.find((item) => item.folder === req.query.folder);
+        if (!audiobook) {
+            return res.status(404).json({ error: 'Audiobook not found' });
+        }
+
+        const downloadName = safeDownloadName(audiobook.title);
+        if (audiobook.tracks.length === 1) {
+            const track = resolveAudiobookAudioPath(AUDIOBOOKS_DIR, audiobook.tracks[0].path);
+            const extension = path.extname(track.audioPath).toLowerCase();
+            return res.download(track.audioPath, `${downloadName}${extension}`);
+        }
+
+        const directoryPath = resolveAudiobookDirectoryPath(AUDIOBOOKS_DIR, audiobook.folder);
+        res.attachment(`${downloadName}.tar`);
+        res.type('application/x-tar');
+
+        const archiveProcess = spawn('tar', ['-cf', '-', '-C', directoryPath, '.'], {
+            stdio: ['ignore', 'pipe', 'pipe']
+        });
+        let archiveError = '';
+        archiveProcess.stderr.on('data', (chunk) => {
+            if (archiveError.length < 2000) archiveError += chunk.toString();
+        });
+        archiveProcess.on('error', (err) => {
+            console.error('Could not start audiobook archive:', err);
+            if (!res.headersSent) res.status(500).json({ error: 'Could not prepare audiobook download' });
+            else res.destroy(err);
+        });
+        archiveProcess.on('close', (code) => {
+            if (code !== 0) {
+                console.error('Audiobook archive failed:', archiveError || `tar exited with code ${code}`);
+            }
+        });
+        res.on('close', () => {
+            if (!archiveProcess.killed) archiveProcess.kill('SIGTERM');
+        });
+        archiveProcess.stdout.pipe(res);
+    } catch (err) {
+        if (err instanceof AudiobookCatalogError) {
+            return res.status(400).json({ error: err.message });
+        }
+        console.error('Audiobook download failed:', err);
+        if (!res.headersSent) res.status(500).json({ error: 'Could not prepare audiobook download' });
+    }
+});
+
+audiobooksRouter.delete('/', checkManageUsers, async (req, res) => {
+    try {
+        const audiobooks = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
+        const audiobook = audiobooks.find((item) => item.folder === req.query.folder);
+        if (!audiobook) {
+            return res.status(404).json({ error: 'Audiobook not found' });
+        }
+        if (audiobook.folder === '.') {
+            return res.status(400).json({ error: 'Root-level audiobook files cannot be deleted as one collection' });
+        }
+
+        const directoryPath = resolveAudiobookDirectoryPath(AUDIOBOOKS_DIR, audiobook.folder);
+        await fs.promises.rm(directoryPath, { recursive: true, force: false });
+        res.json({ message: 'Audiobook deleted' });
+    } catch (err) {
+        if (err instanceof AudiobookCatalogError) {
+            return res.status(400).json({ error: err.message });
+        }
+        console.error('Audiobook deletion failed:', err);
+        res.status(500).json({ error: 'Could not delete audiobook' });
+    }
+});
+
+audiobooksRouter.post('/upload', checkManageBooks, async (req, res) => {
+    if (!req.files || !req.files.audiobook || Array.isArray(req.files.audiobook)) {
+        return res.status(400).json({ error: 'One audiobook file is required' });
+    }
+
+    const audiobookFile = req.files.audiobook;
+    let destination;
+    try {
+        destination = resolveAudiobookUploadPath(
+            AUDIOBOOKS_DIR,
+            req.body.relativePath,
+            audiobookFile.name
+        );
+    } catch (err) {
+        if (err instanceof AudiobookUploadError) {
+            return res.status(400).json({ error: err.message });
+        }
+        return res.status(500).json({ error: 'Could not prepare audiobook upload' });
+    }
+
+    try {
+        fs.mkdirSync(path.dirname(destination.uploadPath), { recursive: true });
+        await audiobookFile.mv(destination.uploadPath);
+        res.status(201).json({
+            message: 'Audiobook file uploaded',
+            path: destination.relativePath,
+            size: audiobookFile.size
+        });
+    } catch (err) {
+        console.error('Audiobook upload failed:', err);
+        res.status(500).json({ error: 'Could not store audiobook file' });
+    }
+});
+
+app.use('/api/audiobooks', auth, audiobooksRouter);
 
 // Serve comic pages
 booksRouter.get('/:id/pages', async (req, res) => {

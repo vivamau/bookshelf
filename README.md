@@ -47,6 +47,7 @@ Edit `backend/.env` and configure the following:
 ```env
 PORT=3005
 ALLOWED_ORIGINS=http://localhost:5173
+MAX_UPLOAD_FILE_SIZE_MB=4096
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your_email@gmail.com
@@ -58,6 +59,7 @@ SMTP_FROM=Bookshelf <your_email@gmail.com>
 |----------|-------------|---------|
 | `PORT` | The port the backend server will run on | `3005` |
 | `ALLOWED_ORIGINS` | Comma-separated list of allowed origins for CORS | `http://example.com` |
+| `MAX_UPLOAD_FILE_SIZE_MB` | Maximum size in MB for one uploaded book or audiobook file | `4096` |
 | `SMTP_HOST` | SMTP Server Hostname | `smtp.example.com` |
 | `SMTP_PORT` | SMTP Server Port | `587` |
 | `SMTP_USER` | SMTP Username | `user@example.com` |

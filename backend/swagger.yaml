@@ -2,7 +2,7 @@ openapi: 3.0.0
 info:
   title: Bookshelf API
   description: API for managing the Bookshelf application
-  version: 1.0.0
+  version: 1.1.0
 servers:
   - url: http://localhost:8080
     description: Local server
@@ -776,4 +776,151 @@ paths:
       responses:
         200:
           description: List
-
+  /api/audiobooks:
+    get:
+      summary: List audiobook collections found in the server audiobooks directory
+      responses:
+        200:
+          description: Audiobook collections grouped by their containing directory
+        403:
+          description: Authentication is required
+    delete:
+      summary: Delete an audiobook collection and its server folder
+      parameters:
+        - in: query
+          name: folder
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Audiobook deleted
+        403:
+          description: Librarian administrator permission is required
+        404:
+          description: Audiobook not found
+  /api/audiobooks/cover:
+    get:
+      summary: Serve a protected audiobook cover image
+      parameters:
+        - in: query
+          name: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Cover image
+        400:
+          description: Invalid or unsupported cover path
+        404:
+          description: Cover image not found
+  /api/audiobooks/details:
+    get:
+      summary: Get one audiobook collection by its server folder
+      parameters:
+        - in: query
+          name: folder
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Audiobook collection with its ordered tracks
+        404:
+          description: Audiobook not found
+  /api/audiobooks/audio:
+    get:
+      summary: Stream a protected audiobook track
+      parameters:
+        - in: query
+          name: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Full audio track
+        206:
+          description: Requested audio byte range
+        400:
+          description: Invalid or unsupported audio path
+        404:
+          description: Audio track not found
+  /api/audiobooks/metadata:
+    put:
+      summary: Update librarian-managed metadata for one audiobook collection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - folder
+                - metadata
+              properties:
+                folder:
+                  type: string
+                metadata:
+                  type: object
+                  properties:
+                    title:
+                      type: string
+                    author:
+                      type: string
+                    narrator:
+                      type: string
+                    language:
+                      type: string
+                    publishedYear:
+                      type: integer
+                    description:
+                      type: string
+      responses:
+        200:
+          description: Updated audiobook collection
+        400:
+          description: Invalid metadata
+        403:
+          description: Manage Books permission is required
+        404:
+          description: Audiobook not found
+  /api/audiobooks/download:
+    get:
+      summary: Download a single-file audiobook or a multi-track collection archive
+      parameters:
+        - in: query
+          name: folder
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Audiobook file or streamed TAR collection
+        404:
+          description: Audiobook not found
+  /api/audiobooks/upload:
+    post:
+      summary: Upload one file into the server audiobook collection
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - audiobook
+                - relativePath
+              properties:
+                audiobook:
+                  type: string
+                  format: binary
+                relativePath:
+                  type: string
+                  example: My Collection/Author/Book/01 - Introduction.mp3
+      responses:
+        201:
+          description: Audiobook file stored under the server audiobooks directory
+        400:
+          description: File path or file type is invalid

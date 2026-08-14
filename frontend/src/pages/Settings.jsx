@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { settingsApi, booksApi, usersApi } from '../api/api';
+import { settingsApi, booksApi, usersApi, audiobooksApi } from '../api/api';
 import { 
     FolderPlus, 
     Trash2, 
@@ -24,7 +24,10 @@ import {
     CloudOff,
     RefreshCw,
     Download,
-    Search
+    Search,
+    Headphones,
+    Music,
+    HardDrive
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { useAuth } from '../context/AuthContext';
@@ -63,6 +66,16 @@ const OPENAI_TTS_VOICES = [
   { id: 'shimmer', label: 'Shimmer', hint: 'Soft' },
   { id: 'verse', label: 'Verse', hint: 'Natural' }
 ];
+
+const AUDIOBOOK_ASSET_EXTENSIONS = new Set([
+    'aac', 'cue', 'flac', 'jpeg', 'jpg', 'json', 'm4a', 'm4b',
+    'mp3', 'nfo', 'ogg', 'opus', 'png', 'txt', 'wav', 'webp'
+]);
+
+const isAudiobookAsset = (file) => {
+    const extension = file.name.toLowerCase().split('.').pop();
+    return AUDIOBOOK_ASSET_EXTENSIONS.has(extension);
+};
 
 const formatStorageSize = (bytes) => {
     if (!bytes) return '0 MB';
@@ -275,6 +288,14 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showBrowser, setShowBrowser] = useState(false);
+
+  // Audiobook collection upload states
+  const [audiobookFiles, setAudiobookFiles] = useState([]);
+  const [isAudiobookUploading, setIsAudiobookUploading] = useState(false);
+  const [audiobookUploadProgress, setAudiobookUploadProgress] = useState({ completed: 0, total: 0 });
+  const [audiobookMessage, setAudiobookMessage] = useState('');
+  const [audiobookHasError, setAudiobookHasError] = useState(false);
+  const audiobookFolderInputRef = useRef(null);
 
   // Local Bulk Upload States
   const [selectedFiles, setSelectedFiles] = useState([]);
@@ -629,6 +650,86 @@ export default function Settings() {
     }
   };
 
+  const updateAudiobookFile = (id, updates) => {
+    setAudiobookFiles(currentFiles => currentFiles.map(file => (
+      file.id === id ? { ...file, ...updates } : file
+    )));
+  };
+
+  const handleAudiobookFolderSelect = async (event) => {
+    const selectedAssets = Array.from(event.target.files || []);
+    const supportedAssets = selectedAssets.filter(isAudiobookAsset);
+    const skippedCount = selectedAssets.length - supportedAssets.length;
+
+    if (!supportedAssets.length) {
+      setAudiobookFiles([]);
+      setAudiobookHasError(true);
+      setAudiobookMessage('This folder does not contain supported audiobook files.');
+      event.target.value = '';
+      return;
+    }
+
+    const queuedFiles = supportedAssets.map((file, index) => ({
+      id: `${file.webkitRelativePath || file.name}-${file.size}-${index}`,
+      file,
+      path: file.webkitRelativePath || file.name,
+      progress: 0,
+      status: 'pending',
+      error: ''
+    }));
+
+    setAudiobookFiles(queuedFiles);
+    setAudiobookUploadProgress({ completed: 0, total: queuedFiles.length });
+    setAudiobookHasError(false);
+    setAudiobookMessage(`Uploading 0 of ${queuedFiles.length} files to audiobooks/...`);
+    setIsAudiobookUploading(true);
+
+    let completedCount = 0;
+    let failedCount = 0;
+    for (const queuedFile of queuedFiles) {
+      updateAudiobookFile(queuedFile.id, { status: 'uploading', progress: 0 });
+      const formData = new FormData();
+      formData.append('audiobook', queuedFile.file);
+      formData.append('relativePath', queuedFile.path);
+
+      try {
+        await audiobooksApi.upload(formData, {
+          onUploadProgress: (progressEvent) => {
+            const progress = progressEvent.total
+              ? Math.round((progressEvent.loaded * 100) / progressEvent.total)
+              : 0;
+            updateAudiobookFile(queuedFile.id, { progress });
+          }
+        });
+        completedCount += 1;
+        updateAudiobookFile(queuedFile.id, { status: 'success', progress: 100 });
+      } catch (err) {
+        failedCount += 1;
+        const responseError = typeof err.response?.data === 'string'
+          ? err.response.data
+          : err.response?.data?.error;
+        updateAudiobookFile(queuedFile.id, {
+          status: 'error',
+          error: responseError || err.message || 'Upload failed'
+        });
+      }
+
+      const processedCount = completedCount + failedCount;
+      setAudiobookUploadProgress({ completed: processedCount, total: queuedFiles.length });
+      setAudiobookMessage(`Uploaded ${completedCount} of ${queuedFiles.length} files to audiobooks/...`);
+    }
+
+    setIsAudiobookUploading(false);
+    setAudiobookHasError(failedCount > 0);
+    const skippedMessage = skippedCount
+      ? ` Skipped ${skippedCount} unsupported ${skippedCount === 1 ? 'file' : 'files'}.`
+      : '';
+    setAudiobookMessage(failedCount
+      ? `Uploaded ${completedCount} files; ${failedCount} failed.${skippedMessage}`
+      : `Uploaded ${completedCount} files to the server audiobooks folder.${skippedMessage}`);
+    event.target.value = '';
+  };
+
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files);
     const validFiles = files.filter(f => {
@@ -698,12 +799,12 @@ export default function Settings() {
 
 
   return (
-    <div className="flex-1 overflow-y-auto bg-background p-4 md:p-8">
+    <div className="flex-1 min-w-0 overflow-y-auto bg-background p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-4xl font-black tracking-tight mb-8">Settings</h1>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6 bg-secondary/20 p-1 rounded-xl w-fit">
+        <div className="flex flex-wrap gap-2 mb-6 bg-secondary/20 p-1 rounded-xl w-full">
             <button 
                 onClick={() => setActiveTab('reader')}
                 className={cn(
@@ -742,6 +843,16 @@ export default function Settings() {
                     >
                         <Server size={16} />
                         Server Libraries
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('audiobooks')}
+                        className={cn(
+                            "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all",
+                            activeTab === 'audiobooks' ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                        )}
+                    >
+                        <Headphones size={16} />
+                        Audiobooks
                     </button>
                     <button 
                         onClick={() => setActiveTab('local')}
@@ -1290,6 +1401,162 @@ export default function Settings() {
                             ))
                         )}
                     </div>
+                </div>
+            </div>
+        )}
+
+        {activeTab === 'audiobooks' && (
+            <div className="relative bg-card border border-border rounded-2xl overflow-hidden shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="absolute right-0 top-0 h-40 w-40 bg-primary/10 blur-3xl rounded-full translate-x-12 -translate-y-12 pointer-events-none" />
+                <div className="relative p-6 border-b border-border bg-muted/20">
+                    <div className="flex items-start justify-between gap-6">
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary mb-2">
+                                Audiobook management
+                            </p>
+                            <h2 className="text-xl font-bold flex items-center gap-2">
+                                <Headphones className="text-primary" />
+                                Import Collection
+                            </h2>
+                            <p className="text-sm text-muted-foreground mt-1 max-w-xl">
+                                Choose an audiobook folder on this computer. Its supported content uploads immediately while preserving the collection structure.
+                            </p>
+                        </div>
+                        <div className="hidden sm:flex items-end gap-1 h-11 px-4 py-2 rounded-xl border border-primary/20 bg-primary/5" aria-hidden="true">
+                            {[4, 7, 10, 6, 9, 5].map((height, index) => (
+                                <span
+                                    key={`${height}-${index}`}
+                                    className="w-1 rounded-full bg-primary/80"
+                                    style={{ height: `${height * 3}px` }}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="relative p-6 space-y-5">
+                    <input
+                        type="file"
+                        webkitdirectory="true"
+                        directory="true"
+                        multiple
+                        onChange={handleAudiobookFolderSelect}
+                        ref={audiobookFolderInputRef}
+                        className="hidden"
+                        accept=".aac,.cue,.flac,.jpeg,.jpg,.json,.m4a,.m4b,.mp3,.nfo,.ogg,.opus,.png,.txt,.wav,.webp"
+                    />
+
+                    <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-stretch">
+                        <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-primary/5 p-5">
+                            <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-primary/10 to-transparent pointer-events-none" />
+                            <div className="relative flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0">
+                                    <HardDrive size={24} />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                                        Server destination
+                                    </p>
+                                    <p className="font-mono font-bold text-sm mt-1">audiobooks/</p>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        Folder names and nested discs are preserved.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={() => audiobookFolderInputRef.current?.click()}
+                            disabled={isAudiobookUploading}
+                            className="min-h-24 bg-primary text-primary-foreground font-black px-7 py-4 rounded-2xl hover:bg-primary/90 transition-all flex md:flex-col items-center justify-center gap-2 shadow-lg shadow-primary/20 active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100"
+                        >
+                            {isAudiobookUploading ? <Loader size={23} className="animate-spin" /> : <FolderSearch size={23} />}
+                            {isAudiobookUploading ? 'Uploading…' : 'Choose Folder'}
+                        </button>
+                    </div>
+
+                    {audiobookMessage && (
+                        <div className={cn(
+                            "text-sm p-4 rounded-xl border flex items-center gap-2",
+                            audiobookHasError
+                                ? "bg-destructive/10 text-destructive border-destructive/20"
+                                : "bg-emerald-500/10 text-emerald-300 border-emerald-500/20"
+                        )}>
+                            {audiobookHasError ? <AlertCircle size={17} /> : <CheckCircle2 size={17} />}
+                            {audiobookMessage}
+                        </div>
+                    )}
+
+                    {audiobookFiles.length > 0 && (
+                        <div className="rounded-2xl border border-border bg-secondary/5 overflow-hidden">
+                            <div className="p-4 border-b border-border bg-secondary/10">
+                                <div className="flex items-center justify-between gap-4 mb-3">
+                                    <div>
+                                        <h3 className="font-bold">Collection upload</h3>
+                                        <p className="text-xs text-muted-foreground mt-0.5">
+                                            {audiobookUploadProgress.completed} of {audiobookUploadProgress.total} files processed
+                                        </p>
+                                    </div>
+                                    <span className="text-sm font-black text-primary">
+                                        {audiobookUploadProgress.total
+                                            ? Math.round((audiobookUploadProgress.completed / audiobookUploadProgress.total) * 100)
+                                            : 0}%
+                                    </span>
+                                </div>
+                                <div className="h-1.5 rounded-full bg-background overflow-hidden">
+                                    <div
+                                        className="h-full rounded-full bg-primary transition-all duration-300"
+                                        style={{
+                                            width: `${audiobookUploadProgress.total
+                                                ? (audiobookUploadProgress.completed / audiobookUploadProgress.total) * 100
+                                                : 0}%`
+                                        }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="max-h-64 overflow-y-auto divide-y divide-border">
+                                {audiobookFiles.map(file => (
+                                    <div key={file.id} className="flex items-center gap-3 px-4 py-3">
+                                        <div className={cn(
+                                            "w-9 h-9 rounded-lg flex items-center justify-center shrink-0",
+                                            file.status === 'success' && "bg-emerald-500/10 text-emerald-300",
+                                            file.status === 'error' && "bg-destructive/10 text-destructive",
+                                            ['pending', 'uploading'].includes(file.status) && "bg-primary/10 text-primary"
+                                        )}>
+                                            {file.status === 'uploading'
+                                                ? <Loader size={17} className="animate-spin" />
+                                                : file.status === 'success'
+                                                    ? <CheckCircle2 size={17} />
+                                                    : file.status === 'error'
+                                                        ? <AlertCircle size={17} />
+                                                        : <Music size={17} />}
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="font-mono text-xs truncate" title={file.path}>{file.path}</p>
+                                            <p className={cn(
+                                                "text-[11px] mt-0.5",
+                                                file.status === 'error' ? "text-destructive" : "text-muted-foreground"
+                                            )}>
+                                                {file.status === 'error'
+                                                    ? file.error
+                                                    : file.status === 'uploading'
+                                                        ? `Uploading ${file.progress}%`
+                                                        : file.status === 'success'
+                                                            ? 'Stored on server'
+                                                            : 'Waiting'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <p className="text-xs text-muted-foreground pt-4 border-t border-border">
+                        Supported audio: MP3, M4B, M4A, AAC, FLAC, OGG, OPUS and WAV. Cover images and common metadata files are uploaded with the collection. Maximum file size is 4 GB by default.
+                    </p>
                 </div>
             </div>
         )}
