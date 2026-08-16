@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Bookshelf — Your Library, Your Rules</title>
-  <meta name="description" content="Bookshelf is a free, self-hosted personal library management and reading app. Read EPUB, PDF, and Comics with a beautiful built-in reader. Own your data." />
+  <meta name="description" content="Bookshelf is a free, self-hosted library for books and audiobooks. Read in your browser, listen with AI voices, and keep your collection under your control." />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -188,7 +188,7 @@
     }
     .btn-ghost:hover { border-color: var(--muted); color: var(--text); }
     .hero-stats {
-      display: flex; gap: 2.5rem;
+      display: flex; flex-wrap: wrap; gap: 2.5rem;
       margin-top: 3rem; padding-top: 2rem;
       border-top: 1px solid var(--line);
     }
@@ -388,6 +388,76 @@
     }
     .feature-desc { font-size: .845rem; color: var(--muted); line-height: 1.75; }
 
+    /* ─── AUDIOBOOKS ─────────────────────────────── */
+    .audiobooks-section {
+      background: linear-gradient(135deg, var(--surface) 0%, #00182d 100%);
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      overflow: hidden;
+    }
+    .audiobooks-inner {
+      display: grid; grid-template-columns: 1.05fr 1fr;
+      gap: 5rem; align-items: center;
+    }
+    .audiobooks-inner > *, .audio-now-playing > * { min-width: 0; }
+    .audio-showcase {
+      position: relative;
+      max-width: 540px;
+      padding: 1.35rem;
+      border: 1px solid rgba(255,255,255,.09);
+      border-radius: 16px;
+      background: rgba(0,20,38,.82);
+    }
+    .audio-showcase::before {
+      content: '';
+      position: absolute; inset: -25%; z-index: -1;
+      background: radial-gradient(circle, rgba(241,24,76,.13), transparent 58%);
+    }
+    .audio-now-playing {
+      display: grid; grid-template-columns: 132px 1fr;
+      gap: 1.25rem; align-items: center;
+    }
+    .audio-cover {
+      aspect-ratio: 1; border-radius: 10px;
+      display: grid; place-items: center;
+      background:
+        radial-gradient(circle at 50% 45%, rgba(255,255,255,.12), transparent 28%),
+        linear-gradient(145deg, #f1184c, #630a2b 68%, #001426);
+      border: 1px solid rgba(255,255,255,.1);
+      color: rgba(255,255,255,.88);
+    }
+    .audio-kicker {
+      font-family: var(--ff-mono); font-size: .6rem;
+      letter-spacing: .13em; text-transform: uppercase; color: var(--primary);
+    }
+    .audio-title { font-family: var(--ff-head); font-size: 1.3rem; line-height: 1.25; margin: .3rem 0 .2rem; }
+    .audio-author { color: var(--muted); font-size: .76rem; }
+    .waveform { display: flex; align-items: center; gap: 3px; height: 30px; margin: 1rem 0 .75rem; }
+    .waveform span { width: 3px; border-radius: 3px; background: var(--primary); opacity: .82; }
+    .audio-timeline { height: 3px; border-radius: 3px; background: var(--border); overflow: hidden; }
+    .audio-timeline span { display: block; width: 37%; height: 100%; background: var(--primary); }
+    .audio-time { display: flex; justify-content: space-between; margin-top: .35rem; font-family: var(--ff-mono); font-size: .55rem; color: var(--subtle); }
+    .audio-tracklist { margin-top: 1.1rem; border-top: 1px solid var(--line); }
+    .audio-track {
+      display: grid; grid-template-columns: 22px 1fr auto;
+      gap: .7rem; align-items: center; padding: .72rem .25rem;
+      border-bottom: 1px solid var(--line); font-size: .72rem; color: var(--muted);
+    }
+    .audio-track.active { color: var(--text); }
+    .audio-track-num { font-family: var(--ff-mono); color: var(--subtle); }
+    .audio-track.active .audio-track-num { color: var(--primary); }
+    .audio-track-time { font-family: var(--ff-mono); font-size: .6rem; color: var(--subtle); }
+    .audio-points { list-style: none; margin-top: 1.8rem; display: flex; flex-direction: column; gap: .9rem; }
+    .audio-points li { display: flex; gap: .8rem; color: var(--muted); font-size: .86rem; line-height: 1.65; }
+    .audio-points li::before {
+      content: '✓'; flex: 0 0 auto;
+      width: 22px; height: 22px; border-radius: 50%;
+      display: grid; place-items: center;
+      background: rgba(241,24,76,.12); color: var(--primary);
+      font-size: .7rem; font-weight: 700; margin-top: .1rem;
+    }
+    .audio-formats { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: 1.6rem; }
+
     /* ─── READING EXPERIENCE ──────────────────────────────── */
     .reading-section {
       background: var(--surface);
@@ -441,6 +511,12 @@
     .reader-progress-fill { height: 100%; width: 42%; }
     .font-controls { display: flex; align-items: center; gap: 6px; padding: 0 14px; }
     .font-pill { padding: 3px 9px; border-radius: 100px; font-size: .62rem; cursor: pointer; transition: background .15s, color .15s; }
+    .ai-voice-pill {
+      display: inline-flex; align-items: center; gap: .35rem;
+      padding: 3px 8px; border-radius: 100px;
+      background: rgba(241,24,76,.12); color: var(--primary);
+      font-family: var(--ff-mono); font-size: .56rem; letter-spacing: .04em;
+    }
 
     /* Light theme */
     .reader-preview.theme-light .reader-topbar  { background: #F5F0E8; }
@@ -638,6 +714,10 @@
     .footer-bottom a:hover { opacity:.75; }
 
     /* ─── RESPONSIVE ─────────────────────────────────────── */
+    @media (max-width:1200px) {
+      .nav-links { display:none; }
+      .hamburger { display:flex; }
+    }
     @media (max-width:960px) {
       .hero { grid-template-columns:1fr; padding-top:6.5rem; text-align:center; }
       .hero-sub { margin:0 auto 2.5rem; }
@@ -646,6 +726,7 @@
       .hero-visual { order:-1; }
       .features-header { grid-template-columns:1fr; }
       .reading-inner { grid-template-columns:1fr; gap:2.5rem; }
+      .audiobooks-inner { grid-template-columns:1fr; gap:3rem; }
       .steps { grid-template-columns:1fr; }
       .extras-grid { grid-template-columns:1fr; }
       .footer-top { grid-template-columns:1fr 1fr; }
@@ -654,10 +735,9 @@
       .mockup-sidebar { display:none; }
     }
     @media (max-width:640px) {
-      .nav-links { display:none; }
-      .hamburger { display:flex; }
       .footer-top { grid-template-columns:1fr; }
       .book-grid { grid-template-columns:repeat(3,1fr); }
+      .audio-now-playing { grid-template-columns: 92px 1fr; }
     }
   </style>
 </head>
@@ -673,6 +753,7 @@
       <ul class="nav-links">
         <li><a href="#features">Features</a></li>
         <li><a href="#reading">Reader</a></li>
+        <li><a href="#audiobooks">Audiobooks</a></li>
         <li><a href="#setup">Setup</a></li>
         <li><a href="#roles">Access</a></li>
         <li>
@@ -691,6 +772,7 @@
   <div class="mobile-menu" id="mobileMenu">
     <a href="#features" onclick="closeMobile()">Features</a>
     <a href="#reading" onclick="closeMobile()">Reader</a>
+    <a href="#audiobooks" onclick="closeMobile()">Audiobooks</a>
     <a href="#setup" onclick="closeMobile()">Self-Hosting</a>
     <a href="#roles" onclick="closeMobile()">Access Control</a>
     <a href="https://github.com/vivamau/bookshelf" target="_blank" rel="noopener">View on GitHub →</a>
@@ -699,14 +781,14 @@
   <!-- ─── HERO ─────────────────────────────────────────────── -->
   <section class="hero">
     <div class="hero-text">
-      <div class="hero-eyebrow">Free &amp; Open Source</div>
+      <div class="hero-eyebrow">Release 1.10.1 &nbsp;·&nbsp; Free &amp; Open Source</div>
       <h1 class="hero-title">
         Your library.<br>
         <em>Your rules.</em>
       </h1>
       <p class="hero-sub">
-        Bookshelf is a self-hosted web app that turns your book collection into a beautiful,
-        searchable, readable library — no subscription, no cloud lock-in, no limits.
+        Read books in your browser, bring every page to life with natural AI voices,
+        and keep your audiobooks beautifully organized — all on your own server.
       </p>
       <div class="hero-actions">
         <a href="https://github.com/vivamau/bookshelf" target="_blank" rel="noopener" class="btn-primary">
@@ -724,12 +806,12 @@
           <div class="stat-label">PDF &amp; Comics</div>
         </div>
         <div>
-          <div class="stat-num">3</div>
-          <div class="stat-label">Reading Themes</div>
+          <div class="stat-num">M4B</div>
+          <div class="stat-label">&amp; Audio Formats</div>
         </div>
         <div>
-          <div class="stat-num">4+</div>
-          <div class="stat-label">TTS Languages</div>
+          <div class="stat-num">AI</div>
+          <div class="stat-label">Natural Voices</div>
         </div>
         <div>
           <div class="stat-num">100%</div>
@@ -785,6 +867,10 @@
               Readlists
             </div>
             <div class="sidebar-item">
+              <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14a8 8 0 0116 0"/><path d="M18 19v-5h2a2 2 0 012 2v1a2 2 0 01-2 2h-2zM6 19v-5H4a2 2 0 00-2 2v1a2 2 0 002 2h2z"/></svg>
+              Audiobooks
+            </div>
+            <div class="sidebar-item">
               <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M5.34 18.66l-1.41 1.41M18.66 18.66l1.41 1.41M4.93 4.93l1.41 1.41M12 2v2m0 18v2M2 12H0m22 0h2"/></svg>
               Settings
             </div>
@@ -820,6 +906,9 @@
       <span class="format-badge"><span class="format-dot" style="background:#c9a84c"></span>CBZ</span>
       <span class="format-badge"><span class="format-dot" style="background:#9a5cc9"></span>ZIP Archive</span>
       <span class="format-badge"><span class="format-dot" style="background:#c95c9a"></span>RAR Archive</span>
+      <span class="format-badge"><span class="format-dot" style="background:#ff7a59"></span>M4B</span>
+      <span class="format-badge"><span class="format-dot" style="background:#5cc9c2"></span>MP3</span>
+      <span class="format-badge"><span class="format-dot" style="background:#8b9cff"></span>FLAC</span>
     </div>
   </div>
 
@@ -839,8 +928,8 @@
 
       <div class="feature-card reveal">
         <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg></div>
-        <div class="feature-name">Multi-Format Reader</div>
-        <p class="feature-desc">One built-in reader handles EPUB, PDF, and comic archives (CBR, CBZ). No extra apps needed — your whole collection reads in the browser.</p>
+        <div class="feature-name">Read in Your Browser</div>
+        <p class="feature-desc">Open EPUB, PDF, and comic archives (CBR, CBZ) directly from your shelf. No extra reader app or file transfer required.</p>
       </div>
 
       <div class="feature-card reveal">
@@ -851,8 +940,14 @@
 
       <div class="feature-card reveal">
         <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg></div>
-        <div class="feature-name">Text-to-Speech</div>
-        <p class="feature-desc">Let the app read to you. Integrated TTS supports English, Italian, French, and Spanish voices — hands-free reading while you cook, commute, or rest.</p>
+        <div class="feature-name">AI Voice Narration</div>
+        <p class="feature-desc">Turn EPUB chapters into expressive narration with a choice of natural AI voices. Prefer your device? Browser voices remain available as a built-in fallback.</p>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 14a8 8 0 0116 0"/><path d="M18 19v-5h2a2 2 0 012 2v1a2 2 0 01-2 2h-2zM6 19v-5H4a2 2 0 00-2 2v1a2 2 0 002 2h2z"/><path d="M12 6V3"/></svg></div>
+        <div class="feature-name">Audiobook Library</div>
+        <p class="feature-desc">Import complete audiobook folders, browse rich covers and metadata, play tracks securely in the browser, and download a title whenever you need it.</p>
       </div>
 
       <div class="feature-card reveal">
@@ -907,10 +1002,10 @@
     <div class="reading-inner">
       <div>
         <div class="section-label reveal">The reader</div>
-        <h2 class="section-title reveal">Reading your <em>way</em></h2>
+        <h2 class="section-title reveal">Read right in your <em>browser</em></h2>
         <p class="section-sub reveal">
-          The Bookshelf reader adapts to your environment and mood. Three polished themes,
-          three font families, a smooth font-size slider — all tuned for long reading sessions.
+          Open a book without installing another app. Choose a comfortable theme and font,
+          then press Read Aloud for natural AI narration or your browser's own voice engine.
         </p>
         <div class="theme-switcher reveal">
           <button class="theme-btn" onclick="setTheme('light')" id="btn-light">
@@ -945,6 +1040,10 @@
             <span class="font-pill" onclick="setFont('mono')">Mono</span>
           </div>
           <div class="reader-controls">
+            <span class="ai-voice-pill">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.64 5.64l2.12 2.12m8.48 8.48 2.12 2.12m0-12.72-2.12 2.12M7.76 16.24l-2.12 2.12"/><circle cx="12" cy="12" r="3"/></svg>
+              AI voice
+            </span>
             <div class="ctrl-btn">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
             </div>
@@ -972,7 +1071,55 @@
     </div>
   </section>
 
-  <!-- ─── HOW IT WORKS ──────────────────────────────────────── -->
+  <!-- Audiobooks -->
+  <section id="audiobooks" class="audiobooks-section">
+    <div class="audiobooks-inner">
+      <div class="audio-showcase reveal" aria-label="Audiobook player preview">
+        <div class="audio-now-playing">
+          <div class="audio-cover">
+            <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.35"><path d="M4 14a8 8 0 0116 0"/><path d="M18 19v-5h2a2 2 0 012 2v1a2 2 0 01-2 2h-2zM6 19v-5H4a2 2 0 00-2 2v1a2 2 0 002 2h2z"/><path d="M12 6V3"/></svg>
+          </div>
+          <div>
+            <div class="audio-kicker">Now playing</div>
+            <div class="audio-title">The Library at Midnight</div>
+            <div class="audio-author">Narrated by A. Reader</div>
+            <div class="waveform" aria-hidden="true">
+              <span style="height:9px"></span><span style="height:18px"></span><span style="height:25px"></span><span style="height:14px"></span><span style="height:29px"></span><span style="height:20px"></span><span style="height:11px"></span><span style="height:24px"></span><span style="height:16px"></span><span style="height:27px"></span><span style="height:13px"></span><span style="height:22px"></span><span style="height:8px"></span><span style="height:18px"></span><span style="height:12px"></span>
+            </div>
+            <div class="audio-timeline"><span></span></div>
+            <div class="audio-time"><span>18:42</span><span>51:06</span></div>
+          </div>
+        </div>
+        <div class="audio-tracklist">
+          <div class="audio-track active"><span class="audio-track-num">▶</span><span>03 — The Reading Room</span><span class="audio-track-time">51:06</span></div>
+          <div class="audio-track"><span class="audio-track-num">04</span><span>Voices in the Stacks</span><span class="audio-track-time">46:19</span></div>
+          <div class="audio-track"><span class="audio-track-num">05</span><span>The Last Catalogue</span><span class="audio-track-time">39:52</span></div>
+        </div>
+      </div>
+
+      <div class="reveal">
+        <div class="section-label">A home for every story</div>
+        <h2 class="section-title">Your audiobooks,<br><em>on your server</em></h2>
+        <p class="section-sub">
+          Bookshelf now gives spoken-word collections a proper home. Import a folder once,
+          then browse, play, manage, and download every title from the same library as your books.
+        </p>
+        <ul class="audio-points">
+          <li>Upload complete folders while preserving multi-disc and nested track structure.</li>
+          <li>Stream protected audio in the browser with ordered tracks and collection details.</li>
+          <li>Edit metadata, add cover art from a URL, and manage downloads from one detail page.</li>
+        </ul>
+        <div class="audio-formats">
+          <span class="compat-tag">M4B</span><span class="compat-tag">MP3</span>
+          <span class="compat-tag">M4A</span><span class="compat-tag">AAC</span>
+          <span class="compat-tag">FLAC</span><span class="compat-tag">OGG</span>
+          <span class="compat-tag">OPUS</span><span class="compat-tag">WAV</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
   <section id="setup">
     <div class="reveal">
       <div class="section-label">Getting started</div>
@@ -997,9 +1144,9 @@
       </div>
       <div class="step">
         <div class="step-num">03</div>
-        <div class="step-title">Add Your Books</div>
-        <p class="step-desc">Upload books via the browser, point Bookshelf at a folder on your server to scan, or use the bulk upload tool. Add covers, metadata, and start reading immediately.</p>
-        <span class="step-tag">EPUB · PDF · Comics</span>
+        <div class="step-title">Add Books &amp; Audiobooks</div>
+        <p class="step-desc">Upload books in the browser or import folders from Settings. Bookshelf preserves audiobook track structure and makes every collection ready to read or play.</p>
+        <span class="step-tag">EPUB · PDF · Comics · M4B · MP3</span>
       </div>
     </div>
 
@@ -1034,12 +1181,11 @@
         <div class="extra-card-icon">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>
         </div>
-        <div class="extra-card-title">Text-to-Speech</div>
-        <p class="extra-card-desc">The built-in TTS engine reads any EPUB aloud in your chosen language. Select a voice, hit play, and let the words wash over you — on your commute, at the gym, or just when your eyes need a rest.</p>
+        <div class="extra-card-title">AI &amp; Browser Voices</div>
+        <p class="extra-card-desc">Choose expressive AI narration or your device's built-in speech engine. Select a voice, hit play, and turn the current EPUB chapter into audio whenever your eyes need a rest.</p>
         <div class="compat-list">
-          <span class="compat-tag">English</span><span class="compat-tag">Italian</span>
-          <span class="compat-tag">French</span><span class="compat-tag">Spanish</span>
-          <span class="compat-tag">System voices</span>
+          <span class="compat-tag">Natural AI voices</span><span class="compat-tag">Browser voices</span>
+          <span class="compat-tag">MP3 narration</span><span class="compat-tag">Automatic fallback</span>
         </div>
       </div>
 
@@ -1098,12 +1244,12 @@
       <div class="role-card">
         <span class="role-badge badge-librarian">Librarian</span>
         <div class="role-title">The Curator</div>
-        <p class="role-desc">Full control over the library and its users. Add books, manage metadata, scan directories, and administer the entire server.</p>
+        <p class="role-desc">Full control over the library and its users. Add books and audiobooks, manage metadata and covers, scan directories, and administer the server.</p>
         <ul class="role-perms">
-          <li>Upload and manage books</li>
+          <li>Upload and manage books &amp; audiobooks</li>
           <li>Scan server directories</li>
           <li>Manage users &amp; roles</li>
-          <li>Read and download all content</li>
+          <li>Read, listen, and download all content</li>
         </ul>
       </div>
       <div class="role-card">
@@ -1111,7 +1257,7 @@
         <div class="role-title">The Bookworm</div>
         <p class="role-desc">Everything needed for a great reading experience. Browse the full library, read, download, review, and build personal reading lists.</p>
         <ul class="role-perms">
-          <li>Read all books in the library</li>
+          <li>Read books and play audiobooks</li>
           <li>Download books</li>
           <li>Write reviews &amp; rate</li>
           <li>Create custom reading lists</li>
@@ -1120,11 +1266,12 @@
       <div class="role-card">
         <span class="role-badge badge-guest">Guest</span>
         <div class="role-title">The Visitor</div>
-        <p class="role-desc">Browse and discover without full access. Guests can explore the catalog and see what the library contains before requesting a role.</p>
+        <p class="role-desc">Browse and discover the collection with lightweight access. Guests can explore the catalog and enjoy the shared audiobook library.</p>
         <ul class="role-perms">
           <li>View library catalog</li>
-          <li>Browse authors &amp; genres</li>
-          <li>No download access</li>
+          <li>Browse authors, genres &amp; audiobooks</li>
+          <li>Play and download audiobooks</li>
+          <li>No book download access</li>
           <li>No reading access</li>
         </ul>
       </div>
@@ -1158,7 +1305,7 @@
           <div class="github-repo-sub">github.com</div>
         </div>
       </div>
-      <p class="github-desc">A self-hosted personal library management and reading application. Supports EPUB, PDF, and comic archives with a beautiful built-in reader, text-to-speech, OPDS feed, and multi-user access control.</p>
+      <p class="github-desc">A self-hosted library for books and audiobooks. Read EPUB, PDF, and comics in the browser, listen with AI voices, stream audiobook collections, and keep every file under your control.</p>
       <div class="github-footer">
         <div class="github-meta">
           <div class="github-meta-item"><span class="lang-dot"></span>JavaScript</div>
@@ -1190,6 +1337,7 @@
         <ul>
           <li><a href="#features">Features</a></li>
           <li><a href="#reading">Reader</a></li>
+          <li><a href="#audiobooks">Audiobooks</a></li>
           <li><a href="#setup">Self-Hosting</a></li>
           <li><a href="#roles">Access Control</a></li>
         </ul>
@@ -1200,7 +1348,7 @@
           <li><a href="#">EPUB</a></li>
           <li><a href="#">PDF</a></li>
           <li><a href="#">CBR / CBZ</a></li>
-          <li><a href="#">ZIP / RAR</a></li>
+          <li><a href="#">M4B / MP3 / FLAC</a></li>
         </ul>
       </div>
       <div class="footer-col">
@@ -1214,7 +1362,7 @@
       </div>
     </div>
     <div class="footer-bottom">
-      <p>© 2025 Bookshelf. Released under the <a href="https://github.com/vivamau/bookshelf/blob/main/LICENSE">GPL-3.0 License</a>.</p>
+      <p>© 2026 Bookshelf. Released under the <a href="https://github.com/vivamau/bookshelf/blob/main/LICENSE">GPL-3.0 License</a>.</p>
       <p>Made with care for readers everywhere.</p>
     </div>
   </footer>
