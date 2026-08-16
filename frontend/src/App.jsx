@@ -51,6 +51,7 @@ import AddBook from './pages/AddBook';
 import Readlists from './pages/Readlists';
 import ReadlistDetails from './pages/ReadlistDetails';
 import { audiobooksApi, booksApi, libraryApi, genresApi, searchApi } from './api/api';
+import { truncateAudiobookTitle } from './lib/audiobookTitle';
 import ProfileModal from './components/ProfileModal';
 import InstallPWA from './components/InstallPWA';
 import { getOfflineBooks, getOfflineProgress, syncPendingProgress } from './lib/offline';
@@ -166,7 +167,7 @@ const AudiobookCard = ({ audiobook, index }) => {
       </div>
       <div className="px-1 pt-3">
         <h3 className="line-clamp-2 text-sm font-bold leading-snug transition-colors group-hover:text-primary">
-          {audiobook.title}
+          {truncateAudiobookTitle(audiobook.title)}
         </h3>
         <p className="mt-1 truncate text-xs text-muted-foreground">
           {audiobook.author || audiobook.tracks[0]?.title || 'Audio collection'}
