@@ -3,6 +3,7 @@ const path = require('path');
 
 const AUDIO_EXTENSIONS = new Set(['.aac', '.flac', '.m4a', '.m4b', '.mp3', '.ogg', '.opus', '.wav']);
 const COVER_EXTENSIONS = new Set(['.jpeg', '.jpg', '.png', '.webp']);
+const MANAGED_COVER_PREFIX = 'bookshelf-cover.';
 const METADATA_FILE_NAME = '.bookshelf-metadata.json';
 const METADATA_TEXT_LIMITS = Object.freeze({
     title: 300,
@@ -201,7 +202,12 @@ const scanAudiobookCatalog = async (audiobooksDirectory, fsApi = fs.promises) =>
 
             const cover = directoryFiles
                 .filter((file) => COVER_EXTENSIONS.has(file.extension))
-                .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))[0];
+                .sort((a, b) => {
+                    const aIsManaged = a.name.startsWith(MANAGED_COVER_PREFIX);
+                    const bIsManaged = b.name.startsWith(MANAGED_COVER_PREFIX);
+                    if (aIsManaged !== bIsManaged) return aIsManaged ? -1 : 1;
+                    return a.name.localeCompare(b.name, undefined, { numeric: true });
+                })[0];
             const latestModifiedAt = directoryFiles.reduce(
                 (latest, file) => file.modifiedAt > latest ? file.modifiedAt : latest,
                 directoryFiles[0].modifiedAt
@@ -235,6 +241,7 @@ const scanAudiobookCatalog = async (audiobooksDirectory, fsApi = fs.promises) =>
 module.exports = {
     AUDIO_EXTENSIONS,
     COVER_EXTENSIONS,
+    MANAGED_COVER_PREFIX,
     METADATA_FILE_NAME,
     AudiobookCatalogError,
     normalizeRelativeAssetPath,

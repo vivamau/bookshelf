@@ -11,8 +11,13 @@ jest.mock('../../utils/libraryScanner', () => ({
     refreshCovers: jest.fn(),
     importFiles: jest.fn()
 }));
+jest.mock('../../utils/remoteImage', () => {
+    const actual = jest.requireActual('../../utils/remoteImage');
+    return { ...actual, downloadRemoteImage: jest.fn() };
+});
 
 const app = require('../../index');
+const { downloadRemoteImage } = require('../../utils/remoteImage');
 
 jest.setTimeout(30000);
 
@@ -35,6 +40,7 @@ describe('Upload Endpoint Integration', () => {
     const uploadedM4bPath = path.join(__dirname, '..', '..', 'audiobooks', 'Test Collection', 'complete-book.m4b');
     const uploadedLargeM4bPath = path.join(__dirname, '..', '..', 'audiobooks', 'Test Collection', 'large-complete-book.m4b');
     const uploadedAudiobookCoverPath = path.join(__dirname, '..', '..', 'audiobooks', 'Test Collection', 'Disc 1', 'cover.jpg');
+    const managedAudiobookCoverPath = path.join(__dirname, '..', '..', 'audiobooks', 'Test Collection', 'Disc 1', 'bookshelf-cover.png');
     const uploadedAudiobookMetadataPath = path.join(__dirname, '..', '..', 'audiobooks', 'Test Collection', 'Disc 1', '.bookshelf-metadata.json');
     const archiveCollectionPath = path.join(__dirname, '..', '..', 'audiobooks', 'Archive Collection');
 
@@ -218,15 +224,48 @@ describe('Upload Endpoint Integration', () => {
         });
     });
 
+    test('POST /api/audiobooks/cover-from-url lets librarians add a managed cover', async () => {
+        downloadRemoteImage.mockResolvedValueOnce({
+            data: Buffer.from('downloaded cover'),
+            extension: 'png',
+            contentType: 'image/png'
+        });
+
+        const res = await request(app)
+            .post('/api/audiobooks/cover-from-url')
+            .set('Cookie', authCookie)
+            .send({
+                folder: 'Test Collection/Disc 1',
+                coverUrl: 'https://covers.example/audiobook.png'
+            });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.data.coverPath).toBe('Test Collection/Disc 1/bookshelf-cover.png');
+        expect(fs.readFileSync(managedAudiobookCoverPath, 'utf8')).toBe('downloaded cover');
+        expect(downloadRemoteImage).toHaveBeenCalledWith('https://covers.example/audiobook.png');
+    });
+
+    test('POST /api/audiobooks/cover-from-url rejects guest accounts', async () => {
+        const res = await request(app)
+            .post('/api/audiobooks/cover-from-url')
+            .set('Cookie', guestCookie)
+            .send({
+                folder: 'Test Collection/Disc 1',
+                coverUrl: 'https://covers.example/unauthorized.png'
+            });
+
+        expect(res.statusCode).toBe(403);
+    });
+
     test('GET /api/audiobooks/cover serves a protected collection cover', async () => {
         const res = await request(app)
             .get('/api/audiobooks/cover')
-            .query({ path: 'Test Collection/Disc 1/cover.jpg' })
+            .query({ path: 'Test Collection/Disc 1/bookshelf-cover.png' })
             .set('Cookie', guestCookie);
 
         expect(res.statusCode).toBe(200);
         expect(res.headers['cache-control']).toBe('private, max-age=3600');
-        expect(res.body.toString()).toBe('fake cover');
+        expect(res.body.toString()).toBe('downloaded cover');
     });
 
     test('GET /api/audiobooks/audio streams protected tracks with range support', async () => {

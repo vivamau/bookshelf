@@ -135,6 +135,7 @@ export const audiobooksApi = {
   getAll: () => api.get('/audiobooks'),
   getByFolder: (folder) => api.get('/audiobooks/details', { params: { folder } }),
   updateMetadata: (folder, metadata) => api.put('/audiobooks/metadata', { folder, metadata }),
+  setCoverFromUrl: (folder, coverUrl) => api.post('/audiobooks/cover-from-url', { folder, coverUrl }),
   remove: (folder) => api.delete('/audiobooks', { params: { folder } }),
   getDownloadUrl: (folder) => `${API_URL}/audiobooks/download?folder=${encodeURIComponent(folder)}`,
   upload: (formData, config = {}) => api.post('/audiobooks/upload', formData, {

@@ -17,12 +17,15 @@ const { OpenAIConfigError, OpenAIRequestError, synthesizeSpeech } = require('./u
 const { AudiobookUploadError, resolveAudiobookUploadPath } = require('./utils/audiobookUpload');
 const {
     AudiobookCatalogError,
+    COVER_EXTENSIONS,
+    MANAGED_COVER_PREFIX,
     resolveAudiobookAudioPath,
     resolveAudiobookCoverPath,
     resolveAudiobookDirectoryPath,
     scanAudiobookCatalog,
     writeAudiobookMetadata
 } = require('./utils/audiobookCatalog');
+const { RemoteImageError, downloadRemoteImage } = require('./utils/remoteImage');
 
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
@@ -1640,6 +1643,50 @@ audiobooksRouter.put('/metadata', checkManageBooks, async (req, res) => {
         }
         console.error('Audiobook metadata update failed:', err);
         res.status(500).json({ error: 'Could not update audiobook metadata' });
+    }
+});
+
+audiobooksRouter.post('/cover-from-url', checkManageBooks, async (req, res) => {
+    const folder = req.body.folder;
+    try {
+        const audiobooks = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
+        const audiobook = audiobooks.find((item) => item.folder === folder);
+        if (!audiobook) {
+            return res.status(404).json({ error: 'Audiobook not found' });
+        }
+
+        const cover = await downloadRemoteImage(req.body.coverUrl);
+        const directoryPath = resolveAudiobookDirectoryPath(AUDIOBOOKS_DIR, audiobook.folder);
+        const fileName = `${MANAGED_COVER_PREFIX}${cover.extension}`;
+        const filePath = path.join(directoryPath, fileName);
+        const temporaryPath = path.join(
+            directoryPath,
+            `${MANAGED_COVER_PREFIX}${process.pid}-${Date.now()}.tmp`
+        );
+
+        try {
+            await fs.promises.writeFile(temporaryPath, cover.data, { mode: 0o600 });
+            await fs.promises.rename(temporaryPath, filePath);
+            await Promise.all([...COVER_EXTENSIONS]
+                .map((extension) => path.join(directoryPath, `${MANAGED_COVER_PREFIX}${extension.slice(1)}`))
+                .filter((managedPath) => managedPath !== filePath)
+                .map((managedPath) => fs.promises.rm(managedPath, { force: true })));
+        } finally {
+            await fs.promises.rm(temporaryPath, { force: true }).catch(() => {});
+        }
+
+        const updatedAudiobooks = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
+        const updatedAudiobook = updatedAudiobooks.find((item) => item.folder === audiobook.folder);
+        res.json({ data: updatedAudiobook });
+    } catch (err) {
+        if (err instanceof RemoteImageError) {
+            return res.status(err.statusCode).json({ error: err.message });
+        }
+        if (err instanceof AudiobookCatalogError) {
+            return res.status(400).json({ error: err.message });
+        }
+        console.error('Audiobook cover update failed:', err);
+        res.status(500).json({ error: 'Could not update the audiobook cover' });
     }
 });
 

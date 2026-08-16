@@ -176,10 +176,10 @@ Open the **Audiobooks** tab on the home page to browse all collections found in 
 | Browse audiobook collections | ✓ | ✓ | ✓ |
 | View details and play tracks | ✓ | ✓ | ✓ |
 | Download an audiobook | ✓ | ✓ | ✓ |
-| Edit title, author, narrator, language, year, and description | — | — | ✓ |
+| Edit title, author, narrator, language, year, description, and cover | — | — | ✓ |
 | Delete a collection from the server | — | — | ✓ |
 
-Single-file audiobooks download in their original format. Multi-track collections download as a TAR archive. Deleting a collection requires confirmation and permanently removes its server folder, including its tracks, cover, and saved metadata.
+Librarians can add or replace a missing cover by providing a public JPEG, PNG, or WebP image URL on the audiobook details page. Single-file audiobooks download in their original format. Multi-track collections download as a TAR archive. Deleting a collection requires confirmation and permanently removes its server folder, including its tracks, cover, and saved metadata.
 
 ## 📡 OPDS Feed
 

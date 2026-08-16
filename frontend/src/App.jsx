@@ -30,7 +30,9 @@ import {
   X,
   Loader,
   Trash2,
-  Download
+  Download,
+  ImagePlus,
+  Link2
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -126,7 +128,7 @@ const formatFileSize = (bytes) => {
 const AudiobookCard = ({ audiobook, index }) => {
   const navigate = useNavigate();
   const coverUrl = audiobook.coverPath
-    ? `${import.meta.env.VITE_API_BASE_URL}/api/audiobooks/cover?path=${encodeURIComponent(audiobook.coverPath)}`
+    ? `${import.meta.env.VITE_API_BASE_URL}/api/audiobooks/cover?path=${encodeURIComponent(audiobook.coverPath)}&v=${encodeURIComponent(audiobook.modifiedAt)}`
     : null;
 
   return (
@@ -143,6 +145,7 @@ const AudiobookCard = ({ audiobook, index }) => {
         </div>
         {coverUrl && (
           <img
+            key={coverUrl}
             src={coverUrl}
             alt={`Cover of ${audiobook.title}`}
             crossOrigin="use-credentials"
@@ -874,6 +877,10 @@ function AudiobookDetails() {
   const [isEditingMetadata, setIsEditingMetadata] = useState(false);
   const [isSavingMetadata, setIsSavingMetadata] = useState(false);
   const [metadataError, setMetadataError] = useState('');
+  const [isEditingCover, setIsEditingCover] = useState(false);
+  const [coverUrlInput, setCoverUrlInput] = useState('');
+  const [isSavingCover, setIsSavingCover] = useState(false);
+  const [coverError, setCoverError] = useState('');
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [isDeletingAudiobook, setIsDeletingAudiobook] = useState(false);
   const [deleteError, setDeleteError] = useState('');
@@ -915,6 +922,7 @@ function AudiobookDetails() {
           const loadedAudiobook = response.data.data;
           setAudiobook(loadedAudiobook);
           setSelectedTrackIndex(0);
+          setIsEditingCover(!loadedAudiobook.coverPath && hasPermission('userrole_managebooks'));
           setMetadataForm({
             title: loadedAudiobook.title || '',
             author: loadedAudiobook.author || '',
@@ -938,11 +946,11 @@ function AudiobookDetails() {
       cancelled = true;
       audioRef.current?.pause();
     };
-  }, [folder]);
+  }, [folder, hasPermission]);
 
   const selectedTrack = audiobook?.tracks[selectedTrackIndex] || null;
   const coverUrl = audiobook?.coverPath
-    ? `${import.meta.env.VITE_API_BASE_URL}/api/audiobooks/cover?path=${encodeURIComponent(audiobook.coverPath)}`
+    ? `${import.meta.env.VITE_API_BASE_URL}/api/audiobooks/cover?path=${encodeURIComponent(audiobook.coverPath)}&v=${encodeURIComponent(audiobook.modifiedAt)}`
     : null;
   const audioUrl = selectedTrack
     ? `${import.meta.env.VITE_API_BASE_URL}/api/audiobooks/audio?path=${encodeURIComponent(selectedTrack.path)}`
@@ -1001,6 +1009,25 @@ function AudiobookDetails() {
       setMetadataError(requestError.response?.data?.error || 'The audiobook metadata could not be saved.');
     } finally {
       setIsSavingMetadata(false);
+    }
+  };
+
+  const saveCoverFromUrl = async (event) => {
+    event.preventDefault();
+    const coverUrlValue = coverUrlInput.trim();
+    if (!coverUrlValue) return;
+
+    setIsSavingCover(true);
+    setCoverError('');
+    try {
+      const response = await audiobooksApi.setCoverFromUrl(folder, coverUrlValue);
+      setAudiobook(response.data.data);
+      setCoverUrlInput('');
+      setIsEditingCover(false);
+    } catch (requestError) {
+      setCoverError(requestError.response?.data?.error || 'The audiobook cover could not be updated.');
+    } finally {
+      setIsSavingCover(false);
     }
   };
 
@@ -1075,6 +1102,7 @@ function AudiobookDetails() {
               </div>
               {coverUrl && (
                 <img
+                  key={coverUrl}
                   src={coverUrl}
                   alt={`Cover of ${audiobook.title}`}
                   crossOrigin="use-credentials"
@@ -1083,6 +1111,78 @@ function AudiobookDetails() {
                 />
               )}
             </div>
+
+            {hasPermission('userrole_managebooks') && (
+              <div className="mt-4">
+                {isEditingCover ? (
+                  <form onSubmit={saveCoverFromUrl} className="rounded-2xl border border-primary/25 bg-card/80 p-4 backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="mb-3 flex items-center gap-2">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+                        <Link2 size={15} />
+                      </span>
+                      <div>
+                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-primary">Remote image</p>
+                        <p className="text-xs font-bold">{coverUrl ? 'Replace cover' : 'Add a cover'}</p>
+                      </div>
+                    </div>
+                    <label className="sr-only" htmlFor="audiobook-cover-url">Cover image URL</label>
+                    <input
+                      id="audiobook-cover-url"
+                      type="url"
+                      required
+                      maxLength={2048}
+                      autoFocus
+                      value={coverUrlInput}
+                      onChange={(event) => setCoverUrlInput(event.target.value)}
+                      placeholder="https://example.com/cover.jpg"
+                      className="w-full rounded-xl border border-border bg-background/75 px-3.5 py-2.5 text-xs outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary"
+                    />
+                    <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">JPEG, PNG, or WebP · maximum 10 MB</p>
+                    {coverError && (
+                      <p role="alert" className="mt-3 rounded-xl border border-destructive/25 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                        {coverError}
+                      </p>
+                    )}
+                    <div className="mt-3 flex gap-2">
+                      {coverUrl && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsEditingCover(false);
+                            setCoverUrlInput('');
+                            setCoverError('');
+                          }}
+                          disabled={isSavingCover}
+                          className="flex-1 rounded-xl border border-border px-3 py-2 text-[10px] font-black uppercase tracking-wider text-muted-foreground transition-colors hover:bg-secondary/30 hover:text-foreground disabled:opacity-40"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                      <button
+                        type="submit"
+                        disabled={isSavingCover || !coverUrlInput.trim()}
+                        className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-[10px] font-black uppercase tracking-wider text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                      >
+                        {isSavingCover ? <Loader size={14} className="animate-spin" /> : <ImagePlus size={14} />}
+                        {isSavingCover ? 'Saving…' : 'Use cover'}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCoverError('');
+                      setIsEditingCover(true);
+                    }}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card/70 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                  >
+                    <ImagePlus size={14} />
+                    Change cover
+                  </button>
+                )}
+              </div>
+            )}
 
             <div className="mt-4 grid grid-cols-2 gap-2">
               <div className="rounded-xl border border-border bg-card/70 p-3 backdrop-blur-md">

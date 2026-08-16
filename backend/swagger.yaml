@@ -815,6 +815,35 @@ paths:
           description: Invalid or unsupported cover path
         404:
           description: Cover image not found
+  /api/audiobooks/cover-from-url:
+    post:
+      summary: Download and apply a remote cover to an audiobook collection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - folder
+                - coverUrl
+              properties:
+                folder:
+                  type: string
+                coverUrl:
+                  type: string
+                  format: uri
+      responses:
+        200:
+          description: Updated audiobook collection
+        400:
+          description: Invalid, private, oversized, or unsupported image URL
+        403:
+          description: Manage Books permission is required
+        404:
+          description: Audiobook not found
+        502:
+          description: Remote image download failed
   /api/audiobooks/details:
     get:
       summary: Get one audiobook collection by its server folder

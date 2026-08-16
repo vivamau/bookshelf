@@ -61,6 +61,24 @@ describe('audiobook catalog', () => {
         expect(catalog[0].title).toBe("Paulo Coelho L'Alchimista");
     });
 
+    test('prefers a URL-managed cover without deleting an original collection cover', async () => {
+        const root = path.join(path.sep, 'srv', 'bookshelf', 'audiobooks');
+        const collection = path.join(root, 'Earthsea');
+        const fsApi = {
+            readdir: jest.fn(async (directory) => directory === root
+                ? [directoryEntry('Earthsea')]
+                : [fileEntry('Chapter 01.mp3'), fileEntry('cover.jpg'), fileEntry('bookshelf-cover.webp')]),
+            stat: jest.fn(async (filePath) => ({
+                size: filePath.endsWith('.mp3') ? 100 : 50,
+                mtime: new Date('2026-08-16T10:00:00.000Z')
+            }))
+        };
+
+        const catalog = await scanAudiobookCatalog(root, fsApi);
+
+        expect(catalog[0].coverPath).toBe('Earthsea/bookshelf-cover.webp');
+    });
+
     test('applies saved metadata when scanning a collection', async () => {
         const root = path.join(path.sep, 'srv', 'bookshelf', 'audiobooks');
         const collection = path.join(root, 'Earthsea');
