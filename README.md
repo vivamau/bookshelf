@@ -10,6 +10,7 @@ A full-stack web application for managing your personal book collection. Built w
 - **User Authentication**: Secure login with JWT-based authentication
 - **Responsive Design**: Modern UI built with React and TailwindCSS
 - **Comic Support**: Native support for CBR, CBZ, RAR, and ZIP comic archives with a built-in web reader
+- **Audiobook Management**: Upload complete audiobook folders, browse and play protected audio, edit metadata, and download collections
 
 ## 📋 Prerequisites
 
@@ -145,7 +146,42 @@ npm run dev
 
 The frontend will be available at `http://localhost:5173` (Vite's default port).
 
-## � OPDS Feed
+## 🎧 Audiobooks
+
+Bookshelf 1.1.0 adds a server-backed audiobook library for every authenticated user role.
+
+### Importing an Audiobook Collection
+
+Librarians can open **Settings → Audiobooks** and choose a folder from their computer. Uploading starts immediately and preserves the selected folder's structure, including nested disc folders. Files are stored under `backend/audiobooks/` on the server.
+
+Supported audio formats are:
+
+- AAC (`.aac`)
+- FLAC (`.flac`)
+- M4A (`.m4a`)
+- M4B (`.m4b`)
+- MP3 (`.mp3`)
+- OGG (`.ogg`)
+- Opus (`.opus`)
+- WAV (`.wav`)
+
+Cover images in JPEG, PNG, or WebP format are also uploaded, together with supported companion files such as CUE, JSON, NFO, and TXT. Unsupported files are skipped. The default maximum size for each uploaded file is 4 GB and can be changed with `MAX_UPLOAD_FILE_SIZE_MB`.
+
+### Browsing and Managing Audiobooks
+
+Open the **Audiobooks** tab on the home page to browse all collections found in the server audiobook folder. Selecting a collection opens its detail page with the cover, metadata, ordered track list, and protected in-browser audio playback.
+
+| Capability | Guest | Reader | Librarian (Admin) |
+|------------|:-----:|:------:|:-----------------:|
+| Browse audiobook collections | ✓ | ✓ | ✓ |
+| View details and play tracks | ✓ | ✓ | ✓ |
+| Download an audiobook | ✓ | ✓ | ✓ |
+| Edit title, author, narrator, language, year, and description | — | — | ✓ |
+| Delete a collection from the server | — | — | ✓ |
+
+Single-file audiobooks download in their original format. Multi-track collections download as a TAR archive. Deleting a collection requires confirmation and permanently removes its server folder, including its tracks, cover, and saved metadata.
+
+## 📡 OPDS Feed
 
 Bookshelf provides an OPDS 1.2 catalog to access your library from external ebook reader applications.
 
@@ -159,11 +195,12 @@ Bookshelf provides an OPDS 1.2 catalog to access your library from external eboo
 
 **Note**: To access the feed from other devices, ensure your firewall allows connections to port 3005.
 
-## �📁 Project Structure
+## 📁 Project Structure
 
 ```
 bookshelf/
 ├── backend/
+│   ├── audiobooks/                  # Uploaded audiobook collections (contents gitignored)
 │   ├── data/
 │   │   ├── booksshelf.sample.db    # Sample database (copy to booksshelf.db)
 │   │   └── booksshelf.db           # Your database (gitignored)
