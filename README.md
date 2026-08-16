@@ -148,7 +148,7 @@ The frontend will be available at `http://localhost:5173` (Vite's default port).
 
 ## 🎧 Audiobooks
 
-Bookshelf 1.10.1 includes a server-backed audiobook library for every authenticated user role.
+Bookshelf 1.10.2 includes a server-backed audiobook library for every authenticated user role.
 
 ### Importing an Audiobook Collection
 

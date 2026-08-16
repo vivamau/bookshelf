@@ -43,6 +43,8 @@ describe('Upload Endpoint Integration', () => {
     const managedAudiobookCoverPath = path.join(__dirname, '..', '..', 'audiobooks', 'Test Collection', 'Disc 1', 'bookshelf-cover.png');
     const uploadedAudiobookMetadataPath = path.join(__dirname, '..', '..', 'audiobooks', 'Test Collection', 'Disc 1', '.bookshelf-metadata.json');
     const archiveCollectionPath = path.join(__dirname, '..', '..', 'audiobooks', 'Archive Collection');
+    const rootAudiobookPath = path.join(__dirname, '..', '..', 'audiobooks', 'Standalone Audiobook.m4b');
+    const secondRootAudiobookPath = path.join(__dirname, '..', '..', 'audiobooks', 'Second Standalone Audiobook.mp3');
 
     beforeAll(async () => {
         await setupTestDb();
@@ -108,6 +110,12 @@ describe('Upload Endpoint Integration', () => {
         }
         if (fs.existsSync(archiveCollectionPath)) {
             fs.rmSync(archiveCollectionPath, { recursive: true, force: true });
+        }
+        if (fs.existsSync(rootAudiobookPath)) {
+            fs.unlinkSync(rootAudiobookPath);
+        }
+        if (fs.existsSync(secondRootAudiobookPath)) {
+            fs.unlinkSync(secondRootAudiobookPath);
         }
         db.close(done);
     });
@@ -382,6 +390,39 @@ describe('Upload Endpoint Integration', () => {
         expect(res.statusCode).toBe(200);
         expect(res.body.message).toBe('Audiobook deleted');
         expect(fs.existsSync(archiveCollectionPath)).toBe(false);
+    });
+
+    test('DELETE /api/audiobooks refuses to delete grouped root-level files', async () => {
+        fs.writeFileSync(rootAudiobookPath, 'first standalone audio');
+        fs.writeFileSync(secondRootAudiobookPath, 'second standalone audio');
+
+        const res = await request(app)
+            .delete('/api/audiobooks')
+            .query({ folder: '.' })
+            .set('Cookie', authCookie);
+
+        expect(res.statusCode).toBe(400);
+        expect(fs.existsSync(rootAudiobookPath)).toBe(true);
+        expect(fs.existsSync(secondRootAudiobookPath)).toBe(true);
+        expect(fs.existsSync(uploadedAudiobookPath)).toBe(true);
+
+        fs.unlinkSync(rootAudiobookPath);
+        fs.unlinkSync(secondRootAudiobookPath);
+    });
+
+    test('DELETE /api/audiobooks removes only a standalone root-level file', async () => {
+        fs.writeFileSync(rootAudiobookPath, 'standalone audio');
+
+        const res = await request(app)
+            .delete('/api/audiobooks')
+            .query({ folder: '.' })
+            .set('Cookie', authCookie);
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.message).toBe('Audiobook deleted');
+        expect(fs.existsSync(rootAudiobookPath)).toBe(false);
+        expect(fs.existsSync(uploadedAudiobookPath)).toBe(true);
+        expect(fs.existsSync(path.join(__dirname, '..', '..', 'audiobooks'))).toBe(true);
     });
 
     test('GET /api/audiobooks requires authentication', async () => {

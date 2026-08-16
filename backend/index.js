@@ -1797,7 +1797,15 @@ audiobooksRouter.delete('/', checkManageUsers, async (req, res) => {
             return res.status(404).json({ error: 'Audiobook not found' });
         }
         if (audiobook.folder === '.') {
-            return res.status(400).json({ error: 'Root-level audiobook files cannot be deleted as one collection' });
+            if (audiobook.tracks.length !== 1) {
+                return res.status(400).json({
+                    error: 'Root-level audiobook files must be placed in separate folders before deletion'
+                });
+            }
+
+            const rootTrack = resolveAudiobookAudioPath(AUDIOBOOKS_DIR, audiobook.tracks[0].path);
+            await fs.promises.unlink(rootTrack.audioPath);
+            return res.json({ message: 'Audiobook deleted' });
         }
 
         const directoryPath = resolveAudiobookDirectoryPath(AUDIOBOOKS_DIR, audiobook.folder);

@@ -2,7 +2,7 @@ openapi: 3.0.0
 info:
   title: Bookshelf API
   description: API for managing the Bookshelf application
-  version: 1.10.1
+  version: 1.10.2
 servers:
   - url: http://localhost:8080
     description: Local server
