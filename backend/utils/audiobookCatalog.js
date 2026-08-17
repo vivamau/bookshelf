@@ -2,6 +2,16 @@ const fs = require('fs');
 const path = require('path');
 
 const AUDIO_EXTENSIONS = new Set(['.aac', '.flac', '.m4a', '.m4b', '.mp3', '.ogg', '.opus', '.wav']);
+const AUDIO_CONTENT_TYPES = Object.freeze({
+    '.aac': 'audio/aac',
+    '.flac': 'audio/flac',
+    '.m4a': 'audio/mp4',
+    '.m4b': 'audio/mp4',
+    '.mp3': 'audio/mpeg',
+    '.ogg': 'audio/ogg',
+    '.opus': 'audio/ogg',
+    '.wav': 'audio/wav'
+});
 const COVER_EXTENSIONS = new Set(['.jpeg', '.jpg', '.png', '.webp']);
 const MANAGED_COVER_PREFIX = 'bookshelf-cover.';
 const METADATA_FILE_NAME = '.bookshelf-metadata.json';
@@ -72,6 +82,14 @@ const resolveAudiobookAudioPath = (audiobooksDirectory, relativePath) => {
     );
 
     return { relativePath: resolved.relativePath, audioPath: resolved.coverPath };
+};
+
+const getAudiobookContentType = (relativePath) => {
+    const contentType = AUDIO_CONTENT_TYPES[path.extname(String(relativePath || '')).toLowerCase()];
+    if (!contentType) {
+        throw new AudiobookCatalogError('Unsupported audiobook audio type');
+    }
+    return contentType;
 };
 
 const resolveAudiobookDirectoryPath = (audiobooksDirectory, relativeDirectory) => {
@@ -250,11 +268,13 @@ const scanAudiobookCatalog = async (audiobooksDirectory, fsApi = fs.promises) =>
 
 module.exports = {
     AUDIO_EXTENSIONS,
+    AUDIO_CONTENT_TYPES,
     COVER_EXTENSIONS,
     MANAGED_COVER_PREFIX,
     METADATA_FILE_NAME,
     AudiobookCatalogError,
     findAudiobookByFolder,
+    getAudiobookContentType,
     normalizeRelativeAssetPath,
     readAudiobookMetadata,
     resolveAudiobookAudioPath,

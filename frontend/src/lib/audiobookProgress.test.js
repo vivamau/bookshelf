@@ -3,9 +3,16 @@ import assert from 'node:assert/strict';
 
 import {
   getAudiobookFolderCandidates,
+  getAudiobookPlaybackError,
   resolveAudiobookResume,
   shouldPersistAudiobookProgress
 } from './audiobookProgress.js';
+
+test('turns browser media error codes into useful playback messages', () => {
+  assert.match(getAudiobookPlaybackError(2), /server|network/i);
+  assert.match(getAudiobookPlaybackError(3), /decode|codec/i);
+  assert.match(getAudiobookPlaybackError(4), /not supported/i);
+});
 
 test('provides a relative fallback for audiobooks-prefixed detail links', () => {
   assert.deepEqual(

@@ -374,6 +374,19 @@ describe('Upload Endpoint Integration', () => {
         expect(res.body.toString()).toBe('dummy');
     });
 
+    test('GET /api/audiobooks/audio serves M4B ranges as MP4 audio', async () => {
+        const res = await request(app)
+            .get('/api/audiobooks/audio')
+            .query({ path: 'Test Collection/complete-book.m4b' })
+            .set('Cookie', guestCookie)
+            .set('Range', 'bytes=0-3');
+
+        expect(res.statusCode).toBe(206);
+        expect(res.headers['content-type']).toMatch(/^audio\/mp4/);
+        expect(res.headers['accept-ranges']).toBe('bytes');
+        expect(res.body.toString()).toBe('dumm');
+    });
+
     test('PUT /api/audiobooks/metadata lets librarians edit collection metadata', async () => {
         const res = await request(app)
             .put('/api/audiobooks/metadata')

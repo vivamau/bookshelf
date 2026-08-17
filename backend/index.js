@@ -28,6 +28,7 @@ const {
     COVER_EXTENSIONS,
     MANAGED_COVER_PREFIX,
     findAudiobookByFolder,
+    getAudiobookContentType,
     resolveAudiobookAudioPath,
     resolveAudiobookCoverPath,
     resolveAudiobookDirectoryPath,
@@ -1856,6 +1857,8 @@ audiobooksRouter.get('/audio', (req, res) => {
         }
 
         res.setHeader('Cache-Control', 'private, max-age=3600');
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.type(getAudiobookContentType(audio.relativePath));
         res.sendFile(audio.audioPath);
     });
 });

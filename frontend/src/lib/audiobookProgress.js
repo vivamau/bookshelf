@@ -4,6 +4,13 @@ export const getAudiobookFolderCandidates = (requestedFolder) => {
   return relativeFolder !== folder ? [folder, relativeFolder] : [folder];
 };
 
+export const getAudiobookPlaybackError = (mediaErrorCode) => ({
+  1: 'Playback was interrupted.',
+  2: 'The audiobook could not be loaded from the server. Check the network connection and try again.',
+  3: 'The browser could not decode this audiobook. Its internal audio codec may not be supported.',
+  4: 'This audiobook format or source is not supported by the browser.'
+}[mediaErrorCode] || 'The audiobook could not be played.');
+
 export const resolveAudiobookResume = (progress, tracks) => {
   if (!tracks?.length) {
     return { trackIndex: 0, positionSeconds: 0, progressPercentage: 0 };

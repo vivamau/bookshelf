@@ -53,6 +53,7 @@ import ReadlistDetails from './pages/ReadlistDetails';
 import { audiobooksApi, booksApi, libraryApi, genresApi, searchApi } from './api/api';
 import {
   getAudiobookFolderCandidates,
+  getAudiobookPlaybackError,
   resolveAudiobookResume,
   shouldPersistAudiobookProgress
 } from './lib/audiobookProgress';
@@ -883,6 +884,7 @@ function AudiobookDetails() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackError, setPlaybackError] = useState('');
   const [listeningProgress, setListeningProgress] = useState(0);
   const [isProgressAvailable, setIsProgressAvailable] = useState(true);
   const [isEditingMetadata, setIsEditingMetadata] = useState(false);
@@ -1037,6 +1039,7 @@ function AudiobookDetails() {
   const selectTrack = (index) => {
     audioRef.current?.pause();
     setIsPlaying(false);
+    setPlaybackError('');
     pendingResumeRef.current = null;
     lastSavedPositionRef.current = 0;
     persistListeningProgress({
@@ -1052,9 +1055,11 @@ function AudiobookDetails() {
     if (!audioRef.current) return;
     if (audioRef.current.paused) {
       try {
+        setPlaybackError('');
         await audioRef.current.play();
       } catch (playbackError) {
         console.error('Audiobook playback failed', playbackError);
+        setPlaybackError('The browser could not start audiobook playback.');
       }
     } else {
       audioRef.current.pause();
@@ -1485,8 +1490,12 @@ function AudiobookDetails() {
                 controls
                 preload="metadata"
                 className="mt-4 w-full accent-primary"
-                onPlay={() => setIsPlaying(true)}
+                onPlay={() => {
+                  setPlaybackError('');
+                  setIsPlaying(true);
+                }}
                 onLoadedMetadata={(event) => {
+                  setPlaybackError('');
                   const pendingResume = pendingResumeRef.current;
                   if (!pendingResume || pendingResume.trackPath !== selectedTrack?.path) return;
                   const maximumPosition = Number.isFinite(event.currentTarget.duration)
@@ -1520,9 +1529,18 @@ function AudiobookDetails() {
                     setSelectedTrackIndex(nextTrackIndex);
                   }
                 }}
+                onError={(event) => {
+                  setIsPlaying(false);
+                  setPlaybackError(getAudiobookPlaybackError(event.currentTarget.error?.code));
+                }}
               >
                 Your browser does not support audio playback.
               </audio>
+              {playbackError && (
+                <p role="alert" className="mt-3 rounded-xl border border-destructive/25 bg-destructive/10 px-3.5 py-2.5 text-xs text-destructive">
+                  {playbackError}
+                </p>
+              )}
             </div>
 
             <p className="mt-5 flex items-center gap-2 truncate text-xs text-muted-foreground" title={audiobook.folder}>
