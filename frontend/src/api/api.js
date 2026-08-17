@@ -134,10 +134,13 @@ export const settingsApi = {
 export const audiobooksApi = {
   getAll: () => api.get('/audiobooks'),
   getByFolder: (folder) => api.get('/audiobooks/details', { params: { folder } }),
+  getProgress: (folder) => api.get('/audiobooks/progress', { params: { folder } }),
+  updateProgress: (folder, progress) => api.post('/audiobooks/progress', { folder, ...progress }),
   updateMetadata: (folder, metadata) => api.put('/audiobooks/metadata', { folder, metadata }),
   setCoverFromUrl: (folder, coverUrl) => api.post('/audiobooks/cover-from-url', { folder, coverUrl }),
   remove: (folder) => api.delete('/audiobooks', { params: { folder } }),
   getDownloadUrl: (folder) => `${API_URL}/audiobooks/download?folder=${encodeURIComponent(folder)}`,
+  checkUploadDuplicates: (files) => api.post('/audiobooks/upload/check-duplicates', { files }),
   upload: (formData, config = {}) => api.post('/audiobooks/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
     ...config

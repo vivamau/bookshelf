@@ -51,6 +51,10 @@ import AddBook from './pages/AddBook';
 import Readlists from './pages/Readlists';
 import ReadlistDetails from './pages/ReadlistDetails';
 import { audiobooksApi, booksApi, libraryApi, genresApi, searchApi } from './api/api';
+import {
+  resolveAudiobookResume,
+  shouldPersistAudiobookProgress
+} from './lib/audiobookProgress';
 import { truncateAudiobookTitle } from './lib/audiobookTitle';
 import ProfileModal from './components/ProfileModal';
 import InstallPWA from './components/InstallPWA';
@@ -868,6 +872,9 @@ function AudiobookDetails() {
   const location = useLocation();
   const { hasPermission } = useAuth();
   const audioRef = useRef(null);
+  const pendingResumeRef = useRef(null);
+  const lastSavedPositionRef = useRef(0);
+  const progressSaveChainRef = useRef(Promise.resolve());
   const deleteCancelButtonRef = useRef(null);
   const folder = new URLSearchParams(location.search).get('folder') || '';
   const [audiobook, setAudiobook] = useState(null);
@@ -875,6 +882,7 @@ function AudiobookDetails() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isPlaying, setIsPlaying] = useState(false);
+  const [listeningProgress, setListeningProgress] = useState(0);
   const [isEditingMetadata, setIsEditingMetadata] = useState(false);
   const [isSavingMetadata, setIsSavingMetadata] = useState(false);
   const [metadataError, setMetadataError] = useState('');
@@ -918,11 +926,21 @@ function AudiobookDetails() {
       setLoading(true);
       setError('');
       try {
-        const response = await audiobooksApi.getByFolder(folder);
+        const [response, progressResponse] = await Promise.all([
+          audiobooksApi.getByFolder(folder),
+          audiobooksApi.getProgress(folder)
+        ]);
         if (!cancelled) {
           const loadedAudiobook = response.data.data;
+          const resume = resolveAudiobookResume(progressResponse.data.data, loadedAudiobook.tracks);
           setAudiobook(loadedAudiobook);
-          setSelectedTrackIndex(0);
+          pendingResumeRef.current = {
+            trackPath: loadedAudiobook.tracks[resume.trackIndex]?.path,
+            positionSeconds: resume.positionSeconds
+          };
+          lastSavedPositionRef.current = resume.positionSeconds;
+          setSelectedTrackIndex(resume.trackIndex);
+          setListeningProgress(resume.progressPercentage);
           setIsEditingCover(!loadedAudiobook.coverPath && hasPermission('userrole_managebooks'));
           setMetadataForm({
             title: loadedAudiobook.title || '',
@@ -957,9 +975,47 @@ function AudiobookDetails() {
     ? `${import.meta.env.VITE_API_BASE_URL}/api/audiobooks/audio?path=${encodeURIComponent(selectedTrack.path)}`
     : null;
 
+  const persistListeningProgress = ({
+    track = selectedTrack,
+    trackIndex = selectedTrackIndex,
+    positionSeconds = audioRef.current?.currentTime || 0,
+    durationSeconds = audioRef.current?.duration || 0,
+    completed = false
+  } = {}) => {
+    if (!track || !Number.isFinite(positionSeconds) || positionSeconds < 0) return;
+
+    const safeDuration = Number.isFinite(durationSeconds) && durationSeconds >= 0
+      ? durationSeconds
+      : 0;
+    lastSavedPositionRef.current = positionSeconds;
+    progressSaveChainRef.current = progressSaveChainRef.current
+      .catch(() => undefined)
+      .then(() => audiobooksApi.updateProgress(folder, {
+        trackPath: track.path,
+        trackIndex,
+        positionSeconds,
+        durationSeconds: safeDuration,
+        completed
+      }))
+      .then((response) => {
+        setListeningProgress(response.data.data.progress_percentage || 0);
+      })
+      .catch((progressError) => {
+        console.error('Could not save audiobook progress', progressError);
+      });
+  };
+
   const selectTrack = (index) => {
     audioRef.current?.pause();
     setIsPlaying(false);
+    pendingResumeRef.current = null;
+    lastSavedPositionRef.current = 0;
+    persistListeningProgress({
+      track: audiobook.tracks[index],
+      trackIndex: index,
+      positionSeconds: 0,
+      durationSeconds: 0
+    });
     setSelectedTrackIndex(index);
   };
 
@@ -1369,10 +1425,26 @@ function AudiobookDetails() {
                 >
                   {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-0.5" />}
                 </button>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="text-[9px] font-black uppercase tracking-[0.2em] text-primary">Now selected</p>
                   <p className="mt-1 truncate text-sm font-bold">{selectedTrack?.title}</p>
+                  <p className="mt-1 text-[10px] font-semibold text-muted-foreground">
+                    Chapter / track {selectedTrackIndex + 1} of {audiobook.trackCount} · {Math.round(listeningProgress)}% saved
+                  </p>
                 </div>
+              </div>
+              <div
+                role="progressbar"
+                aria-label="Audiobook listening progress"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow={Math.round(listeningProgress)}
+                className="mt-4 h-1 overflow-hidden rounded-full bg-primary/10"
+              >
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-500"
+                  style={{ width: `${listeningProgress}%` }}
+                />
               </div>
               <audio
                 key={audioUrl}
@@ -1383,11 +1455,38 @@ function AudiobookDetails() {
                 preload="metadata"
                 className="mt-4 w-full accent-primary"
                 onPlay={() => setIsPlaying(true)}
-                onPause={() => setIsPlaying(false)}
+                onLoadedMetadata={(event) => {
+                  const pendingResume = pendingResumeRef.current;
+                  if (!pendingResume || pendingResume.trackPath !== selectedTrack?.path) return;
+                  const maximumPosition = Number.isFinite(event.currentTarget.duration)
+                    ? event.currentTarget.duration
+                    : pendingResume.positionSeconds;
+                  event.currentTarget.currentTime = Math.min(pendingResume.positionSeconds, maximumPosition);
+                  pendingResumeRef.current = null;
+                }}
+                onTimeUpdate={(event) => {
+                  if (shouldPersistAudiobookProgress(event.currentTarget.currentTime, lastSavedPositionRef.current)) {
+                    persistListeningProgress();
+                  }
+                }}
+                onPause={() => {
+                  setIsPlaying(false);
+                  persistListeningProgress();
+                }}
                 onEnded={() => {
                   setIsPlaying(false);
+                  persistListeningProgress({ completed: true });
                   if (selectedTrackIndex < audiobook.tracks.length - 1) {
-                    setSelectedTrackIndex((current) => current + 1);
+                    const nextTrackIndex = selectedTrackIndex + 1;
+                    pendingResumeRef.current = null;
+                    lastSavedPositionRef.current = 0;
+                    persistListeningProgress({
+                      track: audiobook.tracks[nextTrackIndex],
+                      trackIndex: nextTrackIndex,
+                      positionSeconds: 0,
+                      durationSeconds: 0
+                    });
+                    setSelectedTrackIndex(nextTrackIndex);
                   }
                 }}
               >
@@ -1406,7 +1505,7 @@ function AudiobookDetails() {
           <div className="mb-5 flex items-end justify-between gap-4">
             <div>
               <p className="mb-1 text-[10px] font-black uppercase tracking-[0.2em] text-primary">Contents</p>
-              <h2 className="text-2xl font-black tracking-tight">Track list</h2>
+              <h2 className="text-2xl font-black tracking-tight">Chapters / tracks</h2>
             </div>
             <span className="text-xs font-bold text-muted-foreground">{audiobook.trackCount} total</span>
           </div>

@@ -14,7 +14,15 @@ const { scanLibrary, refreshCovers, importFiles, scanSingleFile, getComicPage } 
 const { filterBooksWithAvailableFiles, resolveBookFilePath } = require('./utils/bookFileResolver');
 const { sendEmail } = require('./utils/mailer');
 const { OpenAIConfigError, OpenAIRequestError, synthesizeSpeech } = require('./utils/openaiAudio');
-const { AudiobookUploadError, resolveAudiobookUploadPath } = require('./utils/audiobookUpload');
+const {
+    AudiobookUploadError,
+    findAudiobookUploadConflicts,
+    resolveAudiobookUploadPath
+} = require('./utils/audiobookUpload');
+const {
+    AudiobookProgressError,
+    buildAudiobookProgress
+} = require('./utils/audiobookProgress');
 const {
     AudiobookCatalogError,
     COVER_EXTENSIONS,
@@ -1625,6 +1633,125 @@ audiobooksRouter.get('/details', async (req, res) => {
     }
 });
 
+audiobooksRouter.get('/progress', async (req, res) => {
+    try {
+        const audiobooks = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
+        const audiobook = audiobooks.find((item) => item.folder === req.query.folder);
+        if (!audiobook) {
+            return res.status(404).json({ error: 'Audiobook not found' });
+        }
+
+        db.get(
+            'SELECT * FROM AudiobooksUsers WHERE audiobook_folder = ? AND user_id = ?',
+            [audiobook.folder, req.user.user_id],
+            (err, row) => {
+                if (err) return res.status(500).json({ error: err.message });
+
+                if (!row) {
+                    return res.json({
+                        data: {
+                            audiobook_folder: audiobook.folder,
+                            track_path: audiobook.tracks[0].path,
+                            track_index: 0,
+                            position_seconds: 0,
+                            duration_seconds: 0,
+                            progress_percentage: 0
+                        }
+                    });
+                }
+
+                const matchingTrackIndex = audiobook.tracks.findIndex((track) => track.path === row.track_path);
+                if (matchingTrackIndex === -1) {
+                    return res.json({
+                        data: {
+                            audiobook_folder: audiobook.folder,
+                            track_path: audiobook.tracks[0].path,
+                            track_index: 0,
+                            position_seconds: 0,
+                            duration_seconds: 0,
+                            progress_percentage: 0
+                        }
+                    });
+                }
+
+                res.json({
+                    data: {
+                        ...row,
+                        track_index: matchingTrackIndex
+                    }
+                });
+            }
+        );
+    } catch (err) {
+        console.error('Audiobook progress lookup failed:', err);
+        res.status(500).json({ error: 'Could not load audiobook progress' });
+    }
+});
+
+audiobooksRouter.post('/progress', async (req, res) => {
+    try {
+        const audiobooks = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
+        const audiobook = audiobooks.find((item) => item.folder === req.body?.folder);
+        if (!audiobook) {
+            return res.status(404).json({ error: 'Audiobook not found' });
+        }
+
+        const progress = buildAudiobookProgress(audiobook, req.body);
+        const now = Date.now();
+        const endedAt = progress.completed ? now : null;
+        const values = [
+            audiobook.folder,
+            req.user.user_id,
+            progress.trackPath,
+            progress.trackIndex,
+            progress.positionSeconds,
+            progress.durationSeconds,
+            progress.progressPercentage,
+            now,
+            endedAt,
+            now,
+            now
+        ];
+
+        db.run(
+            `INSERT INTO AudiobooksUsers (
+                audiobook_folder, user_id, track_path, track_index, position_seconds,
+                duration_seconds, progress_percentage, audiobook_started_date,
+                audiobook_ended_date, audiobooksusers_create_date, audiobooksusers_update_date
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, audiobook_folder) DO UPDATE SET
+                track_path = excluded.track_path,
+                track_index = excluded.track_index,
+                position_seconds = excluded.position_seconds,
+                duration_seconds = excluded.duration_seconds,
+                progress_percentage = excluded.progress_percentage,
+                audiobook_ended_date = excluded.audiobook_ended_date,
+                audiobooksusers_update_date = excluded.audiobooksusers_update_date`,
+            values,
+            function(err) {
+                if (err) return res.status(500).json({ error: err.message });
+                res.json({
+                    message: 'Audiobook progress saved',
+                    data: {
+                        audiobook_folder: audiobook.folder,
+                        track_path: progress.trackPath,
+                        track_index: progress.trackIndex,
+                        position_seconds: progress.positionSeconds,
+                        duration_seconds: progress.durationSeconds,
+                        progress_percentage: progress.progressPercentage
+                    }
+                });
+            }
+        );
+    } catch (err) {
+        if (err instanceof AudiobookProgressError) {
+            return res.status(400).json({ error: err.message });
+        }
+        console.error('Audiobook progress update failed:', err);
+        res.status(500).json({ error: 'Could not save audiobook progress' });
+    }
+});
+
 audiobooksRouter.put('/metadata', checkManageBooks, async (req, res) => {
     try {
         const audiobooks = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
@@ -1820,6 +1947,19 @@ audiobooksRouter.delete('/', checkManageUsers, async (req, res) => {
     }
 });
 
+audiobooksRouter.post('/upload/check-duplicates', checkManageBooks, async (req, res) => {
+    try {
+        const conflicts = await findAudiobookUploadConflicts(AUDIOBOOKS_DIR, req.body?.files);
+        res.json({ data: conflicts });
+    } catch (err) {
+        if (err instanceof AudiobookUploadError) {
+            return res.status(400).json({ error: err.message });
+        }
+        console.error('Audiobook duplicate check failed:', err);
+        res.status(500).json({ error: 'Could not check audiobook files' });
+    }
+});
+
 audiobooksRouter.post('/upload', checkManageBooks, async (req, res) => {
     if (!req.files || !req.files.audiobook || Array.isArray(req.files.audiobook)) {
         return res.status(400).json({ error: 'One audiobook file is required' });
@@ -1840,15 +1980,37 @@ audiobooksRouter.post('/upload', checkManageBooks, async (req, res) => {
         return res.status(500).json({ error: 'Could not prepare audiobook upload' });
     }
 
+    let uploadReserved = false;
     try {
         fs.mkdirSync(path.dirname(destination.uploadPath), { recursive: true });
+
+        let reservation;
+        try {
+            reservation = await fs.promises.open(destination.uploadPath, 'wx', 0o600);
+            uploadReserved = true;
+            await reservation.close();
+        } catch (err) {
+            if (err?.code === 'EEXIST') {
+                return res.status(409).json({
+                    error: 'Audiobook file already exists on the server',
+                    duplicate: true,
+                    path: destination.relativePath
+                });
+            }
+            throw err;
+        }
+
         await audiobookFile.mv(destination.uploadPath);
+        uploadReserved = false;
         res.status(201).json({
             message: 'Audiobook file uploaded',
             path: destination.relativePath,
             size: audiobookFile.size
         });
     } catch (err) {
+        if (uploadReserved) {
+            await fs.promises.unlink(destination.uploadPath).catch(() => undefined);
+        }
         console.error('Audiobook upload failed:', err);
         res.status(500).json({ error: 'Could not store audiobook file' });
     }

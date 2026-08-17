@@ -1,0 +1,44 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+import {
+  resolveAudiobookResume,
+  shouldPersistAudiobookProgress
+} from './audiobookProgress.js';
+
+test('resolves a saved audiobook chapter and timestamp', () => {
+  const resume = resolveAudiobookResume({
+    track_path: 'Book/chapter-02.mp3',
+    position_seconds: 42.5,
+    progress_percentage: 63
+  }, [
+    { path: 'Book/chapter-01.mp3' },
+    { path: 'Book/chapter-02.mp3' }
+  ]);
+
+  assert.deepEqual(resume, {
+    trackIndex: 1,
+    positionSeconds: 42.5,
+    progressPercentage: 63
+  });
+});
+
+test('falls back safely when a saved chapter no longer exists', () => {
+  const resume = resolveAudiobookResume({
+    track_path: 'Book/missing.mp3',
+    position_seconds: -1,
+    progress_percentage: 130
+  }, [{ path: 'Book/chapter-01.mp3' }]);
+
+  assert.deepEqual(resume, {
+    trackIndex: 0,
+    positionSeconds: 0,
+    progressPercentage: 0
+  });
+});
+
+test('persists playback after the configured listening interval', () => {
+  assert.equal(shouldPersistAudiobookProgress(19.9, 10), false);
+  assert.equal(shouldPersistAudiobookProgress(20, 10), true);
+  assert.equal(shouldPersistAudiobookProgress(5, 20), true);
+});

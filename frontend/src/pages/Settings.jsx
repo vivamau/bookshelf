@@ -50,6 +50,7 @@ import {
     removeBookFromOfflineReading,
     saveOfflineBookAsFile
 } from '../lib/offlineBookDownload';
+import { applyAudiobookUploadConflicts } from '../lib/audiobookUploadQueue';
 
 const OPENAI_TTS_VOICES = [
   { id: 'marin', label: 'Marin', hint: 'Best quality' },
@@ -659,7 +660,7 @@ export default function Settings() {
   const handleAudiobookFolderSelect = async (event) => {
     const selectedAssets = Array.from(event.target.files || []);
     const supportedAssets = selectedAssets.filter(isAudiobookAsset);
-    const skippedCount = selectedAssets.length - supportedAssets.length;
+    const unsupportedCount = selectedAssets.length - supportedAssets.length;
 
     if (!supportedAssets.length) {
       setAudiobookFiles([]);
@@ -669,7 +670,7 @@ export default function Settings() {
       return;
     }
 
-    const queuedFiles = supportedAssets.map((file, index) => ({
+    const candidateFiles = supportedAssets.map((file, index) => ({
       id: `${file.webkitRelativePath || file.name}-${file.size}-${index}`,
       file,
       path: file.webkitRelativePath || file.name,
@@ -678,15 +679,51 @@ export default function Settings() {
       error: ''
     }));
 
-    setAudiobookFiles(queuedFiles);
-    setAudiobookUploadProgress({ completed: 0, total: queuedFiles.length });
+    setAudiobookFiles(candidateFiles);
+    setAudiobookUploadProgress({ completed: 0, total: candidateFiles.length });
     setAudiobookHasError(false);
-    setAudiobookMessage(`Uploading 0 of ${queuedFiles.length} files to audiobooks/...`);
-    setIsAudiobookUploading(true);
+    setAudiobookMessage(`Checking ${candidateFiles.length} files for duplicates...`);
+
+    let uploadConflicts = [];
+    try {
+      const response = await audiobooksApi.checkUploadDuplicates(candidateFiles.map(file => ({
+        relativePath: file.path,
+        size: file.file.size
+      })));
+      uploadConflicts = response.data.data || [];
+    } catch (err) {
+      const responseError = typeof err.response?.data === 'string'
+        ? err.response.data
+        : err.response?.data?.error;
+      setAudiobookFiles([]);
+      setAudiobookHasError(true);
+      setAudiobookMessage(responseError || 'Could not check the server for duplicate audiobook files. No files were uploaded.');
+      event.target.value = '';
+      return;
+    }
+
+    const queuedFiles = applyAudiobookUploadConflicts(candidateFiles, uploadConflicts);
+    const duplicateCount = queuedFiles.filter(file => file.status === 'duplicate').length;
+    const initialConflictCount = queuedFiles.filter(file => file.status === 'error').length;
+    const filesToUpload = queuedFiles.filter(file => file.status === 'pending');
+    const initiallyProcessed = duplicateCount + initialConflictCount;
+
+    setAudiobookFiles(queuedFiles);
+    setAudiobookUploadProgress({ completed: initiallyProcessed, total: queuedFiles.length });
+    setAudiobookHasError(initialConflictCount > 0);
+    if (filesToUpload.length) {
+      setAudiobookMessage(`Uploading 0 of ${filesToUpload.length} new files to audiobooks/...`);
+    } else if (duplicateCount) {
+      setAudiobookMessage(`No new files to upload. Skipped ${duplicateCount} duplicate ${duplicateCount === 1 ? 'file' : 'files'}.`);
+    } else {
+      setAudiobookMessage('No new files to upload. Existing server paths require attention.');
+    }
+    setIsAudiobookUploading(filesToUpload.length > 0);
 
     let completedCount = 0;
-    let failedCount = 0;
-    for (const queuedFile of queuedFiles) {
+    let failedCount = initialConflictCount;
+    let uploadFailureCount = 0;
+    for (const queuedFile of filesToUpload) {
       updateAudiobookFile(queuedFile.id, { status: 'uploading', progress: 0 });
       const formData = new FormData();
       formData.append('audiobook', queuedFile.file);
@@ -705,6 +742,7 @@ export default function Settings() {
         updateAudiobookFile(queuedFile.id, { status: 'success', progress: 100 });
       } catch (err) {
         failedCount += 1;
+        uploadFailureCount += 1;
         const responseError = typeof err.response?.data === 'string'
           ? err.response.data
           : err.response?.data?.error;
@@ -714,19 +752,18 @@ export default function Settings() {
         });
       }
 
-      const processedCount = completedCount + failedCount;
+      const processedCount = initiallyProcessed + completedCount + uploadFailureCount;
       setAudiobookUploadProgress({ completed: processedCount, total: queuedFiles.length });
-      setAudiobookMessage(`Uploaded ${completedCount} of ${queuedFiles.length} files to audiobooks/...`);
+      setAudiobookMessage(`Uploaded ${completedCount} of ${filesToUpload.length} new files to audiobooks/...`);
     }
 
     setIsAudiobookUploading(false);
     setAudiobookHasError(failedCount > 0);
-    const skippedMessage = skippedCount
-      ? ` Skipped ${skippedCount} unsupported ${skippedCount === 1 ? 'file' : 'files'}.`
-      : '';
-    setAudiobookMessage(failedCount
-      ? `Uploaded ${completedCount} files; ${failedCount} failed.${skippedMessage}`
-      : `Uploaded ${completedCount} files to the server audiobooks folder.${skippedMessage}`);
+    const summary = [`Uploaded ${completedCount} new ${completedCount === 1 ? 'file' : 'files'}.`];
+    if (duplicateCount) summary.push(`Skipped ${duplicateCount} duplicate ${duplicateCount === 1 ? 'file' : 'files'}.`);
+    if (failedCount) summary.push(`${failedCount} ${failedCount === 1 ? 'file requires' : 'files require'} attention.`);
+    if (unsupportedCount) summary.push(`Skipped ${unsupportedCount} unsupported ${unsupportedCount === 1 ? 'file' : 'files'}.`);
+    setAudiobookMessage(summary.join(' '));
     event.target.value = '';
   };
 
@@ -1522,6 +1559,7 @@ export default function Settings() {
                                         <div className={cn(
                                             "w-9 h-9 rounded-lg flex items-center justify-center shrink-0",
                                             file.status === 'success' && "bg-emerald-500/10 text-emerald-300",
+                                            file.status === 'duplicate' && "bg-amber-500/10 text-amber-300",
                                             file.status === 'error' && "bg-destructive/10 text-destructive",
                                             ['pending', 'uploading'].includes(file.status) && "bg-primary/10 text-primary"
                                         )}>
@@ -1529,6 +1567,8 @@ export default function Settings() {
                                                 ? <Loader size={17} className="animate-spin" />
                                                 : file.status === 'success'
                                                     ? <CheckCircle2 size={17} />
+                                                    : file.status === 'duplicate'
+                                                        ? <CheckCircle2 size={17} />
                                                     : file.status === 'error'
                                                         ? <AlertCircle size={17} />
                                                         : <Music size={17} />}
@@ -1545,6 +1585,8 @@ export default function Settings() {
                                                         ? `Uploading ${file.progress}%`
                                                         : file.status === 'success'
                                                             ? 'Stored on server'
+                                                            : file.status === 'duplicate'
+                                                                ? 'Already on server — skipped'
                                                             : 'Waiting'}
                                             </p>
                                         </div>

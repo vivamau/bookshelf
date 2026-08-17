@@ -858,6 +858,57 @@ paths:
           description: Audiobook collection with its ordered tracks
         404:
           description: Audiobook not found
+  /api/audiobooks/progress:
+    get:
+      summary: Get the current user's saved listening position for an audiobook
+      parameters:
+        - in: query
+          name: folder
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Saved chapter, timestamp, and collection percentage
+        404:
+          description: Audiobook not found
+    post:
+      summary: Save the current user's audiobook chapter and timestamp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - folder
+                - trackPath
+                - trackIndex
+                - positionSeconds
+                - durationSeconds
+              properties:
+                folder:
+                  type: string
+                trackPath:
+                  type: string
+                trackIndex:
+                  type: integer
+                  minimum: 0
+                positionSeconds:
+                  type: number
+                  minimum: 0
+                durationSeconds:
+                  type: number
+                  minimum: 0
+                completed:
+                  type: boolean
+      responses:
+        200:
+          description: Listening position saved
+        400:
+          description: Invalid track or playback position
+        404:
+          description: Audiobook not found
   /api/audiobooks/audio:
     get:
       summary: Stream a protected audiobook track
@@ -953,3 +1004,37 @@ paths:
           description: Audiobook file stored under the server audiobooks directory
         400:
           description: File path or file type is invalid
+        409:
+          description: A file already exists at the requested audiobook path
+  /api/audiobooks/upload/check-duplicates:
+    post:
+      summary: Check audiobook file paths before uploading a collection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - files
+              properties:
+                files:
+                  type: array
+                  maxItems: 5000
+                  items:
+                    type: object
+                    required:
+                      - relativePath
+                      - size
+                    properties:
+                      relativePath:
+                        type: string
+                        example: My Collection/Book/audio.m4b
+                      size:
+                        type: integer
+                        minimum: 0
+      responses:
+        200:
+          description: Existing paths classified as duplicates or conflicts
+        400:
+          description: One or more file descriptors are invalid

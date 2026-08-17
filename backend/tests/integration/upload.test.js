@@ -162,6 +162,92 @@ describe('Upload Endpoint Integration', () => {
         expect(fs.readFileSync(uploadedAudiobookPath, 'utf8')).toBe('dummy audio content');
     });
 
+    test('POST /api/audiobooks/upload/check-duplicates identifies files already on the server', async () => {
+        const res = await request(app)
+            .post('/api/audiobooks/upload/check-duplicates')
+            .set('Cookie', authCookie)
+            .send({
+                files: [
+                    {
+                        relativePath: 'Test Collection/Disc 1/sample-track.mp3',
+                        size: fs.statSync(uploadedAudiobookPath).size
+                    },
+                    {
+                        relativePath: 'Test Collection/Disc 1/new-track.mp3',
+                        size: 123
+                    }
+                ]
+            });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.data).toEqual([{
+            relativePath: 'Test Collection/Disc 1/sample-track.mp3',
+            status: 'duplicate'
+        }]);
+    });
+
+    test('POST /api/audiobooks/upload refuses to overwrite an existing file', async () => {
+        const originalContent = fs.readFileSync(uploadedAudiobookPath, 'utf8');
+        const res = await request(app)
+            .post('/api/audiobooks/upload')
+            .set('Cookie', authCookie)
+            .field('relativePath', 'Test Collection/Disc 1/sample-track.mp3')
+            .attach('audiobook', dummyAudiobookPath);
+
+        expect(res.statusCode).toBe(409);
+        expect(res.body.duplicate).toBe(true);
+        expect(fs.readFileSync(uploadedAudiobookPath, 'utf8')).toBe(originalContent);
+    });
+
+    test('POST and GET /api/audiobooks/progress retain a user chapter and timestamp', async () => {
+        const saveResponse = await request(app)
+            .post('/api/audiobooks/progress')
+            .set('Cookie', authCookie)
+            .send({
+                folder: 'Archive Collection',
+                trackPath: 'Archive Collection/02.mp3',
+                trackIndex: 1,
+                positionSeconds: 30,
+                durationSeconds: 60
+            });
+
+        expect(saveResponse.statusCode).toBe(200);
+        expect(saveResponse.body.data).toMatchObject({
+            track_path: 'Archive Collection/02.mp3',
+            track_index: 1,
+            position_seconds: 30,
+            progress_percentage: 75
+        });
+
+        const loadResponse = await request(app)
+            .get('/api/audiobooks/progress')
+            .query({ folder: 'Archive Collection' })
+            .set('Cookie', authCookie);
+
+        expect(loadResponse.statusCode).toBe(200);
+        expect(loadResponse.body.data).toMatchObject({
+            track_path: 'Archive Collection/02.mp3',
+            track_index: 1,
+            position_seconds: 30,
+            progress_percentage: 75
+        });
+    });
+
+    test('GET /api/audiobooks/progress keeps listening positions separate per user', async () => {
+        const res = await request(app)
+            .get('/api/audiobooks/progress')
+            .query({ folder: 'Archive Collection' })
+            .set('Cookie', guestCookie);
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.data).toMatchObject({
+            track_path: 'Archive Collection/01.mp3',
+            track_index: 0,
+            position_seconds: 0,
+            progress_percentage: 0
+        });
+    });
+
     test('POST /api/audiobooks/upload rejects traversal paths', async () => {
         const res = await request(app)
             .post('/api/audiobooks/upload')

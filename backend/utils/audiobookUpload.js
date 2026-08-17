@@ -1,3 +1,4 @@
+const fs = require('fs');
 const path = require('path');
 
 const SUPPORTED_AUDIOBOOK_EXTENSIONS = new Set([
@@ -18,6 +19,7 @@ const SUPPORTED_AUDIOBOOK_EXTENSIONS = new Set([
     '.wav',
     '.webp'
 ]);
+const MAX_DUPLICATE_CHECK_FILES = 5000;
 
 class AudiobookUploadError extends Error {
     constructor(message) {
@@ -64,9 +66,46 @@ const resolveAudiobookUploadPath = (audiobooksDirectory, relativePath, fallbackN
     };
 };
 
+const findAudiobookUploadConflicts = async (audiobooksDirectory, files, fsApi = fs.promises) => {
+    if (!Array.isArray(files)) {
+        throw new AudiobookUploadError('files must be a list');
+    }
+    if (files.length > MAX_DUPLICATE_CHECK_FILES) {
+        throw new AudiobookUploadError(`No more than ${MAX_DUPLICATE_CHECK_FILES} files can be checked at once`);
+    }
+
+    const results = await Promise.all(files.map(async (file) => {
+        if (!file || !Number.isSafeInteger(file.size) || file.size < 0) {
+            throw new AudiobookUploadError('Each file must include a valid size');
+        }
+
+        const destination = resolveAudiobookUploadPath(
+            audiobooksDirectory,
+            file.relativePath,
+            file.name
+        );
+
+        try {
+            const stats = await fsApi.lstat(destination.uploadPath);
+            const isMatchingFile = stats.isFile() && stats.size === file.size;
+            return {
+                relativePath: destination.relativePath,
+                status: isMatchingFile ? 'duplicate' : 'conflict'
+            };
+        } catch (err) {
+            if (err?.code === 'ENOENT') return null;
+            throw err;
+        }
+    }));
+
+    return results.filter(Boolean);
+};
+
 module.exports = {
     AudiobookUploadError,
+    MAX_DUPLICATE_CHECK_FILES,
     SUPPORTED_AUDIOBOOK_EXTENSIONS,
+    findAudiobookUploadConflicts,
     normalizeAudiobookRelativePath,
     resolveAudiobookUploadPath
 };
