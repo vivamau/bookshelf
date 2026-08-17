@@ -52,6 +52,7 @@ import Readlists from './pages/Readlists';
 import ReadlistDetails from './pages/ReadlistDetails';
 import { audiobooksApi, booksApi, libraryApi, genresApi, searchApi } from './api/api';
 import {
+  getAudiobookFolderCandidates,
   resolveAudiobookResume,
   shouldPersistAudiobookProgress
 } from './lib/audiobookProgress';
@@ -883,6 +884,7 @@ function AudiobookDetails() {
   const [error, setError] = useState('');
   const [isPlaying, setIsPlaying] = useState(false);
   const [listeningProgress, setListeningProgress] = useState(0);
+  const [isProgressAvailable, setIsProgressAvailable] = useState(true);
   const [isEditingMetadata, setIsEditingMetadata] = useState(false);
   const [isSavingMetadata, setIsSavingMetadata] = useState(false);
   const [metadataError, setMetadataError] = useState('');
@@ -926,14 +928,38 @@ function AudiobookDetails() {
       setLoading(true);
       setError('');
       try {
-        const [response, progressResponse] = await Promise.all([
-          audiobooksApi.getByFolder(folder),
-          audiobooksApi.getProgress(folder)
-        ]);
+        let response;
+        let detailsError;
+        for (const folderCandidate of getAudiobookFolderCandidates(folder)) {
+          try {
+            response = await audiobooksApi.getByFolder(folderCandidate);
+            break;
+          } catch (requestError) {
+            detailsError = requestError;
+            if (requestError.response?.status !== 404) throw requestError;
+          }
+        }
+        if (!response) throw detailsError;
+
+        const loadedAudiobook = response.data.data;
+        let savedProgress = {
+          track_path: loadedAudiobook.tracks[0]?.path,
+          position_seconds: 0,
+          progress_percentage: 0
+        };
+        let progressAvailable = true;
+        try {
+          const progressResponse = await audiobooksApi.getProgress(loadedAudiobook.folder);
+          savedProgress = progressResponse.data.data;
+        } catch (progressError) {
+          console.error('Could not load audiobook progress', progressError);
+          progressAvailable = false;
+        }
+
         if (!cancelled) {
-          const loadedAudiobook = response.data.data;
-          const resume = resolveAudiobookResume(progressResponse.data.data, loadedAudiobook.tracks);
+          const resume = resolveAudiobookResume(savedProgress, loadedAudiobook.tracks);
           setAudiobook(loadedAudiobook);
+          setIsProgressAvailable(progressAvailable);
           pendingResumeRef.current = {
             trackPath: loadedAudiobook.tracks[resume.trackIndex]?.path,
             positionSeconds: resume.positionSeconds
@@ -974,6 +1000,7 @@ function AudiobookDetails() {
   const audioUrl = selectedTrack
     ? `${import.meta.env.VITE_API_BASE_URL}/api/audiobooks/audio?path=${encodeURIComponent(selectedTrack.path)}`
     : null;
+  const audiobookFolder = audiobook?.folder || folder;
 
   const persistListeningProgress = ({
     track = selectedTrack,
@@ -982,7 +1009,7 @@ function AudiobookDetails() {
     durationSeconds = audioRef.current?.duration || 0,
     completed = false
   } = {}) => {
-    if (!track || !Number.isFinite(positionSeconds) || positionSeconds < 0) return;
+    if (!track || !isProgressAvailable || !Number.isFinite(positionSeconds) || positionSeconds < 0) return;
 
     const safeDuration = Number.isFinite(durationSeconds) && durationSeconds >= 0
       ? durationSeconds
@@ -990,7 +1017,7 @@ function AudiobookDetails() {
     lastSavedPositionRef.current = positionSeconds;
     progressSaveChainRef.current = progressSaveChainRef.current
       .catch(() => undefined)
-      .then(() => audiobooksApi.updateProgress(folder, {
+      .then(() => audiobooksApi.updateProgress(audiobookFolder, {
         trackPath: track.path,
         trackIndex,
         positionSeconds,
@@ -998,9 +1025,11 @@ function AudiobookDetails() {
         completed
       }))
       .then((response) => {
+        setIsProgressAvailable(true);
         setListeningProgress(response.data.data.progress_percentage || 0);
       })
       .catch((progressError) => {
+        setIsProgressAvailable(false);
         console.error('Could not save audiobook progress', progressError);
       });
   };
@@ -1050,7 +1079,7 @@ function AudiobookDetails() {
     setIsSavingMetadata(true);
     setMetadataError('');
     try {
-      const response = await audiobooksApi.updateMetadata(folder, metadataForm);
+      const response = await audiobooksApi.updateMetadata(audiobookFolder, metadataForm);
       const updatedAudiobook = response.data.data;
       setAudiobook(updatedAudiobook);
       setMetadataForm({
@@ -1077,7 +1106,7 @@ function AudiobookDetails() {
     setIsSavingCover(true);
     setCoverError('');
     try {
-      const response = await audiobooksApi.setCoverFromUrl(folder, coverUrlValue);
+      const response = await audiobooksApi.setCoverFromUrl(audiobookFolder, coverUrlValue);
       setAudiobook(response.data.data);
       setCoverUrlInput('');
       setIsEditingCover(false);
@@ -1090,7 +1119,7 @@ function AudiobookDetails() {
 
   const downloadAudiobook = () => {
     const downloadLink = document.createElement('a');
-    downloadLink.href = audiobooksApi.getDownloadUrl(folder);
+    downloadLink.href = audiobooksApi.getDownloadUrl(audiobookFolder);
     downloadLink.rel = 'noopener';
     document.body.appendChild(downloadLink);
     downloadLink.click();
@@ -1101,7 +1130,7 @@ function AudiobookDetails() {
     setIsDeletingAudiobook(true);
     setDeleteError('');
     try {
-      await audiobooksApi.remove(folder);
+      await audiobooksApi.remove(audiobookFolder);
       navigate('/?tab=Audiobooks', { replace: true });
     } catch (requestError) {
       setDeleteError(requestError.response?.data?.error || 'The audiobook could not be deleted.');
@@ -1121,7 +1150,7 @@ function AudiobookDetails() {
     return (
       <div className="flex flex-1 flex-col items-center justify-center bg-background px-6 text-center text-muted-foreground">
         <Headphones size={64} className="mb-5 opacity-20" />
-        <h1 className="text-2xl font-black text-foreground">Audiobook not found</h1>
+        <h1 className="text-2xl font-black text-foreground">Audiobook unavailable</h1>
         <p className="mt-2 max-w-md text-sm">{error || 'This collection is no longer available on the server.'}</p>
         <button type="button" onClick={() => navigate('/?tab=Audiobooks')} className="mt-6 font-bold text-primary hover:underline">
           Return to Audiobooks
@@ -1429,23 +1458,25 @@ function AudiobookDetails() {
                   <p className="text-[9px] font-black uppercase tracking-[0.2em] text-primary">Now selected</p>
                   <p className="mt-1 truncate text-sm font-bold">{selectedTrack?.title}</p>
                   <p className="mt-1 text-[10px] font-semibold text-muted-foreground">
-                    Chapter / track {selectedTrackIndex + 1} of {audiobook.trackCount} · {Math.round(listeningProgress)}% saved
+                    Chapter / track {selectedTrackIndex + 1} of {audiobook.trackCount} · {isProgressAvailable ? `${Math.round(listeningProgress)}% saved` : 'progress unavailable'}
                   </p>
                 </div>
               </div>
-              <div
-                role="progressbar"
-                aria-label="Audiobook listening progress"
-                aria-valuemin="0"
-                aria-valuemax="100"
-                aria-valuenow={Math.round(listeningProgress)}
-                className="mt-4 h-1 overflow-hidden rounded-full bg-primary/10"
-              >
+              {isProgressAvailable && (
                 <div
-                  className="h-full rounded-full bg-primary transition-all duration-500"
-                  style={{ width: `${listeningProgress}%` }}
-                />
-              </div>
+                  role="progressbar"
+                  aria-label="Audiobook listening progress"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-valuenow={Math.round(listeningProgress)}
+                  className="mt-4 h-1 overflow-hidden rounded-full bg-primary/10"
+                >
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-500"
+                    style={{ width: `${listeningProgress}%` }}
+                  />
+                </div>
+              )}
               <audio
                 key={audioUrl}
                 ref={audioRef}

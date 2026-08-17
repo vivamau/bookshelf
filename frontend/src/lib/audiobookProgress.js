@@ -1,3 +1,9 @@
+export const getAudiobookFolderCandidates = (requestedFolder) => {
+  const folder = String(requestedFolder || '').replace(/\\/g, '/');
+  const relativeFolder = folder.replace(/^audiobooks\//i, '');
+  return relativeFolder !== folder ? [folder, relativeFolder] : [folder];
+};
+
 export const resolveAudiobookResume = (progress, tracks) => {
   if (!tracks?.length) {
     return { trackIndex: 0, positionSeconds: 0, progressPercentage: 0 };

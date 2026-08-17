@@ -304,10 +304,10 @@ describe('Upload Endpoint Integration', () => {
         expect(collection.tracks[0].title).toBe('sample-track');
     });
 
-    test('GET /api/audiobooks/details returns one collection for guest accounts', async () => {
+    test('GET /api/audiobooks/details accepts an audiobooks-prefixed folder', async () => {
         const res = await request(app)
             .get('/api/audiobooks/details')
-            .query({ folder: 'Test Collection/Disc 1' })
+            .query({ folder: 'audiobooks/Test Collection/Disc 1' })
             .set('Cookie', guestCookie);
 
         expect(res.statusCode).toBe(200);

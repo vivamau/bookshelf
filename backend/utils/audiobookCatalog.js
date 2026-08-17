@@ -151,6 +151,16 @@ const displayName = (value) => value
     .replace(/_+/g, ' ')
     .trim();
 
+const findAudiobookByFolder = (catalog, requestedFolder) => {
+    const folder = String(requestedFolder || '').replace(/\\/g, '/');
+    const exactMatch = catalog.find((item) => item.folder === folder);
+    if (exactMatch) return exactMatch;
+
+    const relativeFolder = folder.replace(/^audiobooks\//i, '');
+    if (relativeFolder === folder) return undefined;
+    return catalog.find((item) => item.folder === relativeFolder);
+};
+
 const collectFiles = async (rootDirectory, currentDirectory, fsApi, files) => {
     const entries = await fsApi.readdir(currentDirectory, { withFileTypes: true });
 
@@ -244,6 +254,7 @@ module.exports = {
     MANAGED_COVER_PREFIX,
     METADATA_FILE_NAME,
     AudiobookCatalogError,
+    findAudiobookByFolder,
     normalizeRelativeAssetPath,
     readAudiobookMetadata,
     resolveAudiobookAudioPath,

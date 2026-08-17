@@ -27,6 +27,7 @@ const {
     AudiobookCatalogError,
     COVER_EXTENSIONS,
     MANAGED_COVER_PREFIX,
+    findAudiobookByFolder,
     resolveAudiobookAudioPath,
     resolveAudiobookCoverPath,
     resolveAudiobookDirectoryPath,
@@ -1622,7 +1623,7 @@ audiobooksRouter.get('/', async (req, res) => {
 audiobooksRouter.get('/details', async (req, res) => {
     try {
         const audiobooks = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
-        const audiobook = audiobooks.find((item) => item.folder === req.query.folder);
+        const audiobook = findAudiobookByFolder(audiobooks, req.query.folder);
         if (!audiobook) {
             return res.status(404).json({ error: 'Audiobook not found' });
         }
@@ -1636,7 +1637,7 @@ audiobooksRouter.get('/details', async (req, res) => {
 audiobooksRouter.get('/progress', async (req, res) => {
     try {
         const audiobooks = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
-        const audiobook = audiobooks.find((item) => item.folder === req.query.folder);
+        const audiobook = findAudiobookByFolder(audiobooks, req.query.folder);
         if (!audiobook) {
             return res.status(404).json({ error: 'Audiobook not found' });
         }
@@ -1691,7 +1692,7 @@ audiobooksRouter.get('/progress', async (req, res) => {
 audiobooksRouter.post('/progress', async (req, res) => {
     try {
         const audiobooks = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
-        const audiobook = audiobooks.find((item) => item.folder === req.body?.folder);
+        const audiobook = findAudiobookByFolder(audiobooks, req.body?.folder);
         if (!audiobook) {
             return res.status(404).json({ error: 'Audiobook not found' });
         }
@@ -1755,7 +1756,7 @@ audiobooksRouter.post('/progress', async (req, res) => {
 audiobooksRouter.put('/metadata', checkManageBooks, async (req, res) => {
     try {
         const audiobooks = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
-        const audiobook = audiobooks.find((item) => item.folder === req.body.folder);
+        const audiobook = findAudiobookByFolder(audiobooks, req.body.folder);
         if (!audiobook) {
             return res.status(404).json({ error: 'Audiobook not found' });
         }
@@ -1777,7 +1778,7 @@ audiobooksRouter.post('/cover-from-url', checkManageBooks, async (req, res) => {
     const folder = req.body.folder;
     try {
         const audiobooks = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
-        const audiobook = audiobooks.find((item) => item.folder === folder);
+        const audiobook = findAudiobookByFolder(audiobooks, folder);
         if (!audiobook) {
             return res.status(404).json({ error: 'Audiobook not found' });
         }
@@ -1870,7 +1871,7 @@ const safeDownloadName = (title, fallback = 'audiobook') => {
 audiobooksRouter.get('/download', async (req, res) => {
     try {
         const audiobooks = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
-        const audiobook = audiobooks.find((item) => item.folder === req.query.folder);
+        const audiobook = findAudiobookByFolder(audiobooks, req.query.folder);
         if (!audiobook) {
             return res.status(404).json({ error: 'Audiobook not found' });
         }
@@ -1919,7 +1920,7 @@ audiobooksRouter.get('/download', async (req, res) => {
 audiobooksRouter.delete('/', checkManageUsers, async (req, res) => {
     try {
         const audiobooks = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
-        const audiobook = audiobooks.find((item) => item.folder === req.query.folder);
+        const audiobook = findAudiobookByFolder(audiobooks, req.query.folder);
         if (!audiobook) {
             return res.status(404).json({ error: 'Audiobook not found' });
         }

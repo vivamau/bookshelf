@@ -2,9 +2,18 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  getAudiobookFolderCandidates,
   resolveAudiobookResume,
   shouldPersistAudiobookProgress
 } from './audiobookProgress.js';
+
+test('provides a relative fallback for audiobooks-prefixed detail links', () => {
+  assert.deepEqual(
+    getAudiobookFolderCandidates('audiobooks/David Foster Wallace - Essays'),
+    ['audiobooks/David Foster Wallace - Essays', 'David Foster Wallace - Essays']
+  );
+  assert.deepEqual(getAudiobookFolderCandidates('Earthsea'), ['Earthsea']);
+});
 
 test('resolves a saved audiobook chapter and timestamp', () => {
   const resume = resolveAudiobookResume({

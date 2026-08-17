@@ -2,6 +2,7 @@ const path = require('path');
 const {
     AudiobookCatalogError,
     METADATA_FILE_NAME,
+    findAudiobookByFolder,
     resolveAudiobookAudioPath,
     resolveAudiobookCoverPath,
     scanAudiobookCatalog,
@@ -13,6 +14,18 @@ const directoryEntry = (name) => ({ name, isDirectory: () => true, isFile: () =>
 const fileEntry = (name) => ({ name, isDirectory: () => false, isFile: () => true });
 
 describe('audiobook catalog', () => {
+    test('accepts an audiobooks prefix while preferring exact folder matches', () => {
+        const catalog = [
+            { folder: 'David Foster Wallace - Essays', title: 'Relative collection' },
+            { folder: 'audiobooks/Existing Nested Collection', title: 'Nested collection' }
+        ];
+
+        expect(findAudiobookByFolder(catalog, 'audiobooks/David Foster Wallace - Essays')?.title)
+            .toBe('Relative collection');
+        expect(findAudiobookByFolder(catalog, 'audiobooks/Existing Nested Collection')?.title)
+            .toBe('Nested collection');
+    });
+
     test('groups tracks by directory and selects a local cover using a mocked filesystem', async () => {
         const root = path.join(path.sep, 'srv', 'bookshelf', 'audiobooks');
         const collection = path.join(root, '001. Ursula Le Guin - Earthsea [mp3 - 64 kbps]');
