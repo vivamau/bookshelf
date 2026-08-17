@@ -1858,7 +1858,8 @@ audiobooksRouter.get('/audio', (req, res) => {
 
         res.setHeader('Cache-Control', 'private, max-age=3600');
         res.setHeader('Accept-Ranges', 'bytes');
-        res.type(getAudiobookContentType(audio.relativePath));
+        res.setHeader('Vary', 'User-Agent');
+        res.type(getAudiobookContentType(audio.relativePath, req.get('user-agent')));
         res.sendFile(audio.audioPath);
     });
 });

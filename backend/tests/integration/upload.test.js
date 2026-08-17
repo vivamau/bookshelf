@@ -387,6 +387,20 @@ describe('Upload Endpoint Integration', () => {
         expect(res.body.toString()).toBe('dumm');
     });
 
+    test('GET /api/audiobooks/audio serves Safari M4B ranges with Apple\'s MIME type', async () => {
+        const res = await request(app)
+            .get('/api/audiobooks/audio')
+            .query({ path: 'Test Collection/complete-book.m4b' })
+            .set('Cookie', guestCookie)
+            .set('User-Agent', 'Mozilla/5.0 (Macintosh) AppleWebKit/605.1.15 Version/18.6 Safari/605.1.15')
+            .set('Range', 'bytes=0-3');
+
+        expect(res.statusCode).toBe(206);
+        expect(res.headers['content-type']).toMatch(/^audio\/x-m4b/);
+        expect(res.headers.vary).toContain('User-Agent');
+        expect(res.headers['accept-ranges']).toBe('bytes');
+    });
+
     test('PUT /api/audiobooks/metadata lets librarians edit collection metadata', async () => {
         const res = await request(app)
             .put('/api/audiobooks/metadata')

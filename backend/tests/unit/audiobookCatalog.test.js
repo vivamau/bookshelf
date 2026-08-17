@@ -15,9 +15,17 @@ const directoryEntry = (name) => ({ name, isDirectory: () => true, isFile: () =>
 const fileEntry = (name) => ({ name, isDirectory: () => false, isFile: () => true });
 
 describe('audiobook catalog', () => {
-    test('serves M4B files with the MP4 audio content type', () => {
+    test('serves M4B files with browser-compatible content types', () => {
         expect(getAudiobookContentType('Collection/Complete Book.m4b')).toBe('audio/mp4');
         expect(getAudiobookContentType('Collection/Complete Book.M4B')).toBe('audio/mp4');
+        expect(getAudiobookContentType(
+            'Collection/Complete Book.m4b',
+            'Mozilla/5.0 (Macintosh) AppleWebKit/605.1.15 Version/18.6 Safari/605.1.15'
+        )).toBe('audio/x-m4b');
+        expect(getAudiobookContentType(
+            'Collection/Complete Book.m4b',
+            'Mozilla/5.0 AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36'
+        )).toBe('audio/mp4');
     });
 
     test('accepts an audiobooks prefix while preferring exact folder matches', () => {

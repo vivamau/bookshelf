@@ -84,8 +84,18 @@ const resolveAudiobookAudioPath = (audiobooksDirectory, relativePath) => {
     return { relativePath: resolved.relativePath, audioPath: resolved.coverPath };
 };
 
-const getAudiobookContentType = (relativePath) => {
-    const contentType = AUDIO_CONTENT_TYPES[path.extname(String(relativePath || '')).toLowerCase()];
+const isSafariUserAgent = (userAgent = '') => (
+    /Safari\//.test(userAgent)
+    && !/(?:Chrome|Chromium|CriOS|Edg|OPR|Android)\//.test(userAgent)
+);
+
+const getAudiobookContentType = (relativePath, userAgent = '') => {
+    const extension = path.extname(String(relativePath || '')).toLowerCase();
+    if (extension === '.m4b' && isSafariUserAgent(userAgent)) {
+        return 'audio/x-m4b';
+    }
+
+    const contentType = AUDIO_CONTENT_TYPES[extension];
     if (!contentType) {
         throw new AudiobookCatalogError('Unsupported audiobook audio type');
     }
@@ -275,6 +285,7 @@ module.exports = {
     AudiobookCatalogError,
     findAudiobookByFolder,
     getAudiobookContentType,
+    isSafariUserAgent,
     normalizeRelativeAssetPath,
     readAudiobookMetadata,
     resolveAudiobookAudioPath,
