@@ -499,6 +499,7 @@ const Layout = ({ children }) => {
                 <ArrowLeft onClick={() => navigate(-1)} size={20} className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors hidden md:block" />
             </div>
             
+            {location.pathname !== '/search' && (
             <div className="flex-1 max-w-2xl relative group z-50">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={20} />
               <input 
@@ -608,6 +609,7 @@ const Layout = ({ children }) => {
                   </div>
               )}
             </div>
+            )}
           </div>
 
           <div className="flex items-center gap-6 text-muted-foreground">
