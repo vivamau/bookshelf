@@ -50,6 +50,7 @@ import SettingsPage from './pages/Settings';
 import AddBook from './pages/AddBook';
 import Readlists from './pages/Readlists';
 import ReadlistDetails from './pages/ReadlistDetails';
+import SearchResults from './pages/SearchResults';
 import { audiobooksApi, booksApi, libraryApi, genresApi, searchApi } from './api/api';
 import {
   getAudiobookFolderCandidates,
@@ -221,6 +222,12 @@ const Layout = ({ children }) => {
   const [showResults, setShowResults] = useState(false);
 
   useEffect(() => {
+    if (location.pathname === '/search') {
+      setSearchResults(null);
+      setShowResults(false);
+      return undefined;
+    }
+
     const delayDebounceFn = setTimeout(async () => {
       if (searchQuery.length >= 2 && navigator.onLine !== false) {
         try {
@@ -237,7 +244,19 @@ const Layout = ({ children }) => {
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [searchQuery]);
+  }, [location.pathname, searchQuery]);
+
+  useEffect(() => {
+    if (location.pathname === '/search') {
+      setSearchQuery(new URLSearchParams(location.search).get('q') || '');
+    }
+  }, [location.pathname, location.search]);
+
+  const openFullSearch = () => {
+    const query = searchQuery.trim();
+    navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search');
+    setShowResults(false);
+  };
 
   const handleShuffle = async () => {
     try {
@@ -487,6 +506,12 @@ const Layout = ({ children }) => {
                 placeholder="Search for books, authors, genres..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    openFullSearch();
+                  }
+                }}
                 onFocus={() => { if(searchQuery.length >= 2) setShowResults(true); }}
                 onBlur={() => setTimeout(() => setShowResults(false), 200)}
                 className="w-full bg-secondary/30 border border-transparent focus:border-primary/20 focus:bg-secondary/50 rounded-full py-2.5 pl-12 pr-6 text-sm transition-all outline-none"
@@ -571,6 +596,15 @@ const Layout = ({ children }) => {
                              <span className="text-xs font-medium">No results found for "{searchQuery}"</span>
                           </div>
                       )}
+                      <button
+                        type="button"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={openFullSearch}
+                        className="flex w-full items-center justify-between border-t border-border/60 bg-secondary/20 px-5 py-3 text-left text-xs font-black uppercase tracking-wider text-primary transition-colors hover:bg-primary/10"
+                      >
+                        Search the full catalogue
+                        <ChevronRight size={16} />
+                      </button>
                   </div>
               )}
             </div>
@@ -1701,6 +1735,7 @@ function AuthenticatedApp() {
       <Route path="/readlist/:id" element={user ? <Layout><ReadlistDetails /></Layout> : <Navigate to="/login" />} />
       <Route path="/genre/:id" element={user ? <Layout><GenreDetails /></Layout> : <Navigate to="/login" />} />
       <Route path="/library" element={user ? <Layout><Library /></Layout> : <Navigate to="/login" />} />
+      <Route path="/search" element={user ? <Layout><SearchResults /></Layout> : <Navigate to="/login" />} />
       <Route path="/users" element={user ? (hasPermission('userrole_manageusers') ? <Layout><UsersPage /></Layout> : <Navigate to="/" />) : <Navigate to="/login" />} />
       <Route path="/settings" element={user ? (hasPermission('userrole_readbooks') ? <Layout><SettingsPage /></Layout> : <Navigate to="/" />) : <Navigate to="/login" />} />
       <Route path="/add-book" element={user ? (hasPermission('userrole_managebooks') ? <Layout><AddBook /></Layout> : <Navigate to="/" />) : <Navigate to="/login" />} />

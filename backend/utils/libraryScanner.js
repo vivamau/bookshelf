@@ -21,6 +21,16 @@ const stripHtml = (html) => {
     return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
 };
 
+const normalizeDisplayText = (value) => String(value || '')
+    .replace(/_+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const getDisplayBaseName = (filename) => {
+    const safeBaseName = path.basename(String(filename || ''));
+    return normalizeDisplayText(path.basename(safeBaseName, path.extname(safeBaseName)));
+};
+
 const getOrCreateFormat = (db, formatName) => {
     return new Promise((resolve, reject) => {
         db.get("SELECT ID FROM Formats WHERE format_name = ?", [formatName], (err, row) => {
@@ -220,7 +230,8 @@ const processArchiveBook = async (db, filename, formatId, onProgress, options = 
             }
 
             // Extract Metadata (ComicInfo.xml)
-            let title = path.basename(filename, ext);
+            const fallbackTitle = getDisplayBaseName(options.originalFilename || filename);
+            let title = fallbackTitle;
             let authorName = null;
             let summary = null;
             let date = null;
@@ -266,7 +277,7 @@ const processArchiveBook = async (db, filename, formatId, onProgress, options = 
             }
 
             // Fallback Title logic if still default (series + number)
-            if (series && number && title === path.basename(filename, ext)) {
+            if (series && number && title === fallbackTitle) {
                 title = `${series} #${number}`;
             }
 
@@ -423,7 +434,7 @@ const processBook = async (db, filename, formatId, onProgress, options = {}) => 
             };
 
             const metadata = result.package.metadata[0];
-            const title = getText(metadata['dc:title']) || path.basename(filename, '.epub');
+            const title = getText(metadata['dc:title']) || getDisplayBaseName(options.originalFilename || filename);
             
             let isbn = null;
             if (metadata['dc:identifier']) {
@@ -635,7 +646,7 @@ const processBook = async (db, filename, formatId, onProgress, options = {}) => 
     });
 };
 
-const processPdf = async (db, filename, formatId, onProgress) => {
+const processPdf = async (db, filename, formatId, onProgress, options = {}) => {
     return new Promise(async (resolve) => {
         try {
             if (onProgress) onProgress(filename);
@@ -649,19 +660,20 @@ const processPdf = async (db, filename, formatId, onProgress) => {
             }
             
             // Simple metadata extraction from filename
-            const baseName = path.basename(filename, '.pdf');
+            const originalFilename = path.basename(options.originalFilename || filename);
+            const originalBaseName = path.basename(originalFilename, path.extname(originalFilename));
             // Try to guess title/author from filename if it contains common separators
-            let title = baseName;
+            let title = normalizeDisplayText(originalBaseName);
             let authorName = null;
 
-            if (baseName.includes(' - ')) {
-                const parts = baseName.split(' - ');
-                title = parts[1].trim();
-                authorName = parts[0].trim();
-            } else if (baseName.includes(' (')) {
-                const parts = baseName.split(' (');
-                title = parts[0].trim();
-                authorName = parts[1].replace(')', '').trim();
+            if (originalBaseName.includes(' - ')) {
+                const parts = originalBaseName.split(' - ');
+                title = normalizeDisplayText(parts.slice(1).join(' - '));
+                authorName = normalizeDisplayText(parts[0]);
+            } else if (originalBaseName.includes(' (')) {
+                const parts = originalBaseName.split(' (');
+                title = normalizeDisplayText(parts[0]);
+                authorName = normalizeDisplayText(parts.slice(1).join(' (').replace(/\)$/, ''));
             }
 
             // SMART DUPLICATE CHECK for PDF
@@ -876,21 +888,21 @@ const importFiles = async (db, onProgress) => {
     }
 };
 
-const scanSingleFile = async (db, filename) => {
+const scanSingleFile = async (db, filename, options = {}) => {
     try {
         const lower = filename.toLowerCase();
         if (lower.endsWith('.epub')) {
              const epubFormatId = await getOrCreateFormat(db, 'EPUB');
-             return await processBook(db, filename, epubFormatId, null);
+             return await processBook(db, filename, epubFormatId, null, options);
         } else if (lower.endsWith('.pdf')) {
              const pdfFormatId = await getOrCreateFormat(db, 'PDF');
-             return await processPdf(db, filename, pdfFormatId, null);
+             return await processPdf(db, filename, pdfFormatId, null, options);
         } else if (lower.endsWith('.cbz') || lower.endsWith('.zip')) {
              const cbzFormatId = await getOrCreateFormat(db, 'CBZ');
-             return await processArchiveBook(db, filename, cbzFormatId, null);
+             return await processArchiveBook(db, filename, cbzFormatId, null, options);
         } else if (lower.endsWith('.cbr') || lower.endsWith('.rar')) {
              const cbrFormatId = await getOrCreateFormat(db, 'CBR');
-             return await processArchiveBook(db, filename, cbrFormatId, null);
+             return await processArchiveBook(db, filename, cbrFormatId, null, options);
         }
         return false;
     } catch (err) {
@@ -956,4 +968,4 @@ const getComicPage = async (db, filename, entryName) => {
     }
 };
 
-module.exports = { scanLibrary, refreshCovers, importFiles, scanSingleFile, getComicPage };
+module.exports = { scanLibrary, refreshCovers, importFiles, scanSingleFile, getComicPage, getDisplayBaseName, normalizeDisplayText };

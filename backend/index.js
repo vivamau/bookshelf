@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const db = require('./config/db');
 const createCrudRouter = require('./utils/crudFactory');
+const createSearchRouter = require('./routes/search');
 const auth = require('./middleware/auth');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs'); 
@@ -397,42 +398,7 @@ generesRouter.get('/:id', (req, res) => {
 });
 
 generesRouter.use('/', createCrudRouter('Generes', db));
-app.get('/api/search', async (req, res) => {
-    const query = req.query.q;
-    if (!query || query.length < 2) return res.json({ data: { books: [], authors: [], genres: [] } });
-
-    const searchParams = `%${query}%`;
-
-    try {
-        const booksPromise = new Promise((resolve, reject) => {
-             db.all("SELECT ID, book_title, book_cover_img, book_create_date FROM Books WHERE book_title LIKE ? LIMIT 5", [searchParams], (err, rows) => {
-                 if (err) reject(err);
-                 else resolve(rows || []);
-             });
-        });
-
-        const authorsPromise = new Promise((resolve, reject) => {
-             db.all("SELECT ID, author_name, author_lastname, author_avatar FROM Authors WHERE author_name LIKE ? OR author_lastname LIKE ? LIMIT 5", [searchParams, searchParams], (err, rows) => {
-                 if (err) reject(err);
-                 else resolve(rows || []);
-             });
-        });
-
-         const genresPromise = new Promise((resolve, reject) => {
-             db.all("SELECT ID, genere_title FROM Generes WHERE genere_title LIKE ? LIMIT 5", [searchParams], (err, rows) => {
-                 if (err) reject(err);
-                 else resolve(rows || []);
-             });
-        });
-
-        const [books, authors, genres] = await Promise.all([booksPromise, authorsPromise, genresPromise]);
-        res.json({ data: { books, authors, genres } });
-
-    } catch (err) {
-        console.error('Search error:', err);
-        res.status(500).json({ error: 'Search failed' });
-    }
-});
+app.use('/api/search', createSearchRouter(db));
 
 app.use('/api/generes', generesRouter);
 
@@ -774,7 +740,7 @@ booksRouter.post('/upload', checkManageBooks, async (req, res) => {
         console.log(`Uploaded file: ${safeName}`);
         
         try {
-            const result = await scanSingleFile(db, safeName);
+            const result = await scanSingleFile(db, safeName, { originalFilename: path.basename(bookFile.name) });
             
             if (result && result.error) {
                 return res.status(400).json({ error: result.error, filename: safeName });

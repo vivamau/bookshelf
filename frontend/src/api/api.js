@@ -150,6 +150,7 @@ export const audiobooksApi = {
 
 export const searchApi = {
   search: (query) => api.get('/search', { params: { q: query } }),
+  searchBooks: (params = {}) => api.get('/search/books', { params }),
 };
 
 export const readlistsApi = {
