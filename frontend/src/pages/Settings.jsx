@@ -53,6 +53,10 @@ import {
     saveOfflineBookAsFile
 } from '../lib/offlineBookDownload';
 import { applyAudiobookUploadConflicts } from '../lib/audiobookUploadQueue';
+import {
+    buildApplicationLogRange,
+    formatApplicationLogTimestamp
+} from '../lib/applicationLogFilters';
 
 const OPENAI_TTS_VOICES = [
   { id: 'marin', label: 'Marin', hint: 'Best quality' },
@@ -92,6 +96,64 @@ const formatLocalDateInput = (date = new Date()) => {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+};
+
+const LOG_LEVEL_STYLES = {
+    ERROR: 'border-destructive/30 bg-destructive/10 text-destructive',
+    WARN: 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400',
+    INFO: 'border-primary/30 bg-primary/10 text-primary'
+};
+
+const ApplicationLogEntry = ({ entry }) => {
+    const level = String(entry.level || 'INFO').toUpperCase();
+    const details = Object.fromEntries(Object.entries(entry).filter(([key]) => (
+        !['timestamp', 'level', 'event', 'message'].includes(key)
+    )));
+    const hasDetails = Object.keys(details).length > 0;
+
+    return (
+        <article className="group border-b border-border/70 last:border-b-0 px-4 py-4 hover:bg-secondary/10 transition-colors">
+            <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+                <div className="flex items-center gap-2 sm:w-44 shrink-0">
+                    <span className={cn(
+                        "rounded-md border px-2 py-1 text-[10px] font-black tracking-[0.12em]",
+                        LOG_LEVEL_STYLES[level] || LOG_LEVEL_STYLES.INFO
+                    )}>
+                        {level}
+                    </span>
+                    <time className="font-mono text-[11px] text-muted-foreground">
+                        {formatApplicationLogTimestamp(entry.timestamp)}
+                    </time>
+                </div>
+                <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="font-mono text-xs font-bold text-primary break-all">
+                            {entry.event || 'application.event'}
+                        </span>
+                        {entry.context?.requestId && (
+                            <span className="rounded bg-secondary/40 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                                {entry.context.requestId}
+                            </span>
+                        )}
+                    </div>
+                    <p className="mt-1 text-sm leading-relaxed break-words">
+                        {entry.message || 'No message was recorded.'}
+                    </p>
+                    {hasDetails && (
+                        <details className="mt-2 group/details">
+                            <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
+                                <ChevronRight size={13} className="transition-transform group-open/details:rotate-90" />
+                                Inspect payload
+                            </summary>
+                            <pre className="mt-2 max-h-72 overflow-auto rounded-xl border border-border bg-background/70 p-3 font-mono text-[11px] leading-relaxed text-foreground/80 whitespace-pre-wrap break-words">
+                                {JSON.stringify(details, null, 2)}
+                            </pre>
+                        </details>
+                    )}
+                </div>
+            </div>
+        </article>
+    );
 };
 
 const BrowserModal = ({ isOpen, onClose, onSelect }) => {
@@ -301,6 +363,14 @@ export default function Settings() {
   const [logExportDate, setLogExportDate] = useState(() => formatLocalDateInput());
   const [isLogExporting, setIsLogExporting] = useState(false);
   const [logExportStatus, setLogExportStatus] = useState(null);
+  const [logStartTime, setLogStartTime] = useState('00:00');
+  const [logEndTime, setLogEndTime] = useState('23:59');
+  const [logEntries, setLogEntries] = useState([]);
+  const [logEntryTotal, setLogEntryTotal] = useState(0);
+  const [logEntriesTruncated, setLogEntriesTruncated] = useState(false);
+  const [isLogLoading, setIsLogLoading] = useState(false);
+  const [logViewError, setLogViewError] = useState('');
+  const [hasLoadedLogs, setHasLoadedLogs] = useState(false);
 
   // Audiobook collection upload states
   const [audiobookFiles, setAudiobookFiles] = useState([]);
@@ -604,6 +674,36 @@ export default function Settings() {
     }
   };
 
+  const loadApplicationLogs = async () => {
+    setIsLogLoading(true);
+    setLogViewError('');
+    try {
+      const { startTimestamp, endTimestamp } = buildApplicationLogRange({
+        date: logExportDate,
+        startTime: logStartTime,
+        endTime: logEndTime
+      });
+      const response = await settingsApi.getApplicationLogs(startTimestamp, endTimestamp);
+      const result = response.data.data || {};
+      setLogEntries(result.entries || []);
+      setLogEntryTotal(result.total || 0);
+      setLogEntriesTruncated(Boolean(result.truncated));
+      setHasLoadedLogs(true);
+    } catch (err) {
+      setLogEntries([]);
+      setLogEntryTotal(0);
+      setLogEntriesTruncated(false);
+      setHasLoadedLogs(true);
+      setLogViewError(
+        err.response?.data?.error
+        || err.message
+        || 'Could not load the application log.'
+      );
+    } finally {
+      setIsLogLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (user) {
         setFontFamily(user.user_font_family || 'sans');
@@ -616,6 +716,12 @@ export default function Settings() {
   useEffect(() => {
     if (isLibrarian && activeTab === 'server') {
         fetchDirectories();
+    }
+  }, [isLibrarian, activeTab]);
+
+  useEffect(() => {
+    if (isLibrarian && activeTab === 'logs') {
+        loadApplicationLogs();
     }
   }, [isLibrarian, activeTab]);
 
@@ -941,6 +1047,16 @@ export default function Settings() {
                     >
                         <Server size={16} />
                         Server Libraries
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('logs')}
+                        className={cn(
+                            "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all",
+                            activeTab === 'logs' ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                        )}
+                    >
+                        <FileText size={16} />
+                        Application Logs
                     </button>
                     <button
                         onClick={() => setActiveTab('audiobooks')}
@@ -1501,59 +1617,103 @@ export default function Settings() {
                     </div>
                 </div>
 
-                <div className="relative overflow-hidden border-t border-border bg-[linear-gradient(135deg,hsl(var(--muted)/0.28),transparent_58%)] p-6">
-                    <div className="absolute -right-8 -top-10 h-32 w-32 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
-                    <div className="relative flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
-                        <div className="max-w-xl">
-                            <div className="flex items-center gap-2 mb-2">
+            </div>
+        )}
+
+        {activeTab === 'logs' && isLibrarian && (
+            <div className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
+                <header className="relative border-b border-border bg-[linear-gradient(125deg,hsl(var(--muted)/0.36),transparent_62%)] p-6">
+                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-5">
+                        <div className="max-w-2xl">
+                            <div className="mb-2 flex items-center gap-2">
                                 <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
-                                    <ShieldCheck size={12} /> Librarian only
+                                    <ShieldCheck size={12} /> Librarian console
+                                </span>
+                                <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                                    Structured JSONL
                                 </span>
                             </div>
-                            <h3 className="text-lg font-black flex items-center gap-2">
-                                <HardDrive size={19} className="text-primary" />
-                                Daily application log
-                            </h3>
-                            <p className="text-sm text-muted-foreground mt-1">
-                                Export a calendar day from the active error log and its rotated archives. The file is structured JSON Lines for easy searching and sharing.
+                            <h2 className="flex items-center gap-2 text-2xl font-black tracking-tight">
+                                <HardDrive className="text-primary" /> Application Logs
+                            </h2>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Inspect server errors from the active file and every rotated archive. Times are shown and filtered in your local timezone.
                             </p>
                         </div>
+                        <button
+                            type="button"
+                            onClick={handleApplicationLogExport}
+                            disabled={!logExportDate || isLogExporting}
+                            className="h-10 shrink-0 rounded-xl border border-border bg-background/80 px-4 text-xs font-black shadow-sm transition-all hover:border-primary/40 hover:text-primary disabled:pointer-events-none disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                            {isLogExporting
+                                ? <Loader className="animate-spin" size={15} />
+                                : <Download size={15} />}
+                            {isLogExporting ? 'Preparing export' : 'Download full day'}
+                        </button>
+                    </div>
+                </header>
 
-                        <div className="flex flex-col sm:flex-row sm:items-end gap-3 shrink-0">
-                            <label className="space-y-1.5">
-                                <span className="text-[11px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                                    <CalendarDays size={13} /> Log date
-                                </span>
-                                <input
-                                    type="date"
-                                    value={logExportDate}
-                                    max={formatLocalDateInput()}
-                                    onChange={(event) => {
-                                        setLogExportDate(event.target.value);
-                                        setLogExportStatus(null);
-                                    }}
-                                    className="h-11 rounded-xl border border-input bg-background/80 px-3 font-mono text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
-                                />
-                            </label>
-                            <button
-                                type="button"
-                                onClick={handleApplicationLogExport}
-                                disabled={!logExportDate || isLogExporting}
-                                className="h-11 rounded-xl bg-foreground px-5 text-sm font-black text-background shadow-lg shadow-black/10 transition-all hover:-translate-y-0.5 hover:opacity-90 active:translate-y-0 disabled:pointer-events-none disabled:opacity-50 flex items-center justify-center gap-2"
-                            >
-                                {isLogExporting
-                                    ? <Loader className="animate-spin" size={16} />
-                                    : <Download size={16} />}
-                                {isLogExporting ? 'Preparing export' : 'Download daily log'}
-                            </button>
-                        </div>
+                <div className="relative border-b border-border p-4 md:p-6">
+                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-[1.4fr_1fr_1fr_auto] lg:items-end">
+                        <label className="col-span-2 space-y-1.5 lg:col-span-1">
+                            <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
+                                <CalendarDays size={13} /> Calendar day
+                            </span>
+                            <input
+                                type="date"
+                                value={logExportDate}
+                                max={formatLocalDateInput()}
+                                onChange={(event) => {
+                                    setLogExportDate(event.target.value);
+                                    setLogExportStatus(null);
+                                    setHasLoadedLogs(false);
+                                }}
+                                className="h-11 w-full rounded-xl border border-input bg-secondary/15 px-3 font-mono text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
+                            />
+                        </label>
+                        <label className="space-y-1.5">
+                            <span className="text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">From</span>
+                            <input
+                                type="time"
+                                value={logStartTime}
+                                onChange={(event) => {
+                                    setLogStartTime(event.target.value);
+                                    setHasLoadedLogs(false);
+                                }}
+                                className="h-11 w-full rounded-xl border border-input bg-secondary/15 px-3 font-mono text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
+                            />
+                        </label>
+                        <label className="space-y-1.5">
+                            <span className="text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">Through</span>
+                            <input
+                                type="time"
+                                value={logEndTime}
+                                onChange={(event) => {
+                                    setLogEndTime(event.target.value);
+                                    setHasLoadedLogs(false);
+                                }}
+                                className="h-11 w-full rounded-xl border border-input bg-secondary/15 px-3 font-mono text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
+                            />
+                        </label>
+                        <button
+                            type="button"
+                            onClick={loadApplicationLogs}
+                            disabled={isLogLoading || !logExportDate || !logStartTime || !logEndTime}
+                            className="col-span-2 h-11 rounded-xl bg-foreground px-5 text-sm font-black text-background shadow-lg shadow-black/10 transition-all hover:-translate-y-0.5 hover:opacity-90 active:translate-y-0 disabled:pointer-events-none disabled:opacity-50 lg:col-span-1 flex items-center justify-center gap-2"
+                        >
+                            <RefreshCw size={16} className={cn(isLogLoading && 'animate-spin')} />
+                            {isLogLoading ? 'Loading' : 'Apply filter'}
+                        </button>
                     </div>
 
                     {logExportStatus && (
                         <div
                             role="status"
                             className={cn(
-                                "relative mt-4 flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-medium",
+                                "mt-4 flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-medium",
                                 logExportStatus.type === 'success'
                                     ? "border-primary/20 bg-primary/10 text-foreground"
                                     : "border-destructive/20 bg-destructive/10 text-destructive"
@@ -1566,6 +1726,68 @@ export default function Settings() {
                         </div>
                     )}
                 </div>
+
+                <section aria-live="polite">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-secondary/10 px-4 py-3">
+                        <div className="flex items-center gap-2">
+                            <FileText size={15} className="text-primary" />
+                            <span className="text-xs font-black uppercase tracking-wider">
+                                {isLogLoading
+                                    ? 'Reading archives…'
+                                    : `${logEntryTotal} ${logEntryTotal === 1 ? 'entry' : 'entries'}`}
+                            </span>
+                        </div>
+                        {logEntriesTruncated && (
+                            <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                                Showing newest {logEntries.length} entries
+                            </span>
+                        )}
+                    </div>
+
+                    {logViewError ? (
+                        <div className="m-5 flex items-start gap-3 rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+                            <AlertCircle size={18} className="mt-0.5 shrink-0" />
+                            <div>
+                                <p className="font-black">Log query failed</p>
+                                <p className="mt-0.5">{logViewError}</p>
+                            </div>
+                        </div>
+                    ) : isLogLoading ? (
+                        <div className="flex min-h-64 flex-col items-center justify-center gap-3 text-muted-foreground">
+                            <Loader className="animate-spin text-primary" size={24} />
+                            <p className="text-sm font-bold">Scanning active and rotated logs…</p>
+                        </div>
+                    ) : !hasLoadedLogs ? (
+                        <div className="flex min-h-64 flex-col items-center justify-center px-6 text-center">
+                            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-border bg-secondary/20">
+                                <CalendarDays size={23} className="text-primary" />
+                            </div>
+                            <p className="font-black">Filter ready</p>
+                            <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                                Apply the selected date and hours to inspect that window.
+                            </p>
+                        </div>
+                    ) : logEntries.length === 0 ? (
+                        <div className="flex min-h-64 flex-col items-center justify-center px-6 text-center">
+                            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-border bg-secondary/20">
+                                <CheckCircle2 size={23} className="text-emerald-500" />
+                            </div>
+                            <p className="font-black">No entries in this window</p>
+                            <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                                Adjust the date or hours, or keep this quiet interval as a good sign.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="max-h-[65vh] overflow-y-auto">
+                            {logEntries.map((entry, index) => (
+                                <ApplicationLogEntry
+                                    key={`${entry.timestamp || 'unknown'}-${entry.event || 'event'}-${index}`}
+                                    entry={entry}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </section>
             </div>
         )}
 

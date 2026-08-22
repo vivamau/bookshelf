@@ -130,6 +130,9 @@ export const settingsApi = {
   addDirectory: (path) => api.post('/settings/directories', { path }),
   deleteDirectory: (id) => api.delete(`/settings/directories/${id}`),
   browseFilesystem: (path) => api.get('/settings/browse', { params: { path } }),
+  getApplicationLogs: (startTimestamp, endTimestamp, limit = 500) => api.get('/settings/logs', {
+    params: { startTimestamp, endTimestamp, limit }
+  }),
   downloadApplicationLog: (date, timezoneOffsetMinutes, endTimezoneOffsetMinutes) => api.get('/settings/logs/export', {
     params: { date, timezoneOffsetMinutes, endTimezoneOffsetMinutes },
     responseType: 'blob'

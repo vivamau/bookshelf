@@ -56,12 +56,36 @@ describe('daily application log export', () => {
         expect(response.text).not.toContain('next-day');
     });
 
+    test('lets a librarian view entries filtered to an hourly range', async () => {
+        const response = await request(app)
+            .get('/api/settings/logs')
+            .query({
+                startTimestamp: Date.parse('2026-08-22T10:00:00.000Z'),
+                endTimestamp: Date.parse('2026-08-22T13:00:00.000Z'),
+                limit: 500
+            })
+            .set('Cookie', librarianCookie);
+
+        expect(response.statusCode).toBe(200);
+        expect(response.body.data).toEqual({
+            entries: [expect.objectContaining({ event: 'current-error' })],
+            total: 1,
+            truncated: false
+        });
+    });
+
     test('rejects non-librarians and invalid dates', async () => {
         const forbiddenResponse = await request(app)
             .get('/api/settings/logs/export')
             .query({ date: '2026-08-22', timezoneOffsetMinutes: 0 })
             .set('Cookie', guestCookie);
         expect(forbiddenResponse.statusCode).toBe(403);
+
+        const forbiddenViewerResponse = await request(app)
+            .get('/api/settings/logs')
+            .query({ startTimestamp: 0, endTimestamp: 1000 })
+            .set('Cookie', guestCookie);
+        expect(forbiddenViewerResponse.statusCode).toBe(403);
 
         const invalidDateResponse = await request(app)
             .get('/api/settings/logs/export')

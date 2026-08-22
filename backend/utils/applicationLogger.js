@@ -105,6 +105,27 @@ const createDailyLogExport = async ({
         timezoneOffsetMinutes,
         endTimezoneOffsetMinutes
     );
+    const entries = await readLogRecords({
+        logFile: resolvedLogFile,
+        startTimestamp: start,
+        endTimestamp: end,
+        archiveCount
+    });
+
+    entries.sort((left, right) => left.timestamp - right.timestamp || left.sequence - right.sequence);
+    return {
+        content: entries.length ? `${entries.map((entry) => entry.line).join('\n')}\n` : '',
+        entryCount: entries.length
+    };
+};
+
+const readLogRecords = async ({
+    logFile,
+    startTimestamp,
+    endTimestamp,
+    archiveCount = DEFAULT_ARCHIVE_COUNT
+}) => {
+    const resolvedLogFile = resolveLogFile(logFile);
     const archiveFiles = Array.from(
         { length: Math.max(0, Number(archiveCount) || 0) },
         (_, index) => `${resolvedLogFile}.${archiveCount - index}`
@@ -125,8 +146,12 @@ const createDailyLogExport = async ({
             try {
                 const entry = JSON.parse(line);
                 const timestamp = Date.parse(entry.timestamp);
-                if (Number.isFinite(timestamp) && timestamp >= start && timestamp < end) {
-                    entries.push({ line, timestamp, sequence });
+                if (
+                    Number.isFinite(timestamp)
+                    && timestamp >= startTimestamp
+                    && timestamp < endTimestamp
+                ) {
+                    entries.push({ entry, line, timestamp, sequence });
                     sequence += 1;
                 }
             } catch {
@@ -135,10 +160,43 @@ const createDailyLogExport = async ({
         }
     }
 
-    entries.sort((left, right) => left.timestamp - right.timestamp || left.sequence - right.sequence);
+    return entries;
+};
+
+const getApplicationLogEntries = async ({
+    logFile,
+    startTimestamp,
+    endTimestamp,
+    archiveCount = DEFAULT_ARCHIVE_COUNT,
+    limit = 500
+}) => {
+    const start = Number(startTimestamp);
+    const end = Number(endTimestamp);
+    const normalizedLimit = Number(limit);
+    if (
+        !Number.isFinite(start)
+        || !Number.isFinite(end)
+        || start >= end
+        || end - start > 48 * 60 * 60 * 1000
+        || !Number.isInteger(normalizedLimit)
+        || normalizedLimit < 1
+        || normalizedLimit > 1000
+    ) {
+        throw new TypeError('A valid log time range and limit are required');
+    }
+
+    const records = await readLogRecords({
+        logFile,
+        startTimestamp: start,
+        endTimestamp: end,
+        archiveCount
+    });
+    records.sort((left, right) => right.timestamp - left.timestamp || right.sequence - left.sequence);
+
     return {
-        content: entries.length ? `${entries.map((entry) => entry.line).join('\n')}\n` : '',
-        entryCount: entries.length
+        entries: records.slice(0, normalizedLimit).map((record) => record.entry),
+        total: records.length,
+        truncated: records.length > normalizedLimit
     };
 };
 
@@ -322,6 +380,7 @@ module.exports = {
     applicationLogger,
     createDailyLogExport,
     createRequestErrorLogger,
+    getApplicationLogEntries,
     getDailyLogRange,
     getRequestContext,
     initializeApplicationLogging,

@@ -825,6 +825,37 @@ paths:
       responses:
         200:
           description: List
+  /api/settings/logs:
+    get:
+      summary: View structured application log entries for a time range
+      parameters:
+        - in: query
+          name: startTimestamp
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: endTimestamp
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 500
+      responses:
+        200:
+          description: Newest-first entries from the active and rotated logs
+        400:
+          description: Invalid range or limit
+        403:
+          description: Manage Books permission is required
   /api/settings/logs/export:
     get:
       summary: Download one local calendar day of structured application logs

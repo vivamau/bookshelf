@@ -4,6 +4,7 @@ const {
     applicationLogger,
     createDailyLogExport,
     createRequestErrorLogger,
+    getApplicationLogEntries,
     getRequestContext,
     initializeApplicationLogging
 } = require('./utils/applicationLogger');
@@ -1621,6 +1622,26 @@ settingsRouter.get('/directories', (req, res) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ data: rows });
     });
+});
+
+settingsRouter.get('/logs', async (req, res) => {
+    try {
+        const result = await getApplicationLogEntries({
+            logFile: applicationLogger.logFile,
+            startTimestamp: req.query.startTimestamp,
+            endTimestamp: req.query.endTimestamp,
+            archiveCount: applicationLogger.archiveCount,
+            limit: req.query.limit || 500
+        });
+        res.setHeader('Cache-Control', 'private, no-store');
+        return res.json({ data: result });
+    } catch (error) {
+        if (error instanceof TypeError) {
+            return res.status(400).json({ error: error.message });
+        }
+        console.error('Application log viewer failed:', error);
+        return res.status(500).json({ error: 'Could not load the application log' });
+    }
 });
 
 settingsRouter.get('/logs/export', async (req, res) => {

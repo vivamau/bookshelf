@@ -4,6 +4,7 @@ const path = require('path');
 const {
     ApplicationLogger,
     createDailyLogExport,
+    getApplicationLogEntries,
     getDailyLogRange,
     redactSensitiveData,
     resolveLogFile
@@ -118,5 +119,42 @@ describe('application logger', () => {
     test('supports daylight-saving changes between local midnights', () => {
         const range = getDailyLogRange('2026-03-29', -60, -120);
         expect(range.end - range.start).toBe(23 * 60 * 60 * 1000);
+    });
+
+    test('returns a limited newest-first time range for the log viewer', async () => {
+        fs.writeFileSync(logFile, [
+            JSON.stringify({ timestamp: '2026-08-22T08:00:00.000Z', event: 'first' }),
+            JSON.stringify({ timestamp: '2026-08-22T09:00:00.000Z', event: 'second' }),
+            JSON.stringify({ timestamp: '2026-08-22T10:00:00.000Z', event: 'third' })
+        ].join('\n'));
+
+        const result = await getApplicationLogEntries({
+            logFile,
+            startTimestamp: Date.parse('2026-08-22T08:30:00.000Z'),
+            endTimestamp: Date.parse('2026-08-22T11:00:00.000Z'),
+            archiveCount: 0,
+            limit: 1
+        });
+
+        expect(result).toEqual({
+            entries: [expect.objectContaining({ event: 'third' })],
+            total: 2,
+            truncated: true
+        });
+    });
+
+    test('rejects oversized viewer ranges and invalid limits', async () => {
+        await expect(getApplicationLogEntries({
+            logFile,
+            startTimestamp: 0,
+            endTimestamp: 49 * 60 * 60 * 1000,
+            limit: 500
+        })).rejects.toThrow(TypeError);
+        await expect(getApplicationLogEntries({
+            logFile,
+            startTimestamp: 0,
+            endTimestamp: 1000,
+            limit: 5000
+        })).rejects.toThrow(TypeError);
     });
 });
