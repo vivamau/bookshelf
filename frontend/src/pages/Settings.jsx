@@ -27,7 +27,9 @@ import {
     Search,
     Headphones,
     Music,
-    HardDrive
+    HardDrive,
+    CalendarDays,
+    ShieldCheck
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { useAuth } from '../context/AuthContext';
@@ -83,6 +85,13 @@ const formatStorageSize = (bytes) => {
     const megabytes = bytes / (1024 * 1024);
     if (megabytes < 1024) return `${megabytes.toFixed(megabytes < 10 ? 1 : 0)} MB`;
     return `${(megabytes / 1024).toFixed(1)} GB`;
+};
+
+const formatLocalDateInput = (date = new Date()) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 };
 
 const BrowserModal = ({ isOpen, onClose, onSelect }) => {
@@ -289,6 +298,9 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showBrowser, setShowBrowser] = useState(false);
+  const [logExportDate, setLogExportDate] = useState(() => formatLocalDateInput());
+  const [isLogExporting, setIsLogExporting] = useState(false);
+  const [logExportStatus, setLogExportStatus] = useState(null);
 
   // Audiobook collection upload states
   const [audiobookFiles, setAudiobookFiles] = useState([]);
@@ -648,6 +660,55 @@ export default function Settings() {
       setDirectories(prev => prev.filter(d => d.ID !== id));
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleApplicationLogExport = async () => {
+    if (!logExportDate || isLogExporting) return;
+
+    setIsLogExporting(true);
+    setLogExportStatus(null);
+    try {
+      const selectedDay = new Date(`${logExportDate}T00:00:00`);
+      const nextDay = new Date(selectedDay);
+      nextDay.setDate(nextDay.getDate() + 1);
+      const response = await settingsApi.downloadApplicationLog(
+        logExportDate,
+        selectedDay.getTimezoneOffset(),
+        nextDay.getTimezoneOffset()
+      );
+      const objectUrl = window.URL.createObjectURL(response.data);
+      const downloadLink = document.createElement('a');
+      downloadLink.href = objectUrl;
+      downloadLink.download = `bookshelf-errors-${logExportDate}.jsonl`;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      downloadLink.remove();
+      window.URL.revokeObjectURL(objectUrl);
+
+      const entryCount = Number(response.headers?.['x-log-entry-count']);
+      setLogExportStatus({
+        type: 'success',
+        message: Number.isFinite(entryCount)
+          ? `Downloaded ${entryCount} ${entryCount === 1 ? 'entry' : 'entries'} for ${logExportDate}.`
+          : `Downloaded the application log for ${logExportDate}.`
+      });
+    } catch (err) {
+      let responseMessage;
+      if (err.response?.data instanceof Blob) {
+        try {
+          const payload = JSON.parse(await err.response.data.text());
+          responseMessage = payload.error;
+        } catch {
+          responseMessage = null;
+        }
+      }
+      setLogExportStatus({
+        type: 'error',
+        message: responseMessage || 'Could not download the application log.'
+      });
+    } finally {
+      setIsLogExporting(false);
     }
   };
 
@@ -1438,6 +1499,72 @@ export default function Settings() {
                             ))
                         )}
                     </div>
+                </div>
+
+                <div className="relative overflow-hidden border-t border-border bg-[linear-gradient(135deg,hsl(var(--muted)/0.28),transparent_58%)] p-6">
+                    <div className="absolute -right-8 -top-10 h-32 w-32 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
+                    <div className="relative flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+                        <div className="max-w-xl">
+                            <div className="flex items-center gap-2 mb-2">
+                                <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
+                                    <ShieldCheck size={12} /> Librarian only
+                                </span>
+                            </div>
+                            <h3 className="text-lg font-black flex items-center gap-2">
+                                <HardDrive size={19} className="text-primary" />
+                                Daily application log
+                            </h3>
+                            <p className="text-sm text-muted-foreground mt-1">
+                                Export a calendar day from the active error log and its rotated archives. The file is structured JSON Lines for easy searching and sharing.
+                            </p>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row sm:items-end gap-3 shrink-0">
+                            <label className="space-y-1.5">
+                                <span className="text-[11px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                                    <CalendarDays size={13} /> Log date
+                                </span>
+                                <input
+                                    type="date"
+                                    value={logExportDate}
+                                    max={formatLocalDateInput()}
+                                    onChange={(event) => {
+                                        setLogExportDate(event.target.value);
+                                        setLogExportStatus(null);
+                                    }}
+                                    className="h-11 rounded-xl border border-input bg-background/80 px-3 font-mono text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
+                                />
+                            </label>
+                            <button
+                                type="button"
+                                onClick={handleApplicationLogExport}
+                                disabled={!logExportDate || isLogExporting}
+                                className="h-11 rounded-xl bg-foreground px-5 text-sm font-black text-background shadow-lg shadow-black/10 transition-all hover:-translate-y-0.5 hover:opacity-90 active:translate-y-0 disabled:pointer-events-none disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                {isLogExporting
+                                    ? <Loader className="animate-spin" size={16} />
+                                    : <Download size={16} />}
+                                {isLogExporting ? 'Preparing export' : 'Download daily log'}
+                            </button>
+                        </div>
+                    </div>
+
+                    {logExportStatus && (
+                        <div
+                            role="status"
+                            className={cn(
+                                "relative mt-4 flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-medium",
+                                logExportStatus.type === 'success'
+                                    ? "border-primary/20 bg-primary/10 text-foreground"
+                                    : "border-destructive/20 bg-destructive/10 text-destructive"
+                            )}
+                        >
+                            {logExportStatus.type === 'success'
+                                ? <CheckCircle2 size={16} className="text-primary shrink-0" />
+                                : <AlertCircle size={16} className="shrink-0" />}
+                            {logExportStatus.message}
+                        </div>
+                    )}
                 </div>
             </div>
         )}

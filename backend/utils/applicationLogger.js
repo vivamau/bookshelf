@@ -53,6 +53,95 @@ const messageFromArguments = (args) => args
     .join(' ')
     .slice(0, 4000) || 'Application error';
 
+const getDailyLogRange = (
+    date,
+    timezoneOffsetMinutes = 0,
+    endTimezoneOffsetMinutes = timezoneOffsetMinutes
+) => {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(date || ''));
+    const offset = Number(timezoneOffsetMinutes);
+    const endOffset = Number(endTimezoneOffsetMinutes);
+    if (
+        !match
+        || !Number.isInteger(offset)
+        || offset < -840
+        || offset > 840
+        || !Number.isInteger(endOffset)
+        || endOffset < -840
+        || endOffset > 840
+    ) {
+        throw new TypeError('A valid date and timezone offset are required');
+    }
+
+    const [, yearText, monthText, dayText] = match;
+    const year = Number(yearText);
+    const month = Number(monthText);
+    const day = Number(dayText);
+    const calendarDate = new Date(Date.UTC(year, month - 1, day));
+    if (
+        calendarDate.getUTCFullYear() !== year
+        || calendarDate.getUTCMonth() !== month - 1
+        || calendarDate.getUTCDate() !== day
+    ) {
+        throw new TypeError('A valid date and timezone offset are required');
+    }
+
+    return {
+        start: Date.UTC(year, month - 1, day) + (offset * 60 * 1000),
+        end: Date.UTC(year, month - 1, day + 1) + (endOffset * 60 * 1000)
+    };
+};
+
+const createDailyLogExport = async ({
+    logFile,
+    date,
+    timezoneOffsetMinutes = 0,
+    endTimezoneOffsetMinutes = timezoneOffsetMinutes,
+    archiveCount = DEFAULT_ARCHIVE_COUNT
+}) => {
+    const resolvedLogFile = resolveLogFile(logFile);
+    const { start, end } = getDailyLogRange(
+        date,
+        timezoneOffsetMinutes,
+        endTimezoneOffsetMinutes
+    );
+    const archiveFiles = Array.from(
+        { length: Math.max(0, Number(archiveCount) || 0) },
+        (_, index) => `${resolvedLogFile}.${archiveCount - index}`
+    );
+    const entries = [];
+    let sequence = 0;
+
+    for (const filePath of [...archiveFiles, resolvedLogFile]) {
+        let contents;
+        try {
+            contents = await fs.promises.readFile(filePath, 'utf8');
+        } catch (error) {
+            if (error.code === 'ENOENT') continue;
+            throw error;
+        }
+        const lines = contents.split(/\r?\n/).filter(Boolean);
+        for (const line of lines) {
+            try {
+                const entry = JSON.parse(line);
+                const timestamp = Date.parse(entry.timestamp);
+                if (Number.isFinite(timestamp) && timestamp >= start && timestamp < end) {
+                    entries.push({ line, timestamp, sequence });
+                    sequence += 1;
+                }
+            } catch {
+                // Ignore incomplete or malformed lines instead of breaking the export.
+            }
+        }
+    }
+
+    entries.sort((left, right) => left.timestamp - right.timestamp || left.sequence - right.sequence);
+    return {
+        content: entries.length ? `${entries.map((entry) => entry.line).join('\n')}\n` : '',
+        entryCount: entries.length
+    };
+};
+
 class ApplicationLogger {
     constructor({
         logFile = process.env.APPLICATION_LOG_FILE,
@@ -231,7 +320,9 @@ const createRequestErrorLogger = (logger = applicationLogger) => (req, res, next
 module.exports = {
     ApplicationLogger,
     applicationLogger,
+    createDailyLogExport,
     createRequestErrorLogger,
+    getDailyLogRange,
     getRequestContext,
     initializeApplicationLogging,
     redactSensitiveData,

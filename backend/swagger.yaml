@@ -825,6 +825,47 @@ paths:
       responses:
         200:
           description: List
+  /api/settings/logs/export:
+    get:
+      summary: Download one local calendar day of structured application logs
+      parameters:
+        - in: query
+          name: date
+          required: true
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: timezoneOffsetMinutes
+          required: true
+          description: Browser UTC-minus-local offset at the start of the selected day
+          schema:
+            type: integer
+            minimum: -840
+            maximum: 840
+        - in: query
+          name: endTimezoneOffsetMinutes
+          required: false
+          description: Browser UTC-minus-local offset at the next local midnight
+          schema:
+            type: integer
+            minimum: -840
+            maximum: 840
+      responses:
+        200:
+          description: JSON Lines export from the active and rotated application logs
+          headers:
+            X-Log-Entry-Count:
+              schema:
+                type: integer
+          content:
+            application/x-ndjson:
+              schema:
+                type: string
+        400:
+          description: Invalid date or timezone offset
+        403:
+          description: Manage Books permission is required
   /api/audiobooks:
     get:
       summary: List audiobook collections found in the server audiobooks directory

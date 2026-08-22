@@ -405,6 +405,10 @@ The log rotates at 10 MiB by default and retains five archives named
 `application.log.1` through `application.log.5`. Passwords, cookies, tokens,
 authorization headers, API keys, and secrets are redacted.
 
+Librarians can also open **Settings → Server Libraries**, choose a date, and
+download that local calendar day's entries from both the active log and rotated
+archives as a `bookshelf-errors-YYYY-MM-DD.jsonl` file.
+
 ### Cleaning PM2 Logs and State
 
 To clear PM2-managed output/error logs and reset restart counters while keeping

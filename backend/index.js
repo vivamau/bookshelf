@@ -2,6 +2,7 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 const {
     applicationLogger,
+    createDailyLogExport,
     createRequestErrorLogger,
     getRequestContext,
     initializeApplicationLogging
@@ -95,7 +96,8 @@ app.use(cors({
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+    exposedHeaders: ['Content-Disposition', 'X-Log-Entry-Count', 'X-Request-ID']
 }));
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ extended: true, limit: '100mb' }));
@@ -1619,6 +1621,35 @@ settingsRouter.get('/directories', (req, res) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ data: rows });
     });
+});
+
+settingsRouter.get('/logs/export', async (req, res) => {
+    const date = String(req.query.date || '');
+    const timezoneOffsetMinutes = Number(req.query.timezoneOffsetMinutes || 0);
+    const endTimezoneOffsetMinutes = req.query.endTimezoneOffsetMinutes === undefined
+        ? timezoneOffsetMinutes
+        : Number(req.query.endTimezoneOffsetMinutes);
+
+    try {
+        const dailyExport = await createDailyLogExport({
+            logFile: applicationLogger.logFile,
+            date,
+            timezoneOffsetMinutes,
+            endTimezoneOffsetMinutes,
+            archiveCount: applicationLogger.archiveCount
+        });
+        res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="bookshelf-errors-${date}.jsonl"`);
+        res.setHeader('Cache-Control', 'private, no-store');
+        res.setHeader('X-Log-Entry-Count', String(dailyExport.entryCount));
+        return res.send(dailyExport.content);
+    } catch (error) {
+        if (error instanceof TypeError) {
+            return res.status(400).json({ error: error.message });
+        }
+        console.error('Daily application log export failed:', error);
+        return res.status(500).json({ error: 'Could not export the application log' });
+    }
 });
 
 settingsRouter.post('/directories', (req, res) => {
