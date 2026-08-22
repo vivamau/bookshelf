@@ -61,10 +61,10 @@ describe('shared book and audiobook authors', () => {
             expect.objectContaining({
                 folder,
                 title: 'The Fifth Season',
-                author: 'N. K. Jemisin',
                 authors: [expect.objectContaining({ ID: originalAuthorId })]
             })
         ]);
+        expect(response.body.data[0]).not.toHaveProperty('author');
     });
 
     test('metadata updates reassign the audiobook through author IDs', async () => {

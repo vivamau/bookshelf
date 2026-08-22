@@ -64,9 +64,6 @@ components:
           type: string
         title:
           type: string
-        author:
-          type: string
-          description: Display names derived from the linked Authors rows
         authors:
           type: array
           items:

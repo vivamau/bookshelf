@@ -106,22 +106,20 @@ const enrichAudiobookCatalog = async (db, catalog = []) => {
     const enrichedCatalog = [];
     // Import serially so two legacy audiobooks by the same new author cannot create duplicate rows.
     for (const item of catalog) {
+        const { author: legacyAuthorName, ...normalizedItem } = item;
         const audiobook = await ensureAudiobookRecord(db, item.folder);
         let authors = await getAudiobookAuthors(db, audiobook.ID);
 
-        if (authors.length === 0 && normalizeFullName(item.author)) {
-            await linkLegacyAuthor(db, audiobook, item.author);
+        if (authors.length === 0 && normalizeFullName(legacyAuthorName)) {
+            await linkLegacyAuthor(db, audiobook, legacyAuthorName);
             authors = await getAudiobookAuthors(db, audiobook.ID);
         }
 
         enrichedCatalog.push({
-            ...item,
+            ...normalizedItem,
             id: item.id,
             audiobookId: audiobook.ID,
-            authors,
-            author: authors
-                .map((author) => normalizeFullName(`${author.author_name} ${author.author_lastname}`))
-                .join(', ')
+            authors
         });
     }
 

@@ -87,10 +87,10 @@ describe('audiobook author repository', () => {
             author: 'ursula k. le guin'
         }]);
 
-        expect(audiobook.author).toBe('Ursula K. Le Guin');
         expect(audiobook.authors).toEqual([
             expect.objectContaining({ ID: author.lastID, author_name: 'Ursula K. Le', author_lastname: 'Guin' })
         ]);
+        expect(audiobook).not.toHaveProperty('author');
         const links = await get(db, `
             SELECT ba.author_id AS book_author_id, aa.author_id AS audiobook_author_id
             FROM BooksAuthors ba
@@ -113,7 +113,7 @@ describe('audiobook author repository', () => {
         }]);
 
         expect(audiobook.authors.map((author) => author.ID)).toEqual([first.lastID, second.lastID]);
-        expect(audiobook.author).toBe('Neil Gaiman, Terry Pratchett');
+        expect(audiobook).not.toHaveProperty('author');
     });
 
     test('rejects author IDs that do not exist', async () => {

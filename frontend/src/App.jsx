@@ -134,8 +134,18 @@ const formatFileSize = (bytes) => {
     : `${Math.max(1, Math.round(megabytes))} MB`;
 };
 
+const formatAudiobookAuthors = (authors) => (
+  Array.isArray(authors)
+    ? authors
+        .map((author) => `${author.author_name || ''} ${author.author_lastname || ''}`.trim())
+        .filter(Boolean)
+        .join(', ')
+    : ''
+);
+
 const AudiobookCard = ({ audiobook, index }) => {
   const navigate = useNavigate();
+  const authorNames = formatAudiobookAuthors(audiobook.authors);
   const coverUrl = audiobook.coverPath
     ? `${import.meta.env.VITE_API_BASE_URL}/api/audiobooks/cover?path=${encodeURIComponent(audiobook.coverPath)}&v=${encodeURIComponent(audiobook.modifiedAt)}`
     : null;
@@ -178,7 +188,7 @@ const AudiobookCard = ({ audiobook, index }) => {
           {truncateAudiobookTitle(audiobook.title)}
         </h3>
         <p className="mt-1 truncate text-xs text-muted-foreground">
-          {audiobook.author || audiobook.tracks[0]?.title || 'Audio collection'}
+          {authorNames || audiobook.tracks[0]?.title || 'Audio collection'}
         </p>
       </div>
     </button>
