@@ -99,6 +99,7 @@ export default function AuthorDetails() {
   const [author, setAuthor] = useState(null);
   const [books, setBooks] = useState([]);
   const [audiobooks, setAudiobooks] = useState([]);
+  const [audiobooksError, setAudiobooksError] = useState('');
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({ author_name: '', author_lastname: '', author_wiki: '', author_avatar: '' });
@@ -159,11 +160,19 @@ export default function AuthorDetails() {
 
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
+      setAuthor(null);
+      setAudiobooks([]);
+      setAudiobooksError('');
       try {
-        const [authorRes, booksRes, audiobooksRes] = await Promise.all([
+        // Audiobooks are an optional extension of the profile. Handle that request
+        // separately so an older or temporarily failing endpoint cannot hide the author.
+        const audiobookRequest = authorsApi.getAudiobooks(id)
+          .then((response) => ({ response, error: null }))
+          .catch((error) => ({ response: null, error }));
+        const [authorRes, booksRes] = await Promise.all([
           authorsApi.getById(id),
-          authorsApi.getBooks(id),
-          authorsApi.getAudiobooks(id)
+          authorsApi.getBooks(id)
         ]);
         const authorData = authorRes.data.data;
         setAuthor(authorData);
@@ -178,7 +187,17 @@ export default function AuthorDetails() {
             setAvatarMode('custom');
         }
         setBooks(booksRes.data.data);
-        setAudiobooks(audiobooksRes.data.data || []);
+        setLoading(false);
+
+        const audiobookResult = await audiobookRequest;
+        if (audiobookResult.error) {
+          console.error('Failed to fetch author audiobooks', audiobookResult.error);
+          setAudiobooks([]);
+          setAudiobooksError('Audiobooks are temporarily unavailable. The author profile and books are still available.');
+        } else {
+          setAudiobooks(audiobookResult.response.data.data || []);
+          setAudiobooksError('');
+        }
         
         // Fetch other books from Open Library
         fetchOtherBooks(authorData.author_name, authorData.author_lastname, booksRes.data.data);
@@ -376,7 +395,7 @@ export default function AuthorDetails() {
                 </div>
                 <div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Audiobooks</p>
-                    <p className="text-2xl font-black text-foreground">{audiobooks.length}</p>
+                    <p className="text-2xl font-black text-foreground">{audiobooksError ? '—' : audiobooks.length}</p>
                 </div>
                 <div>
                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Average Progress</p>
@@ -402,11 +421,21 @@ export default function AuthorDetails() {
               </h2>
             </div>
             <span className="rounded-full border border-border bg-card/70 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-              {audiobooks.length} {audiobooks.length === 1 ? 'collection' : 'collections'}
+              {audiobooksError ? 'Unavailable' : `${audiobooks.length} ${audiobooks.length === 1 ? 'collection' : 'collections'}`}
             </span>
           </div>
 
-          {audiobooks.length > 0 ? (
+          {audiobooksError ? (
+            <div role="status" className="flex items-center gap-4 rounded-2xl border border-amber-500/25 bg-amber-500/5 px-5 py-6 text-muted-foreground">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-amber-400">
+                <Headphones size={21} />
+              </span>
+              <div>
+                <p className="text-sm font-bold text-foreground">Audiobooks could not be loaded</p>
+                <p className="mt-0.5 text-xs">{audiobooksError}</p>
+              </div>
+            </div>
+          ) : audiobooks.length > 0 ? (
             <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
               {audiobooks.map((audiobook) => (
                 <AudiobookItem key={audiobook.folder} audiobook={audiobook} />
@@ -485,11 +514,13 @@ export default function AuthorDetails() {
         {showDeleteModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
                 <div className="bg-card border border-border rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] max-w-md w-full p-6 animate-in zoom-in-95 duration-200">
-                    {books.length > 0 || audiobooks.length > 0 ? (
+                    {books.length > 0 || audiobooks.length > 0 || audiobooksError ? (
                         <>
                             <h3 className="text-xl font-bold mb-2 text-destructive">Cannot Delete Author</h3>
                             <p className="text-muted-foreground text-sm mb-4">
-                                This author cannot be deleted because they have {books.length} book{books.length === 1 ? '' : 's'} and {audiobooks.length} audiobook{audiobooks.length === 1 ? '' : 's'} in your library.
+                                {audiobooksError
+                                  ? 'This author cannot be safely deleted while their audiobook links are unavailable.'
+                                  : `This author cannot be deleted because they have ${books.length} book${books.length === 1 ? '' : 's'} and ${audiobooks.length} audiobook${audiobooks.length === 1 ? '' : 's'} in your library.`}
                             </p>
                             <p className="text-foreground text-sm font-bold mb-6">
                                 Please reassign all books and audiobooks before deleting the author profile.
