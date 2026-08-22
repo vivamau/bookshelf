@@ -82,12 +82,14 @@ sudo mkdir -p /var/www/bookshelf/backend/books
 sudo mkdir -p /var/www/bookshelf/backend/covers
 sudo mkdir -p /var/www/bookshelf/backend/extracted
 sudo mkdir -p /var/www/bookshelf/backend/data
+sudo mkdir -p /var/www/bookshelf/backend/logs
 
 # Set ownership
 sudo chown -R bookshelf:bookshelf /var/www/bookshelf/backend/books
 sudo chown -R bookshelf:bookshelf /var/www/bookshelf/backend/covers
 sudo chown -R bookshelf:bookshelf /var/www/bookshelf/backend/extracted
 sudo chown -R bookshelf:bookshelf /var/www/bookshelf/backend/data
+sudo chown -R bookshelf:bookshelf /var/www/bookshelf/backend/logs
 ```
 
 ---
@@ -112,6 +114,8 @@ Set your production values:
 ```env
 PORT=3005
 MAX_UPLOAD_FILE_SIZE_MB=4096
+APPLICATION_LOG_FILE=logs/application.log
+APPLICATION_LOG_MAX_BYTES=10485760
 ```
 
 ### Frontend
@@ -387,6 +391,57 @@ Since the app runs as the `bookshelf` user, prefix PM2 commands with `sudo -u bo
 | `sudo -u bookshelf PM2_HOME=/home/bookshelf/.pm2 pm2 restart bookshelf-backend` | Restart the app |
 | `sudo -u bookshelf PM2_HOME=/home/bookshelf/.pm2 pm2 stop bookshelf-backend` | Stop the app |
 | `sudo -u bookshelf PM2_HOME=/home/bookshelf/.pm2 pm2 monit` | Real-time monitoring |
+
+Application errors are also written as structured JSON lines to
+`/var/www/bookshelf/backend/logs/application.log`. Each HTTP error includes a
+request ID; login failures display the same reference ID in the browser. To
+inspect the newest detailed errors:
+
+```bash
+sudo -u bookshelf tail -n 100 /var/www/bookshelf/backend/logs/application.log
+```
+
+The log rotates at 10 MiB by default and retains five archives named
+`application.log.1` through `application.log.5`. Passwords, cookies, tokens,
+authorization headers, API keys, and secrets are redacted.
+
+### Cleaning PM2 Logs and State
+
+To clear PM2-managed output/error logs and reset restart counters while keeping
+Bookshelf registered and running:
+
+```bash
+sudo -u bookshelf PM2_HOME=/home/bookshelf/.pm2 pm2 flush bookshelf-backend
+sudo -u bookshelf PM2_HOME=/home/bookshelf/.pm2 pm2 reset bookshelf-backend
+sudo -u bookshelf PM2_HOME=/home/bookshelf/.pm2 pm2 restart bookshelf-backend
+```
+
+Verify the process and PM2 directory size afterward:
+
+```bash
+sudo -u bookshelf PM2_HOME=/home/bookshelf/.pm2 pm2 status
+sudo du -sh /home/bookshelf/.pm2
+```
+
+The structured Bookshelf application log is separate from PM2. Clear only its
+current file with:
+
+```bash
+sudo -u bookshelf truncate -s 0 /var/www/bookshelf/backend/logs/application.log
+```
+
+The following commands completely remove Bookshelf from PM2 and take the
+application offline. `pm2 cleardump` prevents an old saved process list from
+being restored after reboot:
+
+```bash
+sudo -u bookshelf PM2_HOME=/home/bookshelf/.pm2 pm2 delete bookshelf-backend
+sudo -u bookshelf PM2_HOME=/home/bookshelf/.pm2 pm2 cleardump
+sudo -u bookshelf PM2_HOME=/home/bookshelf/.pm2 pm2 kill
+```
+
+References: [PM2 log management](https://pm2.keymetrics.io/docs/usage/log-management/)
+and [PM2 startup hooks](https://pm2.io/docs/runtime/guide/startup-hook/).
 
 ### 💡 Optional: Create an Alias
 

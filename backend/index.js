@@ -1,3 +1,13 @@
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+const {
+    applicationLogger,
+    createRequestErrorLogger,
+    getRequestContext,
+    initializeApplicationLogging
+} = require('./utils/applicationLogger');
+initializeApplicationLogging();
+
 const express = require('express');
 const cors = require('cors');
 const db = require('./config/db');
@@ -45,9 +55,6 @@ const {
 } = require('./utils/audiobookAuthors');
 const { RemoteImageError, downloadRemoteImage } = require('./utils/remoteImage');
 
-const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env') });
-
 // Security: Ensure TOKEN_KEY is set or generate one
 let TOKEN_KEY = process.env.TOKEN_KEY;
 if (!TOKEN_KEY) {
@@ -65,6 +72,7 @@ const MAX_UPLOAD_FILE_SIZE_MB = Number.isFinite(configuredUploadLimitMb) && conf
     ? configuredUploadLimitMb
     : 4096;
 
+app.use(createRequestErrorLogger());
 app.use(cors({
     origin: function(origin, callback) {
         // Allow requests with no origin (like mobile apps or curl requests)
@@ -138,53 +146,68 @@ app.post('/login', (req, res) => {
     `;
     db.get(sql, [username], async (err, user) => {
         if (err) {
-            console.error("DB Error during login:", err);
-            return res.status(500).send("Server error");
+            applicationLogger.error('auth.login.database_error', err, {
+                ...getRequestContext(req),
+                username
+            });
+            return res.status(500).send(`Server error. Reference: ${req.requestId}`);
         }
-        if (user) {
-            const passwordHash = user.user_password.toString();
-            console.log(`Debug: User found: ${username}, stored hash prefix: ${passwordHash.substring(0, 10)}...`);
-            const validPass = await bcrypt.compare(password, passwordHash);
-            console.log(`Login attempt for ${username}: ${validPass ? 'SUCCESS' : 'FAILED'}`);
-            if (!validPass) return res.status(400).send("Invalid Credentials");
+        try {
+            if (user) {
+                if (!user.user_password) throw new Error('User password hash is missing');
+                const validPass = await bcrypt.compare(password, user.user_password.toString());
+                if (!validPass) {
+                    applicationLogger.warn('auth.login.invalid_credentials', 'Invalid login credentials', {
+                        ...getRequestContext(req),
+                        username
+                    });
+                    return res.status(400).send("Invalid Credentials");
+                }
 
-            const token = jwt.sign(
-                { 
-                    user_id: user.ID, 
+                const token = jwt.sign(
+                    {
+                        user_id: user.ID,
+                        username: user.user_username,
+                        userrole_id: user.userrole_id,
+                        userrole_manageusers: user.userrole_manageusers,
+                        userrole_managebooks: user.userrole_managebooks,
+                        userrole_readbooks: user.userrole_readbooks,
+                        userrole_viewbooks: user.userrole_viewbooks
+                    },
+                    TOKEN_KEY,
+                    { expiresIn: "2h" }
+                );
+
+                // Set cookie for secure authentication
+                // Note: SameSite=None; Secure required for cross-site (if frontend/backend on different ports/domains)
+                // But for localhost dev usually Lax works. If HTTPS is used, Secure is needed.
+                res.setHeader('Set-Cookie', `token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=7200`);
+
+                const userInfo = {
+                    id: user.ID,
                     username: user.user_username,
-                    userrole_id: user.userrole_id,
+                    email: user.user_email,
+                    user_avatar: user.user_avatar,
+                    userrole_name: user.userrole_name,
                     userrole_manageusers: user.userrole_manageusers,
                     userrole_managebooks: user.userrole_managebooks,
                     userrole_readbooks: user.userrole_readbooks,
-                    userrole_viewbooks: user.userrole_viewbooks
-                },
-                TOKEN_KEY,
-                { expiresIn: "2h" }
-            );
+                    userrole_viewbooks: user.userrole_viewbooks,
+                    user_font_family: user.user_font_family,
+                    user_font_size: user.user_font_size,
+                    user_theme: user.user_theme
+                };
 
-            // Set cookie for secure authentication
-            // Note: SameSite=None; Secure required for cross-site (if frontend/backend on different ports/domains)
-            // But for localhost dev usually Lax works. If HTTPS is used, Secure is needed.
-            res.setHeader('Set-Cookie', `token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=7200`);
-
-            const userInfo = {
-                id: user.ID,
-                username: user.user_username,
-                email: user.user_email,
-                user_avatar: user.user_avatar,
-                userrole_name: user.userrole_name,
-                userrole_manageusers: user.userrole_manageusers,
-                userrole_managebooks: user.userrole_managebooks,
-                userrole_readbooks: user.userrole_readbooks,
-                userrole_viewbooks: user.userrole_viewbooks,
-                user_font_family: user.user_font_family,
-                user_font_size: user.user_font_size,
-                user_theme: user.user_theme
-            };
-            
-            return res.status(200).json(userInfo);
+                return res.status(200).json(userInfo);
+            }
+            return res.status(400).send("Invalid Credentials");
+        } catch (error) {
+            applicationLogger.error('auth.login.processing_error', error, {
+                ...getRequestContext(req),
+                username
+            });
+            return res.status(500).send(`Server error. Reference: ${req.requestId}`);
         }
-        return res.status(400).send("Invalid Credentials");
     });
 });
 
@@ -2353,6 +2376,12 @@ app.get('/api/library/refresh-covers', auth, (req, res) => {
         sendEvent({ type: 'error', error: err.message });
         res.end();
     });
+});
+
+app.use((err, req, res, next) => {
+    applicationLogger.error('http.unhandled_error', err, getRequestContext(req));
+    if (res.headersSent) return next(err);
+    return res.status(500).send(`Server error. Reference: ${req.requestId}`);
 });
 
 if (require.main === module) {

@@ -74,4 +74,19 @@ describe('Auth Endpoints', () => {
 
         expect(res.statusCode).toEqual(400); // Or 401/404 depending on implementation. Code says 400 "Invalid Credentials" if user not found (db.get returns undefined)
     });
+
+    it('POST /login returns a request reference when the database fails', async () => {
+        const getSpy = jest.spyOn(db, 'get').mockImplementationOnce((sql, params, callback) => {
+            callback(Object.assign(new Error('database is locked'), { code: 'SQLITE_BUSY' }));
+        });
+
+        const res = await request(app)
+            .post('/login')
+            .send({ username: testUser.username, password: testUser.password });
+
+        expect(res.statusCode).toEqual(500);
+        expect(res.headers['x-request-id']).toBeTruthy();
+        expect(res.text).toContain(`Reference: ${res.headers['x-request-id']}`);
+        getSpy.mockRestore();
+    });
 });
