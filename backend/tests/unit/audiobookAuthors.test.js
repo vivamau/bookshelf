@@ -141,6 +141,33 @@ describe('audiobook author repository', () => {
         )).toBeUndefined();
     });
 
+    test('keeps audiobook details available when link storage is unavailable', async () => {
+        const author = await run(
+            db,
+            'INSERT INTO Authors (author_name, author_lastname) VALUES (?, ?)',
+            ['Ray', 'Bradbury']
+        );
+        await run(db, 'DROP TABLE AudiobooksAuthors');
+        await run(db, 'DROP TABLE Audiobooks');
+        const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+        const [audiobook] = await enrichAudiobookCatalog(db, [{
+            id: 'Ray Bradbury - Cronache marziane',
+            folder: 'audiobooks/Ray Bradbury - Cronache marziane',
+            title: 'Cronache marziane',
+            author: 'Ray Bradbury'
+        }]);
+
+        expect(audiobook).toEqual(expect.objectContaining({
+            audiobookId: null,
+            title: 'Cronache marziane',
+            authors: [expect.objectContaining({ ID: author.lastID })]
+        }));
+        expect(audiobook).not.toHaveProperty('author');
+        expect(consoleSpy).toHaveBeenCalled();
+        consoleSpy.mockRestore();
+    });
+
     test('splits a legacy display name into required author columns', () => {
         expect(splitFullName('Octavia E. Butler')).toEqual({
             author_name: 'Octavia E.',

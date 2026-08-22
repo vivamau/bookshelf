@@ -420,12 +420,16 @@ describe('Upload Endpoint Integration', () => {
         expect(res.statusCode).toBe(200);
         expect(res.body.data).toMatchObject({
             title: 'The Test Audiobook',
-            author: 'Test Author',
+            authors: [expect.objectContaining({
+                author_name: 'Test',
+                author_lastname: 'Author'
+            })],
             narrator: 'Test Narrator',
             language: 'English',
             publishedYear: 2026,
             description: 'An integration-test collection.'
         });
+        expect(res.body.data).not.toHaveProperty('author');
         expect(JSON.parse(fs.readFileSync(uploadedAudiobookMetadataPath, 'utf8')).title)
             .toBe('The Test Audiobook');
 
@@ -434,7 +438,10 @@ describe('Upload Endpoint Integration', () => {
             .query({ folder: 'Test Collection/Disc 1' })
             .set('Cookie', guestCookie);
         expect(guestDetails.body.data.title).toBe('The Test Audiobook');
-        expect(guestDetails.body.data.author).toBe('Test Author');
+        expect(guestDetails.body.data.authors).toEqual([
+            expect.objectContaining({ author_name: 'Test', author_lastname: 'Author' })
+        ]);
+        expect(guestDetails.body.data).not.toHaveProperty('author');
     });
 
     test('PUT /api/audiobooks/metadata rejects guest accounts', async () => {

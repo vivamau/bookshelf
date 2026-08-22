@@ -39,6 +39,8 @@ const splitFullName = (fullName) => {
     };
 };
 
+const isSqliteStorageError = (error) => String(error?.code || '').startsWith('SQLITE_');
+
 const ensureAudiobookRecord = async (db, folder) => {
     const normalizedFolder = String(folder || '').trim();
     if (!normalizedFolder) throw new AudiobookAuthorError('Audiobook folder is required');
@@ -54,18 +56,25 @@ const ensureAudiobookRecord = async (db, folder) => {
     return dbGet(db, 'SELECT * FROM Audiobooks WHERE audiobook_folder = ?', [normalizedFolder]);
 };
 
-const findOrCreateAuthorByName = async (db, fullName) => {
+const findAuthorByName = async (db, fullName) => {
     const normalizedName = normalizeFullName(fullName);
     if (!normalizedName) return null;
 
-    const existingAuthor = await dbGet(
+    return dbGet(
         db,
         `SELECT * FROM Authors
          WHERE LOWER(TRIM(author_name || ' ' || author_lastname)) = LOWER(?)
          ORDER BY ID
-         LIMIT 1`,
+        LIMIT 1`,
         [normalizedName]
     );
+};
+
+const findOrCreateAuthorByName = async (db, fullName) => {
+    const normalizedName = normalizeFullName(fullName);
+    if (!normalizedName) return null;
+
+    const existingAuthor = await findAuthorByName(db, normalizedName);
     if (existingAuthor) return existingAuthor;
 
     const name = splitFullName(normalizedName);
@@ -107,32 +116,52 @@ const enrichAudiobookCatalog = async (db, catalog = []) => {
     // Import serially so two legacy audiobooks by the same new author cannot create duplicate rows.
     for (const item of catalog) {
         const { author: legacyAuthorName, ...normalizedItem } = item;
-        const audiobook = await ensureAudiobookRecord(db, item.folder);
-        let authors = await getAudiobookAuthors(db, audiobook.ID);
+        let audiobook = null;
+        let authors = [];
 
-        if (authors.length === 0 && normalizeFullName(legacyAuthorName)) {
-            await linkLegacyAuthor(db, audiobook, legacyAuthorName);
+        try {
+            audiobook = await ensureAudiobookRecord(db, item.folder);
             authors = await getAudiobookAuthors(db, audiobook.ID);
+
+            if (authors.length === 0 && normalizeFullName(legacyAuthorName)) {
+                await linkLegacyAuthor(db, audiobook, legacyAuthorName);
+                authors = await getAudiobookAuthors(db, audiobook.ID);
+            }
+        } catch (error) {
+            if (!isSqliteStorageError(error)) throw error;
+            console.error(`Audiobook author normalization failed for "${item.folder}":`, error);
+
+            // Keep read endpoints available if the link tables are temporarily unavailable.
+            // A matching shared Authors row is still safe to return, but legacy free text is not.
+            if (normalizeFullName(legacyAuthorName)) {
+                const existingAuthor = await findAuthorByName(db, legacyAuthorName).catch(() => null);
+                if (existingAuthor) authors = [existingAuthor];
+            }
         }
 
         enrichedCatalog.push({
             ...normalizedItem,
             id: item.id,
-            audiobookId: audiobook.ID,
+            audiobookId: audiobook?.ID || null,
             authors
         });
     }
 
     const activeFolders = catalog.map((item) => item.folder);
-    if (activeFolders.length === 0) {
-        await dbRun(db, 'DELETE FROM Audiobooks');
-    } else {
-        const placeholders = activeFolders.map(() => '?').join(', ');
-        await dbRun(
-            db,
-            `DELETE FROM Audiobooks WHERE audiobook_folder NOT IN (${placeholders})`,
-            activeFolders
-        );
+    try {
+        if (activeFolders.length === 0) {
+            await dbRun(db, 'DELETE FROM Audiobooks');
+        } else {
+            const placeholders = activeFolders.map(() => '?').join(', ');
+            await dbRun(
+                db,
+                `DELETE FROM Audiobooks WHERE audiobook_folder NOT IN (${placeholders})`,
+                activeFolders
+            );
+        }
+    } catch (error) {
+        if (!isSqliteStorageError(error)) throw error;
+        console.error('Could not prune stale audiobook author links:', error);
     }
     return enrichedCatalog;
 };
