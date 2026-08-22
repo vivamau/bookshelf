@@ -1128,6 +1128,10 @@ function AudiobookDetails() {
 
   const saveMetadata = async (event) => {
     event.preventDefault();
+    if (selectedAuthors.length === 0) {
+      setMetadataError('At least one author is required.');
+      return;
+    }
     setIsSavingMetadata(true);
     setMetadataError('');
     try {
@@ -1457,31 +1461,45 @@ function AudiobookDetails() {
 
                   <div className="sm:col-span-2">
                     <span className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-muted-foreground">Authors</span>
-                    <div className="mb-2 flex flex-wrap gap-2">
-                      {selectedAuthors.map((author) => (
-                        <span key={author.ID} className="flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-bold text-foreground">
-                          {author.author_name} {author.author_lastname}
-                          <button
-                            type="button"
-                            onClick={() => setSelectedAuthors((current) => current.filter((item) => item.ID !== author.ID))}
-                            className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-primary/15 hover:text-primary"
-                            aria-label={`Remove ${author.author_name} ${author.author_lastname}`}
-                          >
-                            <X size={12} />
-                          </button>
-                        </span>
-                      ))}
+                    <div className="flex flex-col gap-2">
+                      <div className="mb-2 flex flex-wrap gap-2">
+                        {selectedAuthors.map((author) => (
+                          <div key={author.ID} className="flex items-center gap-1 rounded border border-white/20 bg-white/10 px-2 py-1 text-xs text-foreground">
+                            <span>{author.author_name} {author.author_lastname}</span>
+                            {selectedAuthors.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedAuthors((current) => current.filter((item) => item.ID !== author.ID));
+                                  setMetadataError('');
+                                }}
+                                className="p-0.5 transition-colors hover:text-destructive"
+                                title="Remove author"
+                                aria-label={`Remove ${author.author_name} ${author.author_lastname}`}
+                              >
+                                <X size={12} />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Plus size={14} className="shrink-0 text-muted-foreground" />
+                        <AuthorSearch
+                          className="min-w-[200px] flex-1"
+                          placeholder="Add another author..."
+                          onSelect={(author) => {
+                            if (author) {
+                              setSelectedAuthors((current) => current.some((item) => item.ID === author.ID)
+                                ? current
+                                : [...current, author]);
+                              setMetadataError('');
+                            }
+                          }}
+                        />
+                      </div>
                     </div>
-                    <AuthorSearch
-                      placeholder="Search or create an author…"
-                      onSelect={(author) => {
-                        if (author) {
-                          setSelectedAuthors((current) => current.some((item) => item.ID === author.ID)
-                            ? current
-                            : [...current, author]);
-                        }
-                      }}
-                    />
                     <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
                       Audiobook authors use the same author records as books.
                     </p>
