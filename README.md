@@ -148,7 +148,7 @@ The frontend will be available at `http://localhost:5173` (Vite's default port).
 
 ## 🎧 Audiobooks
 
-Bookshelf 1.10.2 includes a server-backed audiobook library for every authenticated user role.
+Bookshelf includes a server-backed audiobook library for every authenticated user role.
 
 ### Importing an Audiobook Collection
 
@@ -170,6 +170,8 @@ Cover images in JPEG, PNG, or WebP format are also uploaded, together with suppo
 ### Browsing and Managing Audiobooks
 
 Open the **Audiobooks** tab on the home page to browse all collections found in the server audiobook folder. Selecting a collection opens its detail page with the cover, metadata, ordered track list, and protected in-browser audio playback.
+
+Audiobook authors use the same `Authors` records as books. Librarians can search, create, and assign one or more authors in the audiobook metadata editor. Audiobooks then appear alongside books on each linked author’s profile. Existing free-text audiobook authors are matched to an existing author by full name, or migrated into a new author record, when the audiobook catalog is first loaded.
 
 | Capability | Guest | Reader | Librarian (Admin) |
 |------------|:-----:|:------:|:-----------------:|

@@ -51,6 +51,7 @@ import AddBook from './pages/AddBook';
 import Readlists from './pages/Readlists';
 import ReadlistDetails from './pages/ReadlistDetails';
 import SearchResults from './pages/SearchResults';
+import AuthorSearch from './components/AuthorSearch';
 import { audiobooksApi, booksApi, libraryApi, genresApi, searchApi } from './api/api';
 import {
   getAudiobookFolderCandidates,
@@ -933,9 +934,9 @@ function AudiobookDetails() {
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [isDeletingAudiobook, setIsDeletingAudiobook] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  const [selectedAuthors, setSelectedAuthors] = useState([]);
   const [metadataForm, setMetadataForm] = useState({
     title: '',
-    author: '',
     narrator: '',
     language: '',
     publishedYear: '',
@@ -1006,9 +1007,9 @@ function AudiobookDetails() {
           setSelectedTrackIndex(resume.trackIndex);
           setListeningProgress(resume.progressPercentage);
           setIsEditingCover(!loadedAudiobook.coverPath && hasPermission('userrole_managebooks'));
+          setSelectedAuthors(loadedAudiobook.authors || []);
           setMetadataForm({
             title: loadedAudiobook.title || '',
-            author: loadedAudiobook.author || '',
             narrator: loadedAudiobook.narrator || '',
             language: loadedAudiobook.language || '',
             publishedYear: loadedAudiobook.publishedYear ? String(loadedAudiobook.publishedYear) : '',
@@ -1105,12 +1106,12 @@ function AudiobookDetails() {
   const openMetadataEditor = () => {
     setMetadataForm({
       title: audiobook.title || '',
-      author: audiobook.author || '',
       narrator: audiobook.narrator || '',
       language: audiobook.language || '',
       publishedYear: audiobook.publishedYear ? String(audiobook.publishedYear) : '',
       description: audiobook.description || ''
     });
+    setSelectedAuthors(audiobook.authors || []);
     setMetadataError('');
     setIsEditingMetadata(true);
   };
@@ -1120,12 +1121,15 @@ function AudiobookDetails() {
     setIsSavingMetadata(true);
     setMetadataError('');
     try {
-      const response = await audiobooksApi.updateMetadata(audiobookFolder, metadataForm);
+      const response = await audiobooksApi.updateMetadata(audiobookFolder, {
+        ...metadataForm,
+        authorIds: selectedAuthors.map((author) => author.ID)
+      });
       const updatedAudiobook = response.data.data;
       setAudiobook(updatedAudiobook);
+      setSelectedAuthors(updatedAudiobook.authors || []);
       setMetadataForm({
         title: updatedAudiobook.title || '',
-        author: updatedAudiobook.author || '',
         narrator: updatedAudiobook.narrator || '',
         language: updatedAudiobook.language || '',
         publishedYear: updatedAudiobook.publishedYear ? String(updatedAudiobook.publishedYear) : '',
@@ -1365,8 +1369,18 @@ function AudiobookDetails() {
             <h1 className="max-w-4xl break-words text-4xl font-black leading-[0.98] tracking-tighter text-foreground md:text-6xl">
               {audiobook.title}
             </h1>
-            {audiobook.author && (
-              <p className="mt-4 text-lg font-semibold text-muted-foreground">by {audiobook.author}</p>
+            {audiobook.authors?.length > 0 && (
+              <p className="mt-4 flex flex-wrap items-center gap-x-1.5 text-lg font-semibold text-muted-foreground">
+                <span>by</span>
+                {audiobook.authors.map((author, index) => (
+                  <React.Fragment key={author.ID}>
+                    <Link to={`/author/${author.ID}`} className="text-primary transition-colors hover:text-primary/80 hover:underline">
+                      {author.author_name} {author.author_lastname}
+                    </Link>
+                    {index < audiobook.authors.length - 1 && <span>,</span>}
+                  </React.Fragment>
+                ))}
+              </p>
             )}
 
             <div className="mt-6 flex flex-wrap gap-2">
@@ -1416,7 +1430,6 @@ function AudiobookDetails() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   {[
                     ['title', 'Title', 300],
-                    ['author', 'Author', 200],
                     ['narrator', 'Narrator', 200],
                     ['language', 'Language', 100]
                   ].map(([field, label, maxLength]) => (
@@ -1431,6 +1444,38 @@ function AudiobookDetails() {
                       />
                     </label>
                   ))}
+
+                  <div className="sm:col-span-2">
+                    <span className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-muted-foreground">Authors</span>
+                    <div className="mb-2 flex flex-wrap gap-2">
+                      {selectedAuthors.map((author) => (
+                        <span key={author.ID} className="flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-bold text-foreground">
+                          {author.author_name} {author.author_lastname}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedAuthors((current) => current.filter((item) => item.ID !== author.ID))}
+                            className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-primary/15 hover:text-primary"
+                            aria-label={`Remove ${author.author_name} ${author.author_lastname}`}
+                          >
+                            <X size={12} />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    <AuthorSearch
+                      placeholder="Search or create an author…"
+                      onSelect={(author) => {
+                        if (author) {
+                          setSelectedAuthors((current) => current.some((item) => item.ID === author.ID)
+                            ? current
+                            : [...current, author]);
+                        }
+                      }}
+                    />
+                    <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
+                      Audiobook authors use the same author records as books.
+                    </p>
+                  </div>
 
                   <label className="block sm:col-span-1">
                     <span className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-muted-foreground">Published year</span>

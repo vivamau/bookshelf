@@ -55,6 +55,35 @@ components:
           type: integer
         author_update_date:
           type: integer
+    Audiobook:
+      type: object
+      properties:
+        audiobookId:
+          type: integer
+        folder:
+          type: string
+        title:
+          type: string
+        author:
+          type: string
+          description: Display names derived from the linked Authors rows
+        authors:
+          type: array
+          items:
+            $ref: '#/components/schemas/Author'
+        narrator:
+          type: string
+        language:
+          type: string
+        publishedYear:
+          type: integer
+        description:
+          type: string
+        coverPath:
+          type: string
+          nullable: true
+        trackCount:
+          type: integer
     user:
       type: object
       properties:
@@ -418,6 +447,29 @@ paths:
       responses:
         200:
           description: Deleted
+        409:
+          description: Author is still linked to a book or audiobook
+  /api/authors/{id}/audiobooks:
+    get:
+      summary: Get audiobooks by author
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+      responses:
+        200:
+          description: Audiobooks linked through the shared Authors table
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Audiobook'
   /api/users:
     get:
       summary: Get all users
@@ -947,8 +999,12 @@ paths:
                   properties:
                     title:
                       type: string
-                    author:
-                      type: string
+                    authorIds:
+                      type: array
+                      maxItems: 20
+                      items:
+                        type: integer
+                      description: IDs from the shared Authors table
                     narrator:
                       type: string
                     language:

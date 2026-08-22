@@ -90,6 +90,7 @@ const AuthorSearch = ({ onSelect, selectedAuthor, className, placeholder }) => {
                     {selectedAuthor.author_name} {selectedAuthor.author_lastname}
                 </span>
                 <button 
+                    type="button"
                     onClick={() => onSelect(null)} 
                     className="ml-auto p-1 hover:bg-white/10 rounded-full transition-colors"
                 >
@@ -120,12 +121,14 @@ const AuthorSearch = ({ onSelect, selectedAuthor, className, placeholder }) => {
                 </div>
                 <div className="flex justify-end gap-2 mt-1">
                     <button 
+                        type="button"
                         onClick={() => setIsCreating(false)} 
                         className="px-3 py-1 text-xs font-bold text-muted-foreground hover:text-foreground"
                     >
                         Cancel
                     </button>
                     <button 
+                        type="button"
                         onClick={handleCreate}
                         disabled={!newFirstName || !newLastName || creating}
                         className="px-3 py-1 bg-primary text-primary-foreground text-xs font-bold rounded hover:bg-primary/90 disabled:opacity-50"
@@ -158,6 +161,7 @@ const AuthorSearch = ({ onSelect, selectedAuthor, className, placeholder }) => {
                     <div className="overflow-y-auto max-h-[200px] custom-scrollbar">
                         {suggestions.map(author => (
                             <button
+                                type="button"
                                 key={author.ID}
                                 onClick={() => {
                                     onSelect(author);
@@ -179,6 +183,7 @@ const AuthorSearch = ({ onSelect, selectedAuthor, className, placeholder }) => {
                     </div>
                     {query && (
                         <button
+                            type="button"
                             onClick={() => {
                                 // Pre-fill with query if it looks like a name
                                 const parts = query.split(' ');

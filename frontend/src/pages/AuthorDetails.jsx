@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, BookOpen, ExternalLink, User, Pencil, Check, Trash2 } from 'lucide-react';
+import { ArrowLeft, ExternalLink, User, Pencil, Check, Trash2, Headphones, ListMusic } from 'lucide-react';
 import { authorsApi } from '../api/api';
 import { useAuth } from '../context/AuthContext';
-import { cn } from '../lib/utils';
 
 // Reusing BookCard-like logic or direct implementation
 const BookItem = ({ id, title, year, cover, progress }) => {
@@ -23,6 +22,45 @@ const BookItem = ({ id, title, year, cover, progress }) => {
         <span className="text-xs text-muted-foreground">{year ? new Date(year).getFullYear() : 'N/A'}</span>
       </div>
     </div>
+  );
+};
+
+const AudiobookItem = ({ audiobook }) => {
+  const navigate = useNavigate();
+  const coverUrl = audiobook.coverPath
+    ? `${import.meta.env.VITE_API_BASE_URL}/api/audiobooks/cover?path=${encodeURIComponent(audiobook.coverPath)}&v=${encodeURIComponent(audiobook.modifiedAt)}`
+    : null;
+
+  return (
+    <button
+      type="button"
+      onClick={() => navigate(`/audiobook?folder=${encodeURIComponent(audiobook.folder)}`)}
+      className="group min-w-0 text-left animate-in fade-in zoom-in duration-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-4 focus-visible:ring-offset-background rounded-2xl"
+    >
+      <div className="relative aspect-square overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/15 via-card to-secondary/30 shadow-md transition-all duration-500 group-hover:-translate-y-1 group-hover:border-primary/50 group-hover:shadow-[0_18px_40px_rgba(241,24,76,0.16)]">
+        <div className="absolute inset-0 flex items-center justify-center text-primary/30" aria-hidden="true">
+          <Headphones size={58} strokeWidth={1.2} />
+        </div>
+        {coverUrl && (
+          <img
+            src={coverUrl}
+            alt={`Cover of ${audiobook.title}`}
+            crossOrigin="use-credentials"
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+            onError={(event) => { event.currentTarget.style.display = 'none'; }}
+          />
+        )}
+        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/85 to-transparent" />
+        <span className="absolute bottom-3 left-3 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.14em] text-white/80">
+          <ListMusic size={12} />
+          {audiobook.trackCount} {audiobook.trackCount === 1 ? 'track' : 'tracks'}
+        </span>
+      </div>
+      <div className="px-1 pt-3">
+        <h3 className="line-clamp-2 text-sm font-bold leading-snug transition-colors group-hover:text-primary">{audiobook.title}</h3>
+        <p className="mt-1 text-xs text-muted-foreground">{audiobook.publishedYear || 'Audiobook'}</p>
+      </div>
+    </button>
   );
 };
 
@@ -60,6 +98,7 @@ export default function AuthorDetails() {
   const { hasPermission } = useAuth();
   const [author, setAuthor] = useState(null);
   const [books, setBooks] = useState([]);
+  const [audiobooks, setAudiobooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({ author_name: '', author_lastname: '', author_wiki: '', author_avatar: '' });
@@ -121,9 +160,10 @@ export default function AuthorDetails() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [authorRes, booksRes] = await Promise.all([
+        const [authorRes, booksRes, audiobooksRes] = await Promise.all([
           authorsApi.getById(id),
-          authorsApi.getBooks(id)
+          authorsApi.getBooks(id),
+          authorsApi.getAudiobooks(id)
         ]);
         const authorData = authorRes.data.data;
         setAuthor(authorData);
@@ -138,6 +178,7 @@ export default function AuthorDetails() {
             setAvatarMode('custom');
         }
         setBooks(booksRes.data.data);
+        setAudiobooks(audiobooksRes.data.data || []);
         
         // Fetch other books from Open Library
         fetchOtherBooks(authorData.author_name, authorData.author_lastname, booksRes.data.data);
@@ -334,6 +375,10 @@ export default function AuthorDetails() {
                     <p className="text-2xl font-black text-foreground">{books.length}</p>
                 </div>
                 <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Audiobooks</p>
+                    <p className="text-2xl font-black text-foreground">{audiobooks.length}</p>
+                </div>
+                <div>
                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Average Progress</p>
                     <p className="text-2xl font-black text-primary">
                         {books.length > 0 
@@ -348,6 +393,38 @@ export default function AuthorDetails() {
 
       {/* Books Grid */}
       <div className="flex flex-col gap-6">
+        <section className="mb-10 border-y border-white/5 py-10" aria-labelledby="author-audiobooks-heading">
+          <div className="mb-7 flex items-end justify-between gap-6">
+            <div>
+              <p className="mb-1 text-[10px] font-black uppercase tracking-[0.22em] text-primary">Listen to their work</p>
+              <h2 id="author-audiobooks-heading" className="text-2xl font-black uppercase tracking-tight text-foreground">
+                Audiobooks in bookshelf
+              </h2>
+            </div>
+            <span className="rounded-full border border-border bg-card/70 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+              {audiobooks.length} {audiobooks.length === 1 ? 'collection' : 'collections'}
+            </span>
+          </div>
+
+          {audiobooks.length > 0 ? (
+            <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
+              {audiobooks.map((audiobook) => (
+                <AudiobookItem key={audiobook.folder} audiobook={audiobook} />
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center gap-4 rounded-2xl border border-dashed border-border bg-card/30 px-5 py-6 text-muted-foreground">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Headphones size={21} />
+              </span>
+              <div>
+                <p className="text-sm font-bold text-foreground">No linked audiobooks yet</p>
+                <p className="mt-0.5 text-xs">Assign this author from an audiobook’s metadata editor to show it here.</p>
+              </div>
+            </div>
+          )}
+        </section>
+
         <div className="flex items-center justify-between">
             <h2 className="text-2xl font-black text-foreground tracking-tight uppercase">{author?.author_name} {author?.author_lastname}'s books in bookshelf</h2>
         </div>
@@ -408,14 +485,14 @@ export default function AuthorDetails() {
         {showDeleteModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
                 <div className="bg-card border border-border rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] max-w-md w-full p-6 animate-in zoom-in-95 duration-200">
-                    {books.length > 0 ? (
+                    {books.length > 0 || audiobooks.length > 0 ? (
                         <>
                             <h3 className="text-xl font-bold mb-2 text-destructive">Cannot Delete Author</h3>
                             <p className="text-muted-foreground text-sm mb-4">
-                                This author cannot be deleted because they have {books.length} book{books.length > 1 ? 's' : ''} in your library.
+                                This author cannot be deleted because they have {books.length} book{books.length === 1 ? '' : 's'} and {audiobooks.length} audiobook{audiobooks.length === 1 ? '' : 's'} in your library.
                             </p>
                             <p className="text-foreground text-sm font-bold mb-6">
-                                Please delete or reassign all books by this author before deleting the author profile.
+                                Please reassign all books and audiobooks before deleting the author profile.
                             </p>
                             <div className="flex gap-3 justify-end">
                                 <button 

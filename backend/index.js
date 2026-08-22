@@ -36,6 +36,13 @@ const {
     scanAudiobookCatalog,
     writeAudiobookMetadata
 } = require('./utils/audiobookCatalog');
+const {
+    AudiobookAuthorError,
+    deleteAudiobookRecord,
+    enrichAudiobookCatalog,
+    findOrCreateAuthorByName,
+    replaceAudiobookAuthors
+} = require('./utils/audiobookAuthors');
 const { RemoteImageError, downloadRemoteImage } = require('./utils/remoteImage');
 
 const path = require('path');
@@ -97,6 +104,10 @@ app.use(fileUpload({
 app.use('/covers', express.static(path.join(__dirname, 'covers')));
 const BOOKS_DIR = path.join(__dirname, 'books');
 const AUDIOBOOKS_DIR = path.join(__dirname, 'audiobooks');
+const loadAudiobookCatalog = async () => enrichAudiobookCatalog(
+    db,
+    await scanAudiobookCatalog(AUDIOBOOKS_DIR)
+);
 
 const swaggerUi = require('swagger-ui-express');
 const yaml = require('js-yaml');
@@ -436,6 +447,44 @@ app.use('/api/authors', (req, res, next) => {
             if (err) return res.status(500).json({ error: err.message });
             res.json({ data: rows });
         });
+    });
+
+    // Get audiobooks linked through the same Authors table used by books
+    authorsRouter.get('/:id/audiobooks', async (req, res) => {
+        try {
+            const authorId = Number(req.params.id);
+            const audiobooks = await loadAudiobookCatalog();
+            res.json({
+                data: audiobooks.filter((audiobook) => (
+                    audiobook.authors.some((author) => author.ID === authorId)
+                ))
+            });
+        } catch (err) {
+            console.error('Author audiobook lookup failed:', err);
+            res.status(500).json({ error: 'Could not load audiobooks for this author' });
+        }
+    });
+
+    authorsRouter.delete('/:id', checkManageBooks, (req, res) => {
+        db.get(
+            `SELECT
+                (SELECT COUNT(*) FROM BooksAuthors WHERE author_id = ?) AS book_count,
+                (SELECT COUNT(*) FROM AudiobooksAuthors WHERE author_id = ?) AS audiobook_count`,
+            [req.params.id, req.params.id],
+            (countError, counts) => {
+                if (countError) return res.status(500).json({ error: countError.message });
+                if (counts.book_count > 0 || counts.audiobook_count > 0) {
+                    return res.status(409).json({
+                        error: 'Reassign this author\'s books and audiobooks before deleting the author'
+                    });
+                }
+                db.run('DELETE FROM Authors WHERE ID = ?', [req.params.id], function onDelete(deleteError) {
+                    if (deleteError) return res.status(500).json({ error: deleteError.message });
+                    if (this.changes === 0) return res.status(404).json({ error: 'Author not found' });
+                    res.json({ message: 'Author deleted', changes: this.changes });
+                });
+            }
+        );
     });
 
     // Get author details
@@ -1579,7 +1628,7 @@ const audiobooksRouter = express.Router();
 audiobooksRouter.get('/', async (req, res) => {
     try {
         await fs.promises.mkdir(AUDIOBOOKS_DIR, { recursive: true });
-        const audiobooks = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
+        const audiobooks = await loadAudiobookCatalog();
         res.json({ data: audiobooks });
     } catch (err) {
         console.error('Audiobook catalog scan failed:', err);
@@ -1589,7 +1638,7 @@ audiobooksRouter.get('/', async (req, res) => {
 
 audiobooksRouter.get('/details', async (req, res) => {
     try {
-        const audiobooks = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
+        const audiobooks = await loadAudiobookCatalog();
         const audiobook = findAudiobookByFolder(audiobooks, req.query.folder);
         if (!audiobook) {
             return res.status(404).json({ error: 'Audiobook not found' });
@@ -1603,7 +1652,7 @@ audiobooksRouter.get('/details', async (req, res) => {
 
 audiobooksRouter.get('/progress', async (req, res) => {
     try {
-        const audiobooks = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
+        const audiobooks = await loadAudiobookCatalog();
         const audiobook = findAudiobookByFolder(audiobooks, req.query.folder);
         if (!audiobook) {
             return res.status(404).json({ error: 'Audiobook not found' });
@@ -1658,7 +1707,7 @@ audiobooksRouter.get('/progress', async (req, res) => {
 
 audiobooksRouter.post('/progress', async (req, res) => {
     try {
-        const audiobooks = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
+        const audiobooks = await loadAudiobookCatalog();
         const audiobook = findAudiobookByFolder(audiobooks, req.body?.folder);
         if (!audiobook) {
             return res.status(404).json({ error: 'Audiobook not found' });
@@ -1722,17 +1771,33 @@ audiobooksRouter.post('/progress', async (req, res) => {
 
 audiobooksRouter.put('/metadata', checkManageBooks, async (req, res) => {
     try {
-        const audiobooks = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
+        const audiobooks = await loadAudiobookCatalog();
         const audiobook = findAudiobookByFolder(audiobooks, req.body.folder);
         if (!audiobook) {
             return res.status(404).json({ error: 'Audiobook not found' });
         }
 
-        await writeAudiobookMetadata(AUDIOBOOKS_DIR, audiobook.folder, req.body.metadata || {});
-        const updatedAudiobooks = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
+        const requestedMetadata = req.body.metadata || {};
+        const { authorIds, author: legacyAuthorName, ...fileMetadata } = requestedMetadata;
+        await writeAudiobookMetadata(AUDIOBOOKS_DIR, audiobook.folder, {
+            ...fileMetadata,
+            author: ''
+        });
+
+        if (authorIds !== undefined) {
+            await replaceAudiobookAuthors(db, audiobook.folder, authorIds);
+        } else if (legacyAuthorName !== undefined) {
+            const legacyAuthor = await findOrCreateAuthorByName(db, legacyAuthorName);
+            await replaceAudiobookAuthors(db, audiobook.folder, legacyAuthor ? [legacyAuthor.ID] : []);
+        }
+
+        const updatedAudiobooks = await loadAudiobookCatalog();
         const updatedAudiobook = updatedAudiobooks.find((item) => item.folder === audiobook.folder);
         res.json({ data: updatedAudiobook });
     } catch (err) {
+        if (err instanceof AudiobookAuthorError) {
+            return res.status(err.statusCode).json({ error: err.message });
+        }
         if (err instanceof AudiobookCatalogError) {
             return res.status(400).json({ error: err.message });
         }
@@ -1744,7 +1809,7 @@ audiobooksRouter.put('/metadata', checkManageBooks, async (req, res) => {
 audiobooksRouter.post('/cover-from-url', checkManageBooks, async (req, res) => {
     const folder = req.body.folder;
     try {
-        const audiobooks = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
+        const audiobooks = await loadAudiobookCatalog();
         const audiobook = findAudiobookByFolder(audiobooks, folder);
         if (!audiobook) {
             return res.status(404).json({ error: 'Audiobook not found' });
@@ -1770,7 +1835,7 @@ audiobooksRouter.post('/cover-from-url', checkManageBooks, async (req, res) => {
             await fs.promises.rm(temporaryPath, { force: true }).catch(() => {});
         }
 
-        const updatedAudiobooks = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
+        const updatedAudiobooks = await loadAudiobookCatalog();
         const updatedAudiobook = updatedAudiobooks.find((item) => item.folder === audiobook.folder);
         res.json({ data: updatedAudiobook });
     } catch (err) {
@@ -1840,7 +1905,7 @@ const safeDownloadName = (title, fallback = 'audiobook') => {
 
 audiobooksRouter.get('/download', async (req, res) => {
     try {
-        const audiobooks = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
+        const audiobooks = await loadAudiobookCatalog();
         const audiobook = findAudiobookByFolder(audiobooks, req.query.folder);
         if (!audiobook) {
             return res.status(404).json({ error: 'Audiobook not found' });
@@ -1889,7 +1954,7 @@ audiobooksRouter.get('/download', async (req, res) => {
 
 audiobooksRouter.delete('/', checkManageUsers, async (req, res) => {
     try {
-        const audiobooks = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
+        const audiobooks = await loadAudiobookCatalog();
         const audiobook = findAudiobookByFolder(audiobooks, req.query.folder);
         if (!audiobook) {
             return res.status(404).json({ error: 'Audiobook not found' });
@@ -1903,11 +1968,13 @@ audiobooksRouter.delete('/', checkManageUsers, async (req, res) => {
 
             const rootTrack = resolveAudiobookAudioPath(AUDIOBOOKS_DIR, audiobook.tracks[0].path);
             await fs.promises.unlink(rootTrack.audioPath);
+            await deleteAudiobookRecord(db, audiobook.folder);
             return res.json({ message: 'Audiobook deleted' });
         }
 
         const directoryPath = resolveAudiobookDirectoryPath(AUDIOBOOKS_DIR, audiobook.folder);
         await fs.promises.rm(directoryPath, { recursive: true, force: false });
+        await deleteAudiobookRecord(db, audiobook.folder);
         res.json({ message: 'Audiobook deleted' });
     } catch (err) {
         if (err instanceof AudiobookCatalogError) {
@@ -2299,6 +2366,8 @@ if (require.main === module) {
             await runMigrations(db);
             await seedUserRoles(db);
             await seedUsers(db);
+            await fs.promises.mkdir(AUDIOBOOKS_DIR, { recursive: true });
+            await loadAudiobookCatalog();
             
             // Manual schema patch for book_current_page if migrations missed it
             db.serialize(() => {

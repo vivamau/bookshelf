@@ -63,6 +63,7 @@ export const authorsApi = {
   getAll: (params = {}) => api.get('/authors', { params }),
   getById: (id) => api.get(`/authors/${id}`),
   getBooks: (id) => api.get(`/authors/${id}/books`),
+  getAudiobooks: (id) => api.get(`/authors/${id}/audiobooks`),
   create: (data) => api.post('/authors', data),
   update: (id, data) => api.put(`/authors/${id}`, data),
   delete: (id) => api.delete(`/authors/${id}`),
