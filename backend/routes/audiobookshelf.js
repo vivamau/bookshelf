@@ -177,6 +177,16 @@ const createAudiobookshelfRouters = ({
     const publicSessionRouter = express.Router();
     const sessions = new Map();
 
+    // Some native clients treat a valid 304 with an empty body as a failed API
+    // response. Ignore conditional-cache headers for compatibility JSON so the
+    // client always receives a complete 200 response body.
+    apiRouter.use((req, res, next) => {
+        delete req.headers['if-none-match'];
+        delete req.headers['if-modified-since'];
+        res.setHeader('Cache-Control', 'no-store');
+        next();
+    });
+
     const loadItem = async (itemId) => {
         const catalog = await loadAudiobookCatalog();
         return findAudiobookByItemId(catalog, itemId);

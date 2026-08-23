@@ -113,6 +113,21 @@ describe('Audiobookshelf client compatibility', () => {
             authorsWithCount: expect.any(Array),
             genresWithCount: expect.any(Array)
         });
+
+        const personalized = await request(app)
+            .get('/api/libraries/lib_bookshelf_audiobooks/personalized')
+            .query({ include: 'rssfeed,numEpisodesIncomplete' })
+            .set('Authorization', `Bearer ${accessToken}`);
+        expect(personalized.statusCode).toBe(200);
+        expect(personalized.headers['cache-control']).toBe('no-store');
+
+        const conditionalPersonalized = await request(app)
+            .get('/api/libraries/lib_bookshelf_audiobooks/personalized')
+            .query({ include: 'rssfeed,numEpisodesIncomplete' })
+            .set('Authorization', `Bearer ${accessToken}`)
+            .set('If-None-Match', personalized.headers.etag);
+        expect(conditionalPersonalized.statusCode).toBe(200);
+        expect(conditionalPersonalized.body).toEqual(expect.any(Array));
     });
 
     test('starts a direct-play session and streams its protected track', async () => {
