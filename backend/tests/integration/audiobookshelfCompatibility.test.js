@@ -143,6 +143,22 @@ describe('Audiobookshelf client compatibility', () => {
             .set('If-None-Match', personalized.headers.etag);
         expect(conditionalPersonalized.statusCode).toBe(200);
         expect(conditionalPersonalized.body).toEqual(expect.any(Array));
+
+        const batch = await request(app)
+            .post('/api/items/batch/get')
+            .set('Authorization', `Bearer ${accessToken}`)
+            .send({ libraryItemIds: [itemId] });
+        expect(batch.statusCode).toBe(200);
+        expect(batch.body.libraryItems).toEqual([
+            expect.objectContaining({
+                id: itemId,
+                media: expect.objectContaining({
+                    id: expect.any(String),
+                    tracks: expect.any(Array),
+                    audioFiles: expect.any(Array)
+                })
+            })
+        ]);
     });
 
     test('starts a direct-play session and streams its protected track', async () => {

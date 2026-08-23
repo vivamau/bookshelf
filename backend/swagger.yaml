@@ -1284,6 +1284,28 @@ paths:
           description: Audiobookshelf library item
         404:
           description: Library item not found
+  /api/items/batch/get:
+    post:
+      summary: Get multiple expanded Audiobookshelf library items
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [libraryItemIds]
+              properties:
+                libraryItemIds:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        200:
+          description: Expanded library items in a libraryItems array
+        403:
+          description: Invalid payload
   /api/items/{itemId}/cover:
     get:
       summary: Serve an Audiobookshelf item cover

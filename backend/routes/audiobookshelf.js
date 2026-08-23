@@ -361,6 +361,32 @@ const createAudiobookshelfRouters = ({
         return streamTrack(req, res, audiobook, Number.parseInt(req.params.trackIndex, 10));
     }));
 
+    apiRouter.post('/items/batch/get', asyncRoute(async (req, res) => {
+        const libraryItemIds = req.body?.libraryItemIds;
+        if (!Array.isArray(libraryItemIds) || libraryItemIds.length === 0) {
+            return res.status(403).send('Invalid payload');
+        }
+
+        const [catalog, rows] = await Promise.all([
+            loadAudiobookCatalog(),
+            getProgressRows(db, req.user.user_id)
+        ]);
+        const progressRows = indexProgressRows(rows);
+        const catalogByItemId = new Map(catalog.map((audiobook) => [
+            getAudiobookshelfItemId(audiobook.folder),
+            audiobook
+        ]));
+        const libraryItems = libraryItemIds.map((itemId) => {
+            const audiobook = catalogByItemId.get(String(itemId));
+            return audiobook ? buildLibraryItem(audiobook, {
+                expanded: true,
+                progressRow: progressRows.get(audiobook.folder)
+            }) : null;
+        }).filter(Boolean);
+
+        return res.json({ libraryItems });
+    }));
+
     apiRouter.post('/items/:itemId/play', asyncRoute(async (req, res) => {
         try {
             const audiobook = await loadItem(req.params.itemId);
