@@ -71,6 +71,9 @@ describe('Audiobookshelf compatibility adapter', () => {
         });
         expect(findAudiobookByItemId([audiobook], firstId)).toBe(audiobook);
         expect(item).not.toHaveProperty('libraryFiles');
+
+        const itemWithoutPhysicalCover = buildLibraryItem({ ...audiobook, coverPath: null });
+        expect(itemWithoutPhysicalCover.media.coverPath).toMatch(/^\/api\/items\/.+\/cover$/);
     });
 
     test('builds expanded tracks with cumulative offsets and protected URLs', () => {

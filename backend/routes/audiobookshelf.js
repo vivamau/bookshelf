@@ -1,5 +1,10 @@
 const crypto = require('crypto');
 const express = require('express');
+
+const FALLBACK_COVER_PNG = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+    'base64'
+);
 const {
     AUDIOBOOKSHELF_COMPATIBILITY_VERSION,
     AUDIOBOOKSHELF_LIBRARY_ID,
@@ -354,7 +359,11 @@ const createAudiobookshelfRouters = ({
     apiRouter.get('/items/:itemId/cover', asyncRoute(async (req, res) => {
         try {
             const audiobook = await loadItem(req.params.itemId);
-            if (!audiobook?.coverPath) return res.status(404).json({ error: 'Cover not found' });
+            if (!audiobook) return res.status(404).json({ error: 'Library item not found' });
+            if (!audiobook.coverPath) {
+                res.setHeader('Cache-Control', 'private, max-age=3600');
+                return res.type('png').send(FALLBACK_COVER_PNG);
+            }
             const cover = resolveAudiobookCoverPath(audiobooksDirectory, audiobook.coverPath);
             res.setHeader('Cache-Control', 'private, max-age=3600');
             return res.sendFile(cover.coverPath);

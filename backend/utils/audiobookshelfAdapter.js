@@ -254,7 +254,10 @@ const buildLibraryItem = (audiobook, options = {}) => {
     const chapters = buildMediaChapters(audiobook, audioTracks);
     const libraryFiles = buildLibraryFiles(audiobook);
     const duration = getAudiobookDuration(audiobook);
-    const coverPath = audiobook.coverPath ? `/api/items/${itemId}/cover` : null;
+    // Native clients such as SoundLeaf decode coverPath as a URL string for
+    // every minified item. The cover route supplies a PNG fallback when the
+    // audiobook has no physical cover file.
+    const coverPath = `/api/items/${itemId}/cover`;
     const media = expanded ? {
         id: getAudiobookshelfMediaId(audiobook.folder),
         libraryItemId: itemId,

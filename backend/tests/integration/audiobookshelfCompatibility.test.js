@@ -17,6 +17,9 @@ describe('Audiobookshelf client compatibility', () => {
     const audiobookDirectory = path.join(__dirname, '..', '..', 'audiobooks', folderName);
     const audioPath = path.join(audiobookDirectory, '01 - Connection Test.mp3');
     const coverPath = path.join(audiobookDirectory, 'cover.jpg');
+    const noCoverFolderName = 'SoundLeaf No Cover';
+    const noCoverDirectory = path.join(__dirname, '..', '..', 'audiobooks', noCoverFolderName);
+    const noCoverAudioPath = path.join(noCoverDirectory, '01 - No Cover.mp3');
     let accessToken;
     let itemId;
 
@@ -25,6 +28,8 @@ describe('Audiobookshelf client compatibility', () => {
         fs.mkdirSync(audiobookDirectory, { recursive: true });
         fs.writeFileSync(audioPath, 'soundleaf audio');
         fs.writeFileSync(coverPath, 'soundleaf cover');
+        fs.mkdirSync(noCoverDirectory, { recursive: true });
+        fs.writeFileSync(noCoverAudioPath, 'soundleaf audio without cover');
 
         const login = await request(app)
             .post('/login')
@@ -35,6 +40,7 @@ describe('Audiobookshelf client compatibility', () => {
 
     afterAll((done) => {
         fs.rmSync(audiobookDirectory, { recursive: true, force: true });
+        fs.rmSync(noCoverDirectory, { recursive: true, force: true });
         db.close(done);
     });
 
@@ -117,6 +123,21 @@ describe('Audiobookshelf client compatibility', () => {
         });
         expect(item).not.toHaveProperty('libraryFiles');
         itemId = item.id;
+
+        const itemWithoutPhysicalCover = items.body.results.find((candidate) => (
+            candidate.media.metadata.title === noCoverFolderName
+        ));
+        expect(itemWithoutPhysicalCover.media.coverPath).toMatch(/^\/api\/items\/.+\/cover$/);
+        const fallbackCover = await request(app)
+            .get(itemWithoutPhysicalCover.media.coverPath)
+            .set('Authorization', `Bearer ${accessToken}`)
+            .buffer(true)
+            .parse(binaryParser);
+        expect(fallbackCover.statusCode).toBe(200);
+        expect(fallbackCover.headers['content-type']).toMatch(/^image\/png/);
+        expect(fallbackCover.body.subarray(0, 8)).toEqual(Buffer.from([
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A
+        ]));
 
         const expanded = await request(app)
             .get(`/api/items/${itemId}`)
