@@ -80,6 +80,15 @@ describe('Audiobookshelf client compatibility', () => {
         expect(login.body.user.accessToken).toBe(login.body.user.token);
         expect(login.body.userDefaultLibraryId).toBe('lib_bookshelf_audiobooks');
 
+        const me = await request(app)
+            .get('/api/me')
+            .set('Authorization', `Bearer ${accessToken}`);
+        expect(me.statusCode).toBe(200);
+        expect(me.body).toMatchObject({
+            id: expect.any(String),
+            isOldToken: false
+        });
+
         const listeningStats = await request(app)
             .get('/api/me/listening-stats')
             .set('Authorization', `Bearer ${accessToken}`);
@@ -170,6 +179,9 @@ describe('Audiobookshelf client compatibility', () => {
             .set('Authorization', `Bearer ${accessToken}`);
         expect(personalized.statusCode).toBe(200);
         expect(personalized.headers['cache-control']).toBe('no-store');
+        expect(personalized.body).toEqual(expect.arrayContaining([
+            expect.objectContaining({ total: expect.any(Number) })
+        ]));
 
         const conditionalPersonalized = await request(app)
             .get('/api/libraries/lib_bookshelf_audiobooks/personalized')

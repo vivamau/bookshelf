@@ -479,7 +479,8 @@ const buildAudiobookshelfUser = (user, token, mediaProgress = []) => {
         librariesAccessible: [],
         itemTagsAccessible: [],
         itemTagsSelected: [],
-        hasOpenIDLink: false
+        hasOpenIDLink: false,
+        isOldToken: false
     };
 };
 

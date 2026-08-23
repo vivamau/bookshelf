@@ -282,14 +282,16 @@ const createAudiobookshelfRouters = ({
                     label: 'Continue Listening',
                     labelStringKey: 'LabelContinueListening',
                     type: 'book',
-                    entities: continuing.slice(0, limit)
+                    entities: continuing.slice(0, limit),
+                    total: continuing.length
                 },
                 {
                     id: 'recently-added',
                     label: 'Recently Added',
                     labelStringKey: 'LabelRecentlyAdded',
                     type: 'book',
-                    entities: [...items].sort((a, b) => b.addedAt - a.addedAt).slice(0, limit)
+                    entities: [...items].sort((a, b) => b.addedAt - a.addedAt).slice(0, limit),
+                    total: items.length
                 }
             ]);
         } catch (error) {

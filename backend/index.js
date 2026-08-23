@@ -398,8 +398,8 @@ app.get('/api/me', auth, sendFreshCompatibilityResponse, (req, res) => {
         const mediaProgress = await loadAudiobookshelfProgress(user.ID);
         const audiobookshelfUser = buildAudiobookshelfUser(user, getRequestToken(req), mediaProgress);
         res.json({
-            ...audiobookshelfUser,
             ...userInfo,
+            ...audiobookshelfUser,
             mediaProgress: audiobookshelfUser.mediaProgress
         });
     });

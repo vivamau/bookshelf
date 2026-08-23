@@ -179,7 +179,8 @@ describe('Audiobookshelf compatibility adapter', () => {
             user: {
                 id: '1',
                 username: 'reader',
-                token: 'api-token'
+                token: 'api-token',
+                isOldToken: false
             },
             serverSettings: {
                 version: '2.25.1',
