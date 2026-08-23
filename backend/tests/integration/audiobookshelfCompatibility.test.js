@@ -53,7 +53,13 @@ describe('Audiobookshelf client compatibility', () => {
             .set('X-Return-Tokens', 'true')
             .send({ username: 'admin', password: 'adminpassword' });
         expect(login.statusCode).toBe(200);
-        expect(login.body.user).toMatchObject({ username: 'admin', token: expect.any(String) });
+        expect(login.body.user).toMatchObject({
+            username: 'admin',
+            token: expect.any(String),
+            accessToken: expect.any(String),
+            refreshToken: null
+        });
+        expect(login.body.user.accessToken).toBe(login.body.user.token);
         expect(login.body.userDefaultLibraryId).toBe('lib_bookshelf_audiobooks');
     });
 

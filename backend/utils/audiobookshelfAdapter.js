@@ -247,8 +247,13 @@ const buildAudiobookshelfUser = (user, token, mediaProgress = []) => {
     return {
         id: String(user.ID ?? user.id ?? user.user_id),
         username: user.user_username || user.username,
+        email: user.user_email || user.email || null,
         type: isAdmin ? 'admin' : 'user',
+        // Keep both fields: pre-2.26 clients read token, while current native
+        // clients read accessToken from the nested user object.
         token,
+        accessToken: token,
+        refreshToken: null,
         mediaProgress,
         seriesHideFromContinueListening: [],
         bookmarks: [],
@@ -261,12 +266,16 @@ const buildAudiobookshelfUser = (user, token, mediaProgress = []) => {
             update: canManageBooks,
             delete: isAdmin,
             upload: canManageBooks,
+            createEreader: Boolean(user.userrole_readbooks),
             accessAllLibraries: true,
             accessAllTags: true,
-            accessExplicitContent: true
+            accessExplicitContent: true,
+            selectedTagsNotAccessible: false
         },
         librariesAccessible: [],
-        itemTagsAccessible: []
+        itemTagsAccessible: [],
+        itemTagsSelected: [],
+        hasOpenIDLink: false
     };
 };
 
