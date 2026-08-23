@@ -2,6 +2,7 @@ const path = require('path');
 const {
     AudiobookCatalogError,
     METADATA_FILE_NAME,
+    createStaleWhileRevalidateLoader,
     enrichAudiobookDurations,
     findAudiobookByFolder,
     getAudiobookContentType,
@@ -47,6 +48,53 @@ describe('audiobook catalog', () => {
             path.join('/srv/audiobooks', 'Earthsea', '01.mp3'),
             expect.stringContaining(':100')
         );
+    });
+
+    test('probes multiple track durations concurrently while preserving track order', async () => {
+        const pending = [];
+        const durationProbe = jest.fn(() => new Promise((resolve) => pending.push(resolve)));
+        const catalog = [{
+            folder: 'Earthsea',
+            tracks: [
+                { path: 'Earthsea/01.mp3', size: 100 },
+                { path: 'Earthsea/02.mp3', size: 200 }
+            ]
+        }];
+
+        const resultPromise = enrichAudiobookDurations('/srv/audiobooks', catalog, durationProbe, 2);
+        await Promise.resolve();
+        expect(durationProbe).toHaveBeenCalledTimes(2);
+        pending[1](90);
+        pending[0](60);
+
+        const enriched = await resultPromise;
+        expect(enriched[0].tracks.map((track) => track.duration)).toEqual([60, 90]);
+    });
+
+    test('serves cached catalogs immediately while refreshing stale data in the background', async () => {
+        let currentTime = 1000;
+        let resolveRefresh;
+        const loadFresh = jest.fn()
+            .mockResolvedValueOnce(['initial'])
+            .mockImplementationOnce(() => new Promise((resolve) => { resolveRefresh = resolve; }));
+        const loadCatalog = createStaleWhileRevalidateLoader(loadFresh, {
+            maxAgeMs: 100,
+            now: () => currentTime
+        });
+
+        await expect(loadCatalog()).resolves.toEqual(['initial']);
+        currentTime = 1200;
+        await expect(loadCatalog()).resolves.toEqual(['initial']);
+        await Promise.resolve();
+        expect(loadFresh).toHaveBeenCalledTimes(2);
+        resolveRefresh(['refreshed']);
+        await Promise.resolve();
+        await Promise.resolve();
+        await expect(loadCatalog()).resolves.toEqual(['refreshed']);
+
+        loadFresh.mockResolvedValueOnce(['forced']);
+        await expect(loadCatalog.reload()).resolves.toEqual(['forced']);
+        await expect(loadCatalog()).resolves.toEqual(['forced']);
     });
 
     test('serves M4B files with browser-compatible content types', () => {

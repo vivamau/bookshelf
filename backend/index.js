@@ -42,6 +42,7 @@ const {
     COVER_EXTENSIONS,
     MANAGED_COVER_PREFIX,
     enrichAudiobookDurations,
+    createStaleWhileRevalidateLoader,
     findAudiobookByFolder,
     getAudiobookContentType,
     resolveAudiobookAudioPath,
@@ -133,11 +134,15 @@ app.use(fileUpload({
 app.use('/covers', express.static(path.join(__dirname, 'covers')));
 const BOOKS_DIR = path.join(__dirname, 'books');
 const AUDIOBOOKS_DIR = path.join(__dirname, 'audiobooks');
-const loadAudiobookCatalog = async () => {
+const loadFreshAudiobookCatalog = async () => {
     const catalog = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
     const catalogWithDurations = await enrichAudiobookDurations(AUDIOBOOKS_DIR, catalog);
     return enrichAudiobookCatalog(db, catalogWithDurations);
 };
+const loadAudiobookCatalog = createStaleWhileRevalidateLoader(loadFreshAudiobookCatalog, {
+    maxAgeMs: 30000,
+    onRefreshError: (error) => console.error('Background audiobook catalog refresh failed:', error)
+});
 const loadAudiobookshelfProgress = async (userId) => {
     try {
         const [catalog, rows] = await Promise.all([
@@ -1790,7 +1795,7 @@ const audiobooksRouter = express.Router();
 audiobooksRouter.get('/', async (req, res) => {
     try {
         await fs.promises.mkdir(AUDIOBOOKS_DIR, { recursive: true });
-        const audiobooks = await loadAudiobookCatalog();
+        const audiobooks = await loadAudiobookCatalog.reload();
         res.json({ data: audiobooks });
     } catch (err) {
         console.error('Audiobook catalog scan failed:', err);
@@ -1953,7 +1958,7 @@ audiobooksRouter.put('/metadata', checkManageBooks, async (req, res) => {
             await replaceAudiobookAuthors(db, audiobook.folder, legacyAuthor ? [legacyAuthor.ID] : []);
         }
 
-        const updatedAudiobooks = await loadAudiobookCatalog();
+        const updatedAudiobooks = await loadAudiobookCatalog.reload();
         const updatedAudiobook = updatedAudiobooks.find((item) => item.folder === audiobook.folder);
         res.json({ data: updatedAudiobook });
     } catch (err) {
@@ -1997,7 +2002,7 @@ audiobooksRouter.post('/cover-from-url', checkManageBooks, async (req, res) => {
             await fs.promises.rm(temporaryPath, { force: true }).catch(() => {});
         }
 
-        const updatedAudiobooks = await loadAudiobookCatalog();
+        const updatedAudiobooks = await loadAudiobookCatalog.reload();
         const updatedAudiobook = updatedAudiobooks.find((item) => item.folder === audiobook.folder);
         res.json({ data: updatedAudiobook });
     } catch (err) {
@@ -2116,7 +2121,7 @@ audiobooksRouter.get('/download', async (req, res) => {
 
 audiobooksRouter.delete('/', checkManageUsers, async (req, res) => {
     try {
-        const audiobooks = await loadAudiobookCatalog();
+        const audiobooks = await loadAudiobookCatalog.reload();
         const audiobook = findAudiobookByFolder(audiobooks, req.query.folder);
         if (!audiobook) {
             return res.status(404).json({ error: 'Audiobook not found' });
@@ -2131,12 +2136,14 @@ audiobooksRouter.delete('/', checkManageUsers, async (req, res) => {
             const rootTrack = resolveAudiobookAudioPath(AUDIOBOOKS_DIR, audiobook.tracks[0].path);
             await fs.promises.unlink(rootTrack.audioPath);
             await deleteAudiobookRecord(db, audiobook.folder);
+            await loadAudiobookCatalog.reload();
             return res.json({ message: 'Audiobook deleted' });
         }
 
         const directoryPath = resolveAudiobookDirectoryPath(AUDIOBOOKS_DIR, audiobook.folder);
         await fs.promises.rm(directoryPath, { recursive: true, force: false });
         await deleteAudiobookRecord(db, audiobook.folder);
+        await loadAudiobookCatalog.reload();
         res.json({ message: 'Audiobook deleted' });
     } catch (err) {
         if (err instanceof AudiobookCatalogError) {
@@ -2202,6 +2209,7 @@ audiobooksRouter.post('/upload', checkManageBooks, async (req, res) => {
 
         await audiobookFile.mv(destination.uploadPath);
         uploadReserved = false;
+        await loadAudiobookCatalog.reload();
         res.status(201).json({
             message: 'Audiobook file uploaded',
             path: destination.relativePath,

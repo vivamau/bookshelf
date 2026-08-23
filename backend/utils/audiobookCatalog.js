@@ -131,22 +131,79 @@ const probeAudioDuration = (audioPath, cacheKey = audioPath, execFileApi = execF
 const enrichAudiobookDurations = async (
     audiobooksDirectory,
     catalog,
-    durationProbe = probeAudioDuration
+    durationProbe = probeAudioDuration,
+    concurrency = 4
 ) => {
-    const enriched = [];
-    for (const audiobook of catalog) {
-        const tracks = [];
-        for (const track of audiobook.tracks) {
-            const resolved = resolveAudiobookAudioPath(audiobooksDirectory, track.path);
-            const cacheKey = `${resolved.audioPath}:${track.modifiedAt || ''}:${track.size}`;
-            tracks.push({
-                ...track,
-                duration: await durationProbe(resolved.audioPath, cacheKey)
-            });
+    const entries = catalog.flatMap((audiobook, audiobookIndex) => (
+        audiobook.tracks.map((track, trackIndex) => ({ audiobookIndex, trackIndex, track }))
+    ));
+    const durations = catalog.map((audiobook) => new Array(audiobook.tracks.length));
+    let cursor = 0;
+    const worker = async () => {
+        while (cursor < entries.length) {
+            const entry = entries[cursor];
+            cursor += 1;
+            const resolved = resolveAudiobookAudioPath(audiobooksDirectory, entry.track.path);
+            const cacheKey = `${resolved.audioPath}:${entry.track.modifiedAt || ''}:${entry.track.size}`;
+            durations[entry.audiobookIndex][entry.trackIndex] = await durationProbe(
+                resolved.audioPath,
+                cacheKey
+            );
         }
-        enriched.push({ ...audiobook, tracks });
-    }
-    return enriched;
+    };
+    const workerCount = Math.min(
+        entries.length,
+        Math.max(1, Number.parseInt(concurrency, 10) || 1)
+    );
+    await Promise.all(Array.from({ length: workerCount }, () => worker()));
+
+    return catalog.map((audiobook, audiobookIndex) => ({
+        ...audiobook,
+        tracks: audiobook.tracks.map((track, trackIndex) => ({
+            ...track,
+            duration: durations[audiobookIndex][trackIndex]
+        }))
+    }));
+};
+
+const createStaleWhileRevalidateLoader = (
+    loadFresh,
+    { maxAgeMs = 30000, now = Date.now, onRefreshError = () => undefined } = {}
+) => {
+    let cachedValue;
+    let cachedAt = 0;
+    let hasCachedValue = false;
+    let refreshPromise = null;
+
+    const refresh = () => {
+        if (refreshPromise) return refreshPromise;
+        refreshPromise = Promise.resolve()
+            .then(loadFresh)
+            .then((value) => {
+                cachedValue = value;
+                cachedAt = now();
+                hasCachedValue = true;
+                return value;
+            })
+            .finally(() => {
+                refreshPromise = null;
+            });
+        return refreshPromise;
+    };
+
+    const load = async () => {
+        if (!hasCachedValue) return refresh();
+        if (now() - cachedAt >= maxAgeMs && !refreshPromise) {
+            refresh().catch(onRefreshError);
+        }
+        return cachedValue;
+    };
+    load.reload = async () => {
+        if (refreshPromise) await refreshPromise.catch(() => undefined);
+        hasCachedValue = false;
+        return refresh();
+    };
+    return load;
 };
 
 const resolveAudiobookDirectoryPath = (audiobooksDirectory, relativeDirectory) => {
@@ -328,6 +385,7 @@ const scanAudiobookCatalog = async (audiobooksDirectory, fsApi = fs.promises) =>
 
 module.exports = {
     AUDIO_EXTENSIONS,
+    createStaleWhileRevalidateLoader,
     AUDIO_CONTENT_TYPES,
     COVER_EXTENSIONS,
     MANAGED_COVER_PREFIX,
