@@ -73,6 +73,19 @@ describe('Audiobookshelf client compatibility', () => {
         });
         expect(login.body.user.accessToken).toBe(login.body.user.token);
         expect(login.body.userDefaultLibraryId).toBe('lib_bookshelf_audiobooks');
+
+        const listeningStats = await request(app)
+            .get('/api/me/listening-stats')
+            .set('Authorization', `Bearer ${accessToken}`);
+        expect(listeningStats.statusCode).toBe(200);
+        expect(listeningStats.body).toEqual({
+            totalTime: 0,
+            items: {},
+            days: {},
+            dayOfWeek: {},
+            today: 0,
+            recentSessions: []
+        });
     });
 
     test('lists the audiobook library and Audiobookshelf-shaped items', async () => {

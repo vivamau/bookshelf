@@ -3,6 +3,7 @@ const {
     buildAuthorizationResponse,
     buildLibraryItem,
     buildLibraryStats,
+    buildListeningStats,
     buildMediaProgress,
     findAudiobookByItemId,
     getAudiobookshelfItemId
@@ -207,5 +208,36 @@ describe('Audiobookshelf compatibility adapter', () => {
         });
         expect(stats.largestItems[0]).toMatchObject({ title: 'The Tombs of Atuan', size: 500 });
         expect(stats.longestItems[0]).toMatchObject({ title: 'The Tombs of Atuan', duration: 200 });
+    });
+
+    test('builds authenticated listening statistics in Audiobookshelf format', () => {
+        const stats = buildListeningStats([{
+            id: 'play_test',
+            userId: '1',
+            libraryItemId: 'li_test',
+            mediaMetadata: { title: 'A Wizard of Earthsea' },
+            date: '2026-08-24',
+            dayOfWeek: 'Monday',
+            timeListening: 63.4,
+            startedAt: 100,
+            updatedAt: 200,
+            audiobook: { folder: 'must-not-leak' }
+        }], Date.parse('2026-08-24T12:00:00.000Z'));
+
+        expect(stats).toMatchObject({
+            totalTime: 63,
+            items: {
+                li_test: {
+                    id: 'li_test',
+                    timeListening: 63,
+                    mediaMetadata: { title: 'A Wizard of Earthsea' }
+                }
+            },
+            days: { '2026-08-24': 63 },
+            dayOfWeek: { Monday: 63 },
+            today: 63,
+            recentSessions: [expect.objectContaining({ id: 'play_test', timeListening: 63 })]
+        });
+        expect(stats.recentSessions[0]).not.toHaveProperty('audiobook');
     });
 });

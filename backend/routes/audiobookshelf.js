@@ -7,6 +7,7 @@ const {
     buildLibrary,
     buildLibraryItem,
     buildLibraryStats,
+    buildListeningStats,
     buildMediaProgress,
     findAudiobookByItemId,
     getAudiobookDuration,
@@ -235,6 +236,13 @@ const createAudiobookshelfRouters = ({
             return res.status(500).json({ error: 'Could not authorize Audiobookshelf client' });
         }
     }));
+
+    apiRouter.get('/me/listening-stats', (req, res) => {
+        const userSessions = [...sessions.values()].filter((session) => (
+            session.userId === String(req.user.user_id)
+        ));
+        return res.json(buildListeningStats(userSessions));
+    });
 
     apiRouter.get('/libraries', (req, res) => res.json({ libraries: [buildLibrary()] }));
 

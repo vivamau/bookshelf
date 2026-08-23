@@ -402,6 +402,46 @@ const buildLibraryStats = (catalog = []) => {
     };
 };
 
+const buildListeningStats = (listeningSessions = [], now = Date.now()) => {
+    const items = {};
+    const days = {};
+    const dayOfWeek = {};
+    const todayKey = new Date(now).toISOString().slice(0, 10);
+    const sessions = listeningSessions.map((session) => {
+        const { audiobook: ignoredAudiobook, ...publicSession } = session;
+        const timeListening = Math.max(0, Math.round(Number(session.timeListening) || 0));
+        const date = session.date || new Date(session.startedAt || now).toISOString().slice(0, 10);
+        const weekday = session.dayOfWeek || new Intl.DateTimeFormat('en-US', {
+            weekday: 'long',
+            timeZone: 'UTC'
+        }).format(new Date(`${date}T00:00:00.000Z`));
+
+        days[date] = (days[date] || 0) + timeListening;
+        dayOfWeek[weekday] = (dayOfWeek[weekday] || 0) + timeListening;
+
+        if (session.libraryItemId) {
+            const existing = items[session.libraryItemId] || {
+                id: session.libraryItemId,
+                timeListening: 0,
+                mediaMetadata: session.mediaMetadata || null
+            };
+            existing.timeListening += timeListening;
+            items[session.libraryItemId] = existing;
+        }
+
+        return { ...publicSession, timeListening, date, dayOfWeek: weekday };
+    }).sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0));
+
+    return {
+        totalTime: sessions.reduce((total, session) => total + session.timeListening, 0),
+        items,
+        days,
+        dayOfWeek,
+        today: days[todayKey] || 0,
+        recentSessions: sessions.slice(0, 10)
+    };
+};
+
 const buildAudiobookshelfUser = (user, token, mediaProgress = []) => {
     const canManageBooks = Boolean(user.userrole_managebooks);
     const isAdmin = Boolean(user.userrole_manageusers);
@@ -483,6 +523,7 @@ module.exports = {
     buildLibrary,
     buildLibraryItem,
     buildLibraryStats,
+    buildListeningStats,
     buildMediaProgress,
     buildServerSettings,
     findAudiobookByItemId,

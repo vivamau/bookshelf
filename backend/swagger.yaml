@@ -1359,6 +1359,14 @@ paths:
           description: Expanded direct-play session and session-scoped audio URLs
         404:
           description: Library item has no playable tracks
+  /api/me/listening-stats:
+    get:
+      summary: Get Audiobookshelf-compatible listening statistics for the current user
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Listening totals grouped by item, date, and day of week, plus recent sessions
   /api/me/progress/{itemId}:
     get:
       summary: Get Audiobookshelf media progress for one audiobook
