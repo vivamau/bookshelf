@@ -2,8 +2,10 @@ const path = require('path');
 const {
     AudiobookCatalogError,
     METADATA_FILE_NAME,
+    enrichAudiobookDurations,
     findAudiobookByFolder,
     getAudiobookContentType,
+    probeAudioDuration,
     resolveAudiobookAudioPath,
     resolveAudiobookCoverPath,
     scanAudiobookCatalog,
@@ -15,6 +17,38 @@ const directoryEntry = (name) => ({ name, isDirectory: () => true, isFile: () =>
 const fileEntry = (name) => ({ name, isDirectory: () => false, isFile: () => true });
 
 describe('audiobook catalog', () => {
+    test('reads audio duration with ffprobe and safely falls back when it is unavailable', async () => {
+        const successfulExec = jest.fn((command, args, options, callback) => callback(null, '123.45\n'));
+        const failedExec = jest.fn((command, args, options, callback) => callback(new Error('missing')));
+
+        await expect(probeAudioDuration('/srv/book.mp3', 'duration-success', successfulExec))
+            .resolves.toBe(123.45);
+        await expect(probeAudioDuration('/srv/missing.mp3', 'duration-failure', failedExec))
+            .resolves.toBe(0);
+        expect(successfulExec).toHaveBeenCalledWith(
+            'ffprobe',
+            expect.arrayContaining(['/srv/book.mp3']),
+            expect.objectContaining({ timeout: 15000 }),
+            expect.any(Function)
+        );
+    });
+
+    test('enriches scanned tracks with probed durations', async () => {
+        const durationProbe = jest.fn(async () => 61.5);
+        const catalog = [{
+            folder: 'Earthsea',
+            tracks: [{ path: 'Earthsea/01.mp3', size: 100, modifiedAt: '2026-08-23T10:00:00Z' }]
+        }];
+
+        const enriched = await enrichAudiobookDurations('/srv/audiobooks', catalog, durationProbe);
+
+        expect(enriched[0].tracks[0].duration).toBe(61.5);
+        expect(durationProbe).toHaveBeenCalledWith(
+            path.join('/srv/audiobooks', 'Earthsea', '01.mp3'),
+            expect.stringContaining(':100')
+        );
+    });
+
     test('serves M4B files with browser-compatible content types', () => {
         expect(getAudiobookContentType('Collection/Complete Book.m4b')).toBe('audio/mp4');
         expect(getAudiobookContentType('Collection/Complete Book.M4B')).toBe('audio/mp4');

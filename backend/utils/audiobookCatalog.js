@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { execFile } = require('child_process');
 
 const AUDIO_EXTENSIONS = new Set(['.aac', '.flac', '.m4a', '.m4b', '.mp3', '.ogg', '.opus', '.wav']);
 const AUDIO_CONTENT_TYPES = Object.freeze({
@@ -22,6 +23,7 @@ const METADATA_TEXT_LIMITS = Object.freeze({
     language: 100,
     description: 5000
 });
+const audioDurationCache = new Map();
 
 class AudiobookCatalogError extends Error {
     constructor(message) {
@@ -100,6 +102,51 @@ const getAudiobookContentType = (relativePath, userAgent = '') => {
         throw new AudiobookCatalogError('Unsupported audiobook audio type');
     }
     return contentType;
+};
+
+const probeAudioDuration = (audioPath, cacheKey = audioPath, execFileApi = execFile) => {
+    if (audioDurationCache.has(cacheKey)) return audioDurationCache.get(cacheKey);
+
+    const durationPromise = new Promise((resolve) => {
+        execFileApi(
+            'ffprobe',
+            [
+                '-v', 'error',
+                '-show_entries', 'format=duration',
+                '-of', 'default=noprint_wrappers=1:nokey=1',
+                audioPath
+            ],
+            { timeout: 15000, maxBuffer: 1024 * 1024 },
+            (error, stdout) => {
+                if (error) return resolve(0);
+                const duration = Number.parseFloat(String(stdout).trim());
+                return resolve(Number.isFinite(duration) && duration > 0 ? duration : 0);
+            }
+        );
+    });
+    audioDurationCache.set(cacheKey, durationPromise);
+    return durationPromise;
+};
+
+const enrichAudiobookDurations = async (
+    audiobooksDirectory,
+    catalog,
+    durationProbe = probeAudioDuration
+) => {
+    const enriched = [];
+    for (const audiobook of catalog) {
+        const tracks = [];
+        for (const track of audiobook.tracks) {
+            const resolved = resolveAudiobookAudioPath(audiobooksDirectory, track.path);
+            const cacheKey = `${resolved.audioPath}:${track.modifiedAt || ''}:${track.size}`;
+            tracks.push({
+                ...track,
+                duration: await durationProbe(resolved.audioPath, cacheKey)
+            });
+        }
+        enriched.push({ ...audiobook, tracks });
+    }
+    return enriched;
 };
 
 const resolveAudiobookDirectoryPath = (audiobooksDirectory, relativeDirectory) => {
@@ -233,7 +280,10 @@ const scanAudiobookCatalog = async (audiobooksDirectory, fsApi = fs.promises) =>
                     title: displayName(file.name),
                     path: file.relativePath,
                     format: file.extension.slice(1).toUpperCase(),
-                    size: file.size
+                    size: file.size,
+                    mimeType: AUDIO_CONTENT_TYPES[file.extension],
+                    modifiedAt: file.modifiedAt,
+                    duration: 0
                 }));
 
             if (!tracks.length) return null;
@@ -284,9 +334,11 @@ module.exports = {
     METADATA_FILE_NAME,
     AudiobookCatalogError,
     findAudiobookByFolder,
+    enrichAudiobookDurations,
     getAudiobookContentType,
     isSafariUserAgent,
     normalizeRelativeAssetPath,
+    probeAudioDuration,
     readAudiobookMetadata,
     resolveAudiobookAudioPath,
     resolveAudiobookCoverPath,

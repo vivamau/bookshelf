@@ -31,13 +31,15 @@ sudo npm install -g pm2
 
 ---
 
-## 3. Install Nginx (Reverse Proxy)
+## 3. Install Nginx and FFmpeg
 
 ```bash
-sudo apt install -y nginx
+sudo apt install -y nginx ffmpeg
 sudo systemctl enable nginx
 sudo systemctl start nginx
 ```
+
+FFmpeg provides `ffprobe`, which Bookshelf uses to expose accurate audiobook durations to SoundLeaf and other Audiobookshelf-compatible clients.
 
 ---
 
@@ -128,7 +130,7 @@ nano frontend/.env
 Set your production API URL (replace with your domain or server IP):
 
 ```env
-VITE_API_BASE_URL=https://yourdomain.com/api
+VITE_API_BASE_URL=https://yourdomain.com
 ```
 
 ---
@@ -214,9 +216,8 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
-    # Proxy API requests to backend
+    # Proxy API requests to backend. Preserve the /api prefix.
     location /api/ {
-        rewrite ^/api/(.*) /$1 break;
         proxy_pass http://localhost:3005;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -226,6 +227,36 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
+    }
+
+    # Public Audiobookshelf/SoundLeaf discovery and authentication endpoints.
+    location ~ ^/(login|logout|register|status|ping|health|healthcheck)$ {
+        proxy_pass http://localhost:3005;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Opaque, session-scoped direct-play URLs returned to audiobook clients.
+    location /public/session/ {
+        proxy_pass http://localhost:3005;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /covers/ {
+        proxy_pass http://localhost:3005;
+    }
+
+    location /extracted/ {
+        proxy_pass http://localhost:3005;
+    }
+
+    location /opds/ {
+        proxy_pass http://localhost:3005;
     }
 }
 ```
@@ -338,7 +369,7 @@ sudo systemctl reload nginx
 Edit `frontend/.env`:
 
 ```env
-VITE_API_BASE_URL=https://<machine>.<tailnet>.ts.net/api
+VITE_API_BASE_URL=https://<machine>.<tailnet>.ts.net
 ```
 
 Rebuild:

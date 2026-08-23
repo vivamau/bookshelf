@@ -2,9 +2,9 @@ openapi: 3.0.0
 info:
   title: Bookshelf API
   description: API for managing the Bookshelf application
-  version: 1.10.2
+  version: 1.50.0
 servers:
-  - url: http://localhost:8080
+  - url: http://localhost:3005
     description: Local server
 components:
   securitySchemes:
@@ -1163,3 +1163,218 @@ paths:
           description: Existing paths classified as duplicates or conflicts
         400:
           description: One or more file descriptors are invalid
+  /status:
+    get:
+      summary: Report Audiobookshelf-compatible server discovery status
+      security: []
+      responses:
+        200:
+          description: Server initialization, language, and supported authentication methods
+  /ping:
+    get:
+      summary: Probe the server using the Audiobookshelf ping contract
+      security: []
+      responses:
+        200:
+          description: Returns success true
+  /api/authorize:
+    post:
+      summary: Restore an Audiobookshelf-compatible client session from a bearer token
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Authorized user, default audiobook library, and compatibility settings
+        403:
+          description: Authentication is required
+  /api/libraries:
+    get:
+      summary: List Audiobookshelf-compatible audiobook libraries
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: The Bookshelf audiobook library
+  /api/libraries/{libraryId}:
+    get:
+      summary: Get the Audiobookshelf-compatible audiobook library
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: libraryId
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Audiobookshelf library object
+        404:
+          description: Library not found
+  /api/libraries/{libraryId}/items:
+    get:
+      summary: List Audiobookshelf-compatible audiobook items
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: libraryId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+        - in: query
+          name: page
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Paginated minified library items
+  /api/libraries/{libraryId}/personalized:
+    get:
+      summary: Get Continue Listening and Recently Added shelves
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: libraryId
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Audiobookshelf personalized shelf list
+  /api/items/{itemId}:
+    get:
+      summary: Get a minified or expanded Audiobookshelf library item
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: expanded
+          schema:
+            type: integer
+            enum: [0, 1]
+      responses:
+        200:
+          description: Audiobookshelf library item
+        404:
+          description: Library item not found
+  /api/items/{itemId}/cover:
+    get:
+      summary: Serve an Audiobookshelf item cover
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Cover image
+        404:
+          description: Cover not found
+  /api/items/{itemId}/file/{trackIndex}:
+    get:
+      summary: Stream one protected Audiobookshelf audio track with byte ranges
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: trackIndex
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Full audio track
+        206:
+          description: Requested audio byte range
+  /api/items/{itemId}/play:
+    post:
+      summary: Start an Audiobookshelf direct-play session
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Expanded direct-play session and session-scoped audio URLs
+        404:
+          description: Library item has no playable tracks
+  /api/me/progress/{itemId}:
+    get:
+      summary: Get Audiobookshelf media progress for one audiobook
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Audiobookshelf media progress
+        404:
+          description: Progress or item not found
+    patch:
+      summary: Create or update Audiobookshelf media progress
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Updated media progress
+  /api/session/{sessionId}/sync:
+    post:
+      summary: Sync an Audiobookshelf direct-play session
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Updated playback session
+  /api/session/{sessionId}/close:
+    post:
+      summary: Persist progress and close an Audiobookshelf playback session
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Session closed

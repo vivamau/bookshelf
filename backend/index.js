@@ -15,6 +15,7 @@ const cors = require('cors');
 const db = require('./config/db');
 const createCrudRouter = require('./utils/crudFactory');
 const createSearchRouter = require('./routes/search');
+const createAudiobookshelfRouters = require('./routes/audiobookshelf');
 const auth = require('./middleware/auth');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs'); 
@@ -40,6 +41,7 @@ const {
     AudiobookCatalogError,
     COVER_EXTENSIONS,
     MANAGED_COVER_PREFIX,
+    enrichAudiobookDurations,
     findAudiobookByFolder,
     getAudiobookContentType,
     resolveAudiobookAudioPath,
@@ -56,6 +58,13 @@ const {
     replaceAudiobookAuthors
 } = require('./utils/audiobookAuthors');
 const { RemoteImageError, downloadRemoteImage } = require('./utils/remoteImage');
+const {
+    buildAuthorizationResponse,
+    buildAudiobookshelfUser,
+    buildMediaProgress
+} = require('./utils/audiobookshelfAdapter');
+const { getRequestToken } = require('./routes/audiobookshelf');
+const serverVersion = require('./package.json').version;
 
 // Security: Ensure TOKEN_KEY is set or generate one
 let TOKEN_KEY = process.env.TOKEN_KEY;
@@ -96,8 +105,16 @@ app.use(cors({
         }
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'X-Access-Token',
+        'X-Return-Tokens',
+        'X-Requested-With',
+        'Accept',
+        'Origin'
+    ],
     exposedHeaders: ['Content-Disposition', 'X-Log-Entry-Count', 'X-Request-ID']
 }));
 app.use(express.json({ limit: '100mb' }));
@@ -115,10 +132,34 @@ app.use(fileUpload({
 app.use('/covers', express.static(path.join(__dirname, 'covers')));
 const BOOKS_DIR = path.join(__dirname, 'books');
 const AUDIOBOOKS_DIR = path.join(__dirname, 'audiobooks');
-const loadAudiobookCatalog = async () => enrichAudiobookCatalog(
-    db,
-    await scanAudiobookCatalog(AUDIOBOOKS_DIR)
-);
+const loadAudiobookCatalog = async () => {
+    const catalog = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
+    const catalogWithDurations = await enrichAudiobookDurations(AUDIOBOOKS_DIR, catalog);
+    return enrichAudiobookCatalog(db, catalogWithDurations);
+};
+const loadAudiobookshelfProgress = async (userId) => {
+    try {
+        const [catalog, rows] = await Promise.all([
+            loadAudiobookCatalog(),
+            new Promise((resolve, reject) => {
+                db.all(
+                    'SELECT * FROM AudiobooksUsers WHERE user_id = ?',
+                    [userId],
+                    (error, progressRows) => error ? reject(error) : resolve(progressRows)
+                );
+            })
+        ]);
+        const catalogByFolder = new Map(catalog.map((audiobook) => [audiobook.folder, audiobook]));
+        return rows.map((row) => (
+            catalogByFolder.has(row.audiobook_folder)
+                ? buildMediaProgress(catalogByFolder.get(row.audiobook_folder), row)
+                : null
+        )).filter(Boolean);
+    } catch (error) {
+        console.error('Could not add Audiobookshelf progress to the user response:', error);
+        return [];
+    }
+};
 
 const swaggerUi = require('swagger-ui-express');
 const yaml = require('js-yaml');
@@ -130,6 +171,19 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.get('/health', (req, res) => {
     res.status(200).json({ status: 'ok' });
 });
+
+// Audiobookshelf-compatible discovery endpoints used by native clients such as SoundLeaf.
+app.get('/status', (req, res) => {
+    res.json({
+        isInit: true,
+        language: 'en-us',
+        authMethods: ['local'],
+        authFormData: null
+    });
+});
+
+app.get('/ping', (req, res) => res.json({ success: true }));
+app.get('/healthcheck', (req, res) => res.sendStatus(200));
 
 // Auth Routes (Public)
 // Auth Routes (Public)
@@ -167,18 +221,24 @@ app.post('/login', (req, res) => {
                     return res.status(400).send("Invalid Credentials");
                 }
 
+                const tokenClaims = {
+                    user_id: user.ID,
+                    username: user.user_username,
+                    userrole_id: user.userrole_id,
+                    userrole_manageusers: user.userrole_manageusers,
+                    userrole_managebooks: user.userrole_managebooks,
+                    userrole_readbooks: user.userrole_readbooks,
+                    userrole_viewbooks: user.userrole_viewbooks
+                };
                 const token = jwt.sign(
-                    {
-                        user_id: user.ID,
-                        username: user.user_username,
-                        userrole_id: user.userrole_id,
-                        userrole_manageusers: user.userrole_manageusers,
-                        userrole_managebooks: user.userrole_managebooks,
-                        userrole_readbooks: user.userrole_readbooks,
-                        userrole_viewbooks: user.userrole_viewbooks
-                    },
+                    tokenClaims,
                     TOKEN_KEY,
                     { expiresIn: "2h" }
+                );
+                const audiobookshelfToken = jwt.sign(
+                    { ...tokenClaims, client: 'audiobookshelf' },
+                    TOKEN_KEY,
+                    { expiresIn: '30d' }
                 );
 
                 // Set cookie for secure authentication
@@ -201,7 +261,18 @@ app.post('/login', (req, res) => {
                     user_theme: user.user_theme
                 };
 
-                return res.status(200).json(userInfo);
+                const mediaProgress = await loadAudiobookshelfProgress(user.ID);
+                const audiobookshelfResponse = buildAuthorizationResponse(
+                    user,
+                    audiobookshelfToken,
+                    mediaProgress,
+                    serverVersion
+                );
+                return res.status(200).json({
+                    ...userInfo,
+                    ...audiobookshelfResponse,
+                    accessToken: audiobookshelfToken
+                });
             }
             return res.status(400).send("Invalid Credentials");
         } catch (error) {
@@ -290,7 +361,7 @@ app.get('/api/me', auth, (req, res) => {
         LEFT JOIN UserRoles r ON u.userrole_id = r.ID
         WHERE u.ID = ?
     `;
-    db.get(sql, [req.user.user_id], (err, user) => {
+    db.get(sql, [req.user.user_id], async (err, user) => {
         if (err) return res.status(500).json({ error: err.message });
         if (!user) return res.status(404).json({ error: 'User not found' });
         
@@ -309,7 +380,13 @@ app.get('/api/me', auth, (req, res) => {
             user_font_size: user.user_font_size,
             user_theme: user.user_theme
         };
-        res.json(userInfo);
+        const mediaProgress = await loadAudiobookshelfProgress(user.ID);
+        const audiobookshelfUser = buildAudiobookshelfUser(user, getRequestToken(req), mediaProgress);
+        res.json({
+            ...audiobookshelfUser,
+            ...userInfo,
+            mediaProgress: audiobookshelfUser.mediaProgress
+        });
     });
 });
 
@@ -2130,6 +2207,18 @@ audiobooksRouter.post('/upload', checkManageBooks, async (req, res) => {
 });
 
 app.use('/api/audiobooks', auth, audiobooksRouter);
+
+const audiobookshelfRouters = createAudiobookshelfRouters({
+    db,
+    loadAudiobookCatalog,
+    audiobooksDirectory: AUDIOBOOKS_DIR,
+    resolveAudiobookAudioPath,
+    resolveAudiobookCoverPath,
+    getAudiobookContentType,
+    serverVersion
+});
+app.use('/api', audiobookshelfRouters.apiRouter);
+app.use('/public/session', audiobookshelfRouters.publicSessionRouter);
 
 // Serve comic pages
 booksRouter.get('/:id/pages', async (req, res) => {

@@ -183,6 +183,21 @@ Audiobook authors use the same `Authors` records as books. Librarians can search
 
 Librarians can add or replace a missing cover by providing a public JPEG, PNG, or WebP image URL on the audiobook details page. Single-file audiobooks download in their original format. Multi-track collections download as a TAR archive. Deleting a collection requires confirmation and permanently removes its server folder, including its tracks, cover, and saved metadata.
 
+### SoundLeaf and Audiobookshelf Clients
+
+Bookshelf exposes an Audiobookshelf 2.25-compatible client API for the audiobook library. This includes server discovery, password login, bearer-token authorization, library browsing, item metadata, protected covers, byte-range audio streaming, direct-play sessions, and per-user progress synchronization.
+
+To connect SoundLeaf:
+
+1. Make sure the Bookshelf backend is reachable from the phone. For local development this is usually `http://<computer-ip>:3005`.
+2. Open SoundLeaf and enter the backend base URL without `/api` at the end.
+3. Sign in with a Bookshelf username and password.
+4. Select the **Audiobooks** library.
+
+Install `ffprobe` (included with FFmpeg) on the server so compatible clients receive accurate track and total durations. Bookshelf falls back to zero-duration metadata when `ffprobe` is unavailable while retaining streaming support.
+
+The compatibility API uses the same role checks and `AudiobooksUsers` progress records as the Bookshelf web interface. Native-client bearer tokens expire after 30 days; browser sessions continue to use the two-hour HttpOnly cookie.
+
 ## 📡 OPDS Feed
 
 Bookshelf provides an OPDS 1.2 catalog to access your library from external ebook reader applications.
