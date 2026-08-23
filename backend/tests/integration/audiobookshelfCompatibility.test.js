@@ -42,6 +42,8 @@ describe('Audiobookshelf client compatibility', () => {
         const status = await request(app).get('/status');
         expect(status.statusCode).toBe(200);
         expect(status.body).toMatchObject({
+            app: 'audiobookshelf',
+            serverVersion: '2.25.1',
             isInit: true,
             authMethods: ['local']
         });

@@ -59,6 +59,7 @@ const {
 } = require('./utils/audiobookAuthors');
 const { RemoteImageError, downloadRemoteImage } = require('./utils/remoteImage');
 const {
+    AUDIOBOOKSHELF_COMPATIBILITY_VERSION,
     buildAuthorizationResponse,
     buildAudiobookshelfUser,
     buildMediaProgress
@@ -175,6 +176,8 @@ app.get('/health', (req, res) => {
 // Audiobookshelf-compatible discovery endpoints used by native clients such as SoundLeaf.
 app.get('/status', (req, res) => {
     res.json({
+        app: 'audiobookshelf',
+        serverVersion: AUDIOBOOKSHELF_COMPATIBILITY_VERSION,
         isInit: true,
         language: 'en-us',
         authMethods: ['local'],
