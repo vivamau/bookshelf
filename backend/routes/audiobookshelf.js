@@ -6,6 +6,7 @@ const {
     buildAuthorizationResponse,
     buildLibrary,
     buildLibraryItem,
+    buildLibraryStats,
     buildMediaProgress,
     findAudiobookByItemId,
     getAudiobookDuration,
@@ -226,6 +227,16 @@ const createAudiobookshelfRouters = ({
     }));
 
     apiRouter.get('/libraries', (req, res) => res.json({ libraries: [buildLibrary()] }));
+
+    apiRouter.get('/libraries/:libraryId/stats', asyncRoute(async (req, res) => {
+        if (!validateLibrary(res, req.params.libraryId)) return;
+        try {
+            return res.json(buildLibraryStats(await loadAudiobookCatalog()));
+        } catch (error) {
+            console.error('Audiobookshelf library stats failed:', error);
+            return res.status(500).json({ error: 'Could not load library statistics' });
+        }
+    }));
 
     apiRouter.get('/libraries/:libraryId/personalized', asyncRoute(async (req, res) => {
         if (!validateLibrary(res, req.params.libraryId)) return;

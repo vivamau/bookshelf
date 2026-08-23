@@ -241,6 +241,55 @@ const buildLibrary = () => ({
     lastUpdate: Date.now()
 });
 
+const buildLibraryStats = (catalog = []) => {
+    const authors = new Map();
+    const genres = new Map();
+    const summaries = catalog.map((audiobook) => {
+        (audiobook.authors || []).forEach((author) => {
+            const id = getAudiobookshelfAuthorId(author.ID);
+            const existing = authors.get(id) || { id, name: authorName(author), count: 0 };
+            existing.count += 1;
+            authors.set(id, existing);
+        });
+        (audiobook.genres || []).forEach((genre) => {
+            if (!genre) return;
+            genres.set(genre, (genres.get(genre) || 0) + 1);
+        });
+        return {
+            id: getAudiobookshelfItemId(audiobook.folder),
+            title: audiobook.title,
+            size: Number(audiobook.totalSize) || 0,
+            duration: getAudiobookDuration(audiobook),
+            numAudioTracks: (audiobook.tracks || []).length
+        };
+    });
+    const authorsWithCount = [...authors.values()].sort((left, right) => (
+        right.count - left.count || left.name.localeCompare(right.name)
+    ));
+    const genresWithCount = [...genres.entries()]
+        .map(([genre, count]) => ({ genre, count }))
+        .sort((left, right) => right.count - left.count || left.genre.localeCompare(right.genre));
+
+    return {
+        largestItems: [...summaries]
+            .sort((left, right) => right.size - left.size)
+            .slice(0, 10)
+            .map(({ id, title, size }) => ({ id, title, size })),
+        totalAuthors: authorsWithCount.length,
+        authorsWithCount,
+        totalGenres: genresWithCount.length,
+        genresWithCount,
+        totalItems: summaries.length,
+        longestItems: [...summaries]
+            .sort((left, right) => right.duration - left.duration)
+            .slice(0, 10)
+            .map(({ id, title, duration }) => ({ id, title, duration })),
+        totalSize: summaries.reduce((total, item) => total + item.size, 0),
+        totalDuration: summaries.reduce((total, item) => total + item.duration, 0),
+        numAudioTracks: summaries.reduce((total, item) => total + item.numAudioTracks, 0)
+    };
+};
+
 const buildAudiobookshelfUser = (user, token, mediaProgress = []) => {
     const canManageBooks = Boolean(user.userrole_managebooks);
     const isAdmin = Boolean(user.userrole_manageusers);
@@ -321,6 +370,7 @@ module.exports = {
     buildAudiobookshelfUser,
     buildLibrary,
     buildLibraryItem,
+    buildLibraryStats,
     buildMediaProgress,
     buildServerSettings,
     findAudiobookByItemId,

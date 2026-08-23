@@ -2,6 +2,7 @@ const {
     AUDIOBOOKSHELF_LIBRARY_ID,
     buildAuthorizationResponse,
     buildLibraryItem,
+    buildLibraryStats,
     buildMediaProgress,
     findAudiobookByItemId,
     getAudiobookshelfItemId
@@ -133,5 +134,30 @@ describe('Audiobookshelf compatibility adapter', () => {
                 bookshelfVersion: '1.50.0'
             }
         });
+    });
+
+    test('builds the library statistics payload requested by SoundLeaf', () => {
+        const secondAudiobook = {
+            ...audiobook,
+            folder: 'Ursula Le Guin/The Tombs of Atuan',
+            title: 'The Tombs of Atuan',
+            totalSize: 500,
+            genres: ['Fantasy'],
+            tracks: [{ ...audiobook.tracks[0], duration: 200 }]
+        };
+        const stats = buildLibraryStats([{ ...audiobook, genres: ['Fantasy'] }, secondAudiobook]);
+
+        expect(stats).toMatchObject({
+            totalAuthors: 1,
+            authorsWithCount: [expect.objectContaining({ name: 'Ursula K. Le Guin', count: 2 })],
+            totalGenres: 1,
+            genresWithCount: [{ genre: 'Fantasy', count: 2 }],
+            totalItems: 2,
+            totalSize: 800,
+            totalDuration: 350,
+            numAudioTracks: 3
+        });
+        expect(stats.largestItems[0]).toMatchObject({ title: 'The Tombs of Atuan', size: 500 });
+        expect(stats.longestItems[0]).toMatchObject({ title: 'The Tombs of Atuan', duration: 200 });
     });
 });

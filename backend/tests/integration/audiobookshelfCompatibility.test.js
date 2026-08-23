@@ -98,6 +98,21 @@ describe('Audiobookshelf client compatibility', () => {
             contentUrl: `/api/items/${itemId}/file/0`,
             mimeType: 'audio/mpeg'
         });
+
+        const stats = await request(app)
+            .get('/api/libraries/lib_bookshelf_audiobooks/stats')
+            .set('Authorization', `Bearer ${accessToken}`);
+        expect(stats.statusCode).toBe(200);
+        expect(stats.body).toMatchObject({
+            totalItems: expect.any(Number),
+            totalSize: expect.any(Number),
+            totalDuration: expect.any(Number),
+            numAudioTracks: expect.any(Number),
+            largestItems: expect.any(Array),
+            longestItems: expect.any(Array),
+            authorsWithCount: expect.any(Array),
+            genresWithCount: expect.any(Array)
+        });
     });
 
     test('starts a direct-play session and streams its protected track', async () => {

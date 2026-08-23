@@ -1233,6 +1233,22 @@ paths:
       responses:
         200:
           description: Paginated minified library items
+  /api/libraries/{libraryId}/stats:
+    get:
+      summary: Get Audiobookshelf-compatible audiobook library statistics
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: libraryId
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Item, author, genre, duration, size, and audio-track statistics
+        404:
+          description: Library not found
   /api/libraries/{libraryId}/personalized:
     get:
       summary: Get Continue Listening and Recently Added shelves
