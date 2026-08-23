@@ -47,6 +47,18 @@ describe('Audiobookshelf client compatibility', () => {
             isInit: true,
             authMethods: ['local']
         });
+        expect(status.headers['cache-control']).toBe('no-store');
+
+        const conditionalStatus = await request(app)
+            .get('/status')
+            .set('If-None-Match', status.headers.etag);
+        expect(conditionalStatus.statusCode).toBe(200);
+
+        const ping = await request(app)
+            .get('/ping')
+            .set('If-None-Match', 'W/"cached-soundleaf-ping"');
+        expect(ping.statusCode).toBe(200);
+        expect(ping.body).toEqual({ success: true });
 
         const login = await request(app)
             .post('/login')
@@ -81,9 +93,12 @@ describe('Audiobookshelf client compatibility', () => {
             candidate.media.metadata.title === folderName
         ));
         expect(item).toMatchObject({
+            oldLibraryItemId: null,
             mediaType: 'book',
             media: {
+                id: expect.any(String),
                 numTracks: 1,
+                metadata: { abridged: false },
                 coverPath: expect.stringMatching(/^\/api\/items\/.+\/cover$/)
             }
         });

@@ -11,6 +11,7 @@ const stableId = (prefix, value) => (
 );
 
 const getAudiobookshelfItemId = (folder) => stableId('li', folder);
+const getAudiobookshelfMediaId = (folder) => stableId('media', folder);
 const getAudiobookshelfAuthorId = (authorId) => stableId('aut', authorId);
 const getAudiobookshelfTrackId = (trackPath) => stableId('lf', trackPath);
 
@@ -60,7 +61,8 @@ const buildMetadata = (audiobook, expanded) => {
         isbn: null,
         asin: null,
         language: audiobook.language || null,
-        explicit: false
+        explicit: false,
+        abridged: false
     };
 
     if (!expanded) {
@@ -167,6 +169,7 @@ const buildLibraryItem = (audiobook, options = {}) => {
     const duration = getAudiobookDuration(audiobook);
     const coverPath = audiobook.coverPath ? `/api/items/${itemId}/cover` : null;
     const media = expanded ? {
+        id: getAudiobookshelfMediaId(audiobook.folder),
         libraryItemId: itemId,
         metadata: buildMetadata(audiobook, true),
         coverPath,
@@ -178,6 +181,7 @@ const buildLibraryItem = (audiobook, options = {}) => {
         tracks: audioTracks,
         ebookFile: null
     } : {
+        id: getAudiobookshelfMediaId(audiobook.folder),
         metadata: buildMetadata(audiobook, false),
         coverPath,
         tags: [],
@@ -192,6 +196,7 @@ const buildLibraryItem = (audiobook, options = {}) => {
     const item = {
         id: itemId,
         ino: stableId('ino', audiobook.folder),
+        oldLibraryItemId: null,
         libraryId: AUDIOBOOKSHELF_LIBRARY_ID,
         folderId: AUDIOBOOKSHELF_FOLDER_ID,
         path: `/audiobooks/${audiobook.folder}`,
@@ -233,10 +238,26 @@ const buildLibrary = () => ({
     settings: {
         coverAspectRatio: 1,
         disableWatcher: true,
+        audiobooksOnly: true,
+        epubsAllowScriptedContent: false,
+        hideSingleBookSeries: false,
+        onlyShowLaterBooksInContinueSeries: false,
+        metadataPrecedence: [
+            'folderStructure',
+            'audioMetatags',
+            'nfoFile',
+            'txtFiles',
+            'opfFile',
+            'absMetadata'
+        ],
+        markAsFinishedPercentComplete: null,
+        markAsFinishedTimeRemaining: 10,
         skipMatchingMediaWithAsin: false,
         skipMatchingMediaWithIsbn: false,
         autoScanCronExpression: null
     },
+    lastScan: 0,
+    lastScanVersion: AUDIOBOOKSHELF_COMPATIBILITY_VERSION,
     createdAt: 0,
     lastUpdate: Date.now()
 });
@@ -375,5 +396,6 @@ module.exports = {
     buildServerSettings,
     findAudiobookByItemId,
     getAudiobookDuration,
-    getAudiobookshelfItemId
+    getAudiobookshelfItemId,
+    getAudiobookshelfMediaId
 };

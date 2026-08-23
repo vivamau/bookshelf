@@ -166,6 +166,13 @@ const swaggerUi = require('swagger-ui-express');
 const yaml = require('js-yaml');
 const swaggerDocument = yaml.load(fs.readFileSync(path.join(__dirname, 'swagger.yaml'), 'utf8'));
 
+const sendFreshCompatibilityResponse = (req, res, next) => {
+    delete req.headers['if-none-match'];
+    delete req.headers['if-modified-since'];
+    res.setHeader('Cache-Control', 'no-store');
+    next();
+};
+
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // Health check
@@ -174,7 +181,7 @@ app.get('/health', (req, res) => {
 });
 
 // Audiobookshelf-compatible discovery endpoints used by native clients such as SoundLeaf.
-app.get('/status', (req, res) => {
+app.get('/status', sendFreshCompatibilityResponse, (req, res) => {
     res.json({
         app: 'audiobookshelf',
         serverVersion: AUDIOBOOKSHELF_COMPATIBILITY_VERSION,
@@ -185,8 +192,8 @@ app.get('/status', (req, res) => {
     });
 });
 
-app.get('/ping', (req, res) => res.json({ success: true }));
-app.get('/healthcheck', (req, res) => res.sendStatus(200));
+app.get('/ping', sendFreshCompatibilityResponse, (req, res) => res.json({ success: true }));
+app.get('/healthcheck', sendFreshCompatibilityResponse, (req, res) => res.sendStatus(200));
 
 // Auth Routes (Public)
 // Auth Routes (Public)
@@ -355,7 +362,7 @@ app.post('/register', async (req, res) => {
 app.use('/api', auth);
 
 // Get current user (session check)
-app.get('/api/me', auth, (req, res) => {
+app.get('/api/me', auth, sendFreshCompatibilityResponse, (req, res) => {
     // req.user is set by auth middleware
     const sql = `
         SELECT u.ID, u.user_username, u.user_email, u.user_name, u.user_lastname, u.user_avatar, u.userrole_id, u.user_font_family, u.user_font_size, u.user_theme, 

@@ -316,6 +316,8 @@ const createAudiobookshelfRouters = ({
                 mediaType: 'book',
                 minified: true,
                 collapseSeries: false,
+                collapseseries: false,
+                offset: page * limit,
                 include: req.query.include || ''
             });
         } catch (error) {

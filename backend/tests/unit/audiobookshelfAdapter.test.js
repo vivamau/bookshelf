@@ -59,8 +59,10 @@ describe('Audiobookshelf compatibility adapter', () => {
                 metadata: {
                     title: 'A Wizard of Earthsea',
                     authorName: 'Ursula K. Le Guin',
-                    narratorName: 'Rob Inglis'
+                    narratorName: 'Rob Inglis',
+                    abridged: false
                 },
+                id: expect.any(String),
                 numTracks: 2,
                 duration: 150,
                 coverPath: `/api/items/${firstId}/cover`
@@ -87,6 +89,7 @@ describe('Audiobookshelf compatibility adapter', () => {
             })
         ]);
         expect(item.media.audioFiles).toHaveLength(2);
+        expect(item.media.id).toEqual(expect.any(String));
         expect(item.media.metadata.authors[0].name).toBe('Ursula K. Le Guin');
     });
 
