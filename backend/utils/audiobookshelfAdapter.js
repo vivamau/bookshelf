@@ -304,10 +304,10 @@ const buildLibraryItem = (audiobook, options = {}) => {
         mediaType: 'book',
         media,
         numFiles: libraryFiles.length,
-        size: audiobook.totalSize,
-        libraryFiles
+        size: audiobook.totalSize
     };
 
+    if (expanded) item.libraryFiles = libraryFiles;
     const progress = buildMediaProgress(audiobook, options.progressRow);
     if (progress) item.userMediaProgress = progress;
     return item;

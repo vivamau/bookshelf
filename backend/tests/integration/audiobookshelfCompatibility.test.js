@@ -102,6 +102,7 @@ describe('Audiobookshelf client compatibility', () => {
                 coverPath: expect.stringMatching(/^\/api\/items\/.+\/cover$/)
             }
         });
+        expect(item).not.toHaveProperty('libraryFiles');
         itemId = item.id;
 
         const expanded = await request(app)

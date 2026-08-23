@@ -69,6 +69,7 @@ describe('Audiobookshelf compatibility adapter', () => {
             }
         });
         expect(findAudiobookByItemId([audiobook], firstId)).toBe(audiobook);
+        expect(item).not.toHaveProperty('libraryFiles');
     });
 
     test('builds expanded tracks with cumulative offsets and protected URLs', () => {
