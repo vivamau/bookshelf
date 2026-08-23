@@ -79,7 +79,11 @@ describe('Audiobookshelf compatibility adapter', () => {
                 index: 0,
                 startOffset: 0,
                 duration: 60,
-                mimeType: 'audio/mpeg'
+                mimeType: 'audio/mpeg',
+                ino: expect.any(String),
+                bitRate: expect.any(Number),
+                chapters: expect.any(Array),
+                metaTags: expect.any(Object)
             }),
             expect.objectContaining({
                 index: 1,
@@ -91,6 +95,46 @@ describe('Audiobookshelf compatibility adapter', () => {
         expect(item.media.audioFiles).toHaveLength(2);
         expect(item.media.id).toEqual(expect.any(String));
         expect(item.media.metadata.authors[0].name).toBe('Ursula K. Le Guin');
+        expect(item.media.metadata).toMatchObject({
+            authorName: 'Ursula K. Le Guin',
+            authorNameLF: 'Ursula K. Le Guin',
+            narratorName: 'Rob Inglis',
+            seriesName: '',
+            descriptionPlain: 'A classic fantasy audiobook.'
+        });
+        expect(item.media).toMatchObject({
+            numTracks: 2,
+            numAudioFiles: 2,
+            numChapters: 2
+        });
+        expect(item.media.audioFiles[0]).toMatchObject({
+            trackNumFromMeta: 1,
+            trackNumFromFilename: null,
+            timeBase: '1/1000',
+            channelLayout: '',
+            metaTags: {
+                tagAlbum: 'A Wizard of Earthsea',
+                tagArtist: 'Ursula K. Le Guin',
+                tagTitle: 'Chapter 1',
+                tagTrack: '1'
+            },
+            metadata: {
+                mtimeMs: expect.any(Number),
+                ctimeMs: expect.any(Number),
+                birthtimeMs: expect.any(Number)
+            }
+        });
+        expect(item.media.chapters).toEqual([
+            { id: 0, start: 0, end: 60, title: 'Chapter 1' },
+            { id: 1, start: 60, end: 150, title: 'Chapter 2' }
+        ]);
+        expect(item.libraryFiles).toHaveLength(3);
+        expect(item.libraryFiles[0]).toMatchObject({
+            ino: expect.any(String),
+            fileType: 'audio',
+            isSupplementary: null,
+            metadata: { filename: '01.mp3', size: 100 }
+        });
     });
 
     test('maps Bookshelf chapter progress to an Audiobookshelf media progress object', () => {

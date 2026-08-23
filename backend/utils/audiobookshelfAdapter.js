@@ -58,6 +58,7 @@ const buildMetadata = (audiobook, expanded) => {
         publishedDate: null,
         publisher: null,
         description: audiobook.description || null,
+        descriptionPlain: audiobook.description || null,
         isbn: null,
         asin: null,
         language: audiobook.language || null,
@@ -65,23 +66,61 @@ const buildMetadata = (audiobook, expanded) => {
         abridged: false
     };
 
-    if (!expanded) {
-        return {
-            ...common,
-            authorName: names,
-            authorNameLF: names,
-            narratorName: audiobook.narrator || '',
-            seriesName: ''
-        };
-    }
+    const searchableNames = {
+        authorName: names,
+        authorNameLF: names,
+        narratorName: audiobook.narrator || '',
+        seriesName: ''
+    };
+
+    if (!expanded) return { ...common, ...searchableNames };
 
     return {
         ...common,
+        ...searchableNames,
         authors: buildAuthors(audiobook),
         narrators: audiobook.narrator ? [audiobook.narrator] : [],
         series: []
     };
 };
+
+const buildFileMetadata = (audiobook, track) => {
+    const timestamp = toTimestamp(track.modifiedAt || audiobook.modifiedAt);
+    return {
+        filename: path.posix.basename(track.path),
+        ext: path.posix.extname(track.path).slice(1),
+        path: track.path,
+        relPath: track.path,
+        size: Number(track.size) || 0,
+        mtimeMs: timestamp,
+        ctimeMs: timestamp,
+        birthtimeMs: 0
+    };
+};
+
+const buildMetaTags = (audiobook, track, index) => ({
+    tagAlbum: audiobook.title || '',
+    tagArtist: getAudiobookAuthorsText(audiobook),
+    tagGenre: '',
+    tagTitle: track.title || path.posix.basename(track.path),
+    tagTrack: String(index + 1),
+    tagDisc: null,
+    tagDate: audiobook.publishedYear ? String(audiobook.publishedYear) : null,
+    tagComment: null,
+    tagDescription: null,
+    tagComposer: null,
+    tagPublisher: null,
+    tagSeries: null,
+    tagSeriesPart: null,
+    tagSubtitle: null,
+    tagAlbumSort: null,
+    tagArtistSort: null,
+    tagTitleSort: null,
+    tagIsbn: null,
+    tagAsin: null,
+    tagLanguage: audiobook.language || null,
+    tagEncoder: ''
+});
 
 const buildAudioTracks = (audiobook, itemId, contentUrlFactory) => {
     let startOffset = 0;
@@ -94,45 +133,84 @@ const buildAudioTracks = (audiobook, itemId, contentUrlFactory) => {
             title: path.posix.basename(track.path),
             contentUrl: contentUrlFactory(itemId, index),
             mimeType: track.mimeType || null,
-            metadata: {
-                filename: path.posix.basename(track.path),
-                ext: path.posix.extname(track.path).slice(1),
-                path: track.path,
-                relPath: track.path,
-                size: track.size
-            }
+            metadata: buildFileMetadata(audiobook, track)
         };
         startOffset += duration;
         return audioTrack;
     });
 };
 
-const buildAudioFiles = (audiobook, audioTracks) => audioTracks.map((track) => ({
-    index: track.index,
-    ino: getAudiobookshelfTrackId(audiobook.tracks[track.index].path),
-    metadata: track.metadata,
-    addedAt: toTimestamp(audiobook.modifiedAt),
-    updatedAt: toTimestamp(audiobook.modifiedAt),
-    trackNumFromMeta: null,
-    discNumFromMeta: null,
-    trackNumFromFilename: track.index + 1,
-    discNumFromFilename: null,
-    manuallyVerified: false,
-    exclude: false,
-    error: null,
-    format: audiobook.tracks[track.index].format,
-    duration: track.duration,
-    bitRate: 0,
-    language: audiobook.language || null,
-    codec: path.posix.extname(audiobook.tracks[track.index].path).slice(1),
-    timeBase: null,
-    channels: 0,
-    channelLayout: null,
-    chapters: [],
-    embeddedCoverArt: null,
-    metaTags: {},
-    mimeType: track.mimeType
+const buildAudioFiles = (audiobook, audioTracks) => audioTracks.map((track) => {
+    const sourceTrack = audiobook.tracks[track.index];
+    const timestamp = toTimestamp(sourceTrack.modifiedAt || audiobook.modifiedAt);
+    return {
+        index: track.index,
+        ino: getAudiobookshelfTrackId(sourceTrack.path),
+        metadata: track.metadata,
+        addedAt: timestamp,
+        updatedAt: timestamp,
+        trackNumFromMeta: track.index + 1,
+        discNumFromMeta: null,
+        trackNumFromFilename: null,
+        discNumFromFilename: null,
+        manuallyVerified: false,
+        exclude: false,
+        error: null,
+        format: sourceTrack.format || path.posix.extname(sourceTrack.path).slice(1),
+        duration: track.duration,
+        bitRate: 0,
+        language: audiobook.language || null,
+        codec: path.posix.extname(sourceTrack.path).slice(1),
+        timeBase: '1/1000',
+        channels: 0,
+        channelLayout: '',
+        chapters: [],
+        embeddedCoverArt: null,
+        metaTags: buildMetaTags(audiobook, sourceTrack, track.index),
+        mimeType: track.mimeType
+    };
+});
+
+const buildMediaChapters = (audiobook, audioTracks) => audioTracks.map((track) => ({
+    id: track.index,
+    start: track.startOffset,
+    end: track.startOffset + track.duration,
+    title: audiobook.tracks[track.index].title || track.title
 }));
+
+const buildLibraryFiles = (audiobook) => {
+    const audioFiles = (audiobook.tracks || []).map((track) => {
+        const timestamp = toTimestamp(track.modifiedAt || audiobook.modifiedAt);
+        return {
+            ino: getAudiobookshelfTrackId(track.path),
+            metadata: buildFileMetadata(audiobook, track),
+            isSupplementary: null,
+            addedAt: timestamp,
+            updatedAt: timestamp,
+            fileType: 'audio'
+        };
+    });
+
+    if (!audiobook.coverPath) return audioFiles;
+    const timestamp = toTimestamp(audiobook.modifiedAt);
+    return [...audioFiles, {
+        ino: getAudiobookshelfTrackId(audiobook.coverPath),
+        metadata: {
+            filename: path.posix.basename(audiobook.coverPath),
+            ext: path.posix.extname(audiobook.coverPath).slice(1),
+            path: audiobook.coverPath,
+            relPath: audiobook.coverPath,
+            size: 0,
+            mtimeMs: timestamp,
+            ctimeMs: timestamp,
+            birthtimeMs: 0
+        },
+        isSupplementary: null,
+        addedAt: timestamp,
+        updatedAt: timestamp,
+        fileType: 'image'
+    }];
+};
 
 const buildMediaProgress = (audiobook, row) => {
     if (!row) return null;
@@ -166,6 +244,15 @@ const buildLibraryItem = (audiobook, options = {}) => {
     const modifiedAt = toTimestamp(audiobook.modifiedAt);
     const contentUrlFactory = options.contentUrlFactory || ((id, index) => `/api/items/${id}/file/${index}`);
     const audioTracks = buildAudioTracks(audiobook, itemId, contentUrlFactory);
+    const audioFiles = buildAudioFiles(audiobook, audioTracks);
+    const tracks = audioTracks.map((track, index) => ({
+        ...audioFiles[index],
+        startOffset: track.startOffset,
+        title: audiobook.tracks[index].title || track.title,
+        contentUrl: track.contentUrl
+    }));
+    const chapters = buildMediaChapters(audiobook, audioTracks);
+    const libraryFiles = buildLibraryFiles(audiobook);
     const duration = getAudiobookDuration(audiobook);
     const coverPath = audiobook.coverPath ? `/api/items/${itemId}/cover` : null;
     const media = expanded ? {
@@ -174,11 +261,14 @@ const buildLibraryItem = (audiobook, options = {}) => {
         metadata: buildMetadata(audiobook, true),
         coverPath,
         tags: [],
-        audioFiles: buildAudioFiles(audiobook, audioTracks),
-        chapters: [],
+        audioFiles,
+        chapters,
+        numTracks: audioTracks.length,
+        numAudioFiles: audioFiles.length,
+        numChapters: chapters.length,
         duration,
         size: audiobook.totalSize,
-        tracks: audioTracks,
+        tracks,
         ebookFile: null
     } : {
         id: getAudiobookshelfMediaId(audiobook.folder),
@@ -213,8 +303,9 @@ const buildLibraryItem = (audiobook, options = {}) => {
         isInvalid: false,
         mediaType: 'book',
         media,
-        numFiles: audiobook.tracks.length + (audiobook.coverPath ? 1 : 0),
-        size: audiobook.totalSize
+        numFiles: libraryFiles.length,
+        size: audiobook.totalSize,
+        libraryFiles
     };
 
     const progress = buildMediaProgress(audiobook, options.progressRow);

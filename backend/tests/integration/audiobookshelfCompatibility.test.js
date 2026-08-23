@@ -155,8 +155,12 @@ describe('Audiobookshelf client compatibility', () => {
                 media: expect.objectContaining({
                     id: expect.any(String),
                     tracks: expect.any(Array),
-                    audioFiles: expect.any(Array)
-                })
+                    audioFiles: expect.any(Array),
+                    numTracks: expect.any(Number),
+                    numAudioFiles: expect.any(Number),
+                    numChapters: expect.any(Number)
+                }),
+                libraryFiles: expect.any(Array)
             })
         ]);
     });

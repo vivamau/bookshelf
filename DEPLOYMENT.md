@@ -441,6 +441,53 @@ calendar day and start/end time, inspect request details and stack traces, and
 download the full day's entries from both the active log and rotated archives as
 a `bookshelf-errors-YYYY-MM-DD.jsonl` file.
 
+### Recovering When PM2 Will Not Restart Bookshelf
+
+Validate the backend files before resetting PM2. A syntax error will otherwise
+put the process straight back into a restart loop:
+
+```bash
+node --check /var/www/bookshelf/backend/routes/audiobookshelf.js
+node --check /var/www/bookshelf/backend/utils/audiobookshelfAdapter.js
+node --check /var/www/bookshelf/backend/index.js
+```
+
+If all commands finish without output, remove and recreate only the Bookshelf
+process:
+
+```bash
+sudo -u bookshelf PM2_HOME=/home/bookshelf/.pm2 pm2 delete bookshelf-backend
+sudo -u bookshelf PM2_HOME=/home/bookshelf/.pm2 \
+  pm2 start /var/www/bookshelf/backend/index.js \
+  --name bookshelf-backend \
+  --cwd /var/www/bookshelf/backend
+sudo -u bookshelf PM2_HOME=/home/bookshelf/.pm2 pm2 save
+```
+
+Verify both PM2 and the backend directly:
+
+```bash
+sudo -u bookshelf PM2_HOME=/home/bookshelf/.pm2 pm2 status
+curl -i http://localhost:3005/status
+```
+
+If the PM2 daemon itself is unresponsive, reset its saved process state and
+daemon before running the `pm2 start` and `pm2 save` commands above again. This
+takes all processes managed under the `bookshelf` PM2 home offline until they
+are started again:
+
+```bash
+sudo -u bookshelf PM2_HOME=/home/bookshelf/.pm2 pm2 kill
+sudo -u bookshelf PM2_HOME=/home/bookshelf/.pm2 pm2 cleardump
+```
+
+If Bookshelf immediately enters the `errored` state, inspect the startup error:
+
+```bash
+sudo -u bookshelf PM2_HOME=/home/bookshelf/.pm2 \
+  pm2 logs bookshelf-backend --lines 100 --nostream
+```
+
 ### Cleaning PM2 Logs and State
 
 To clear PM2-managed output/error logs and reset restart counters while keeping
@@ -464,16 +511,6 @@ current file with:
 
 ```bash
 sudo -u bookshelf truncate -s 0 /var/www/bookshelf/backend/logs/application.log
-```
-
-The following commands completely remove Bookshelf from PM2 and take the
-application offline. `pm2 cleardump` prevents an old saved process list from
-being restored after reboot:
-
-```bash
-sudo -u bookshelf PM2_HOME=/home/bookshelf/.pm2 pm2 delete bookshelf-backend
-sudo -u bookshelf PM2_HOME=/home/bookshelf/.pm2 pm2 cleardump
-sudo -u bookshelf PM2_HOME=/home/bookshelf/.pm2 pm2 kill
 ```
 
 References: [PM2 log management](https://pm2.keymetrics.io/docs/usage/log-management/)
