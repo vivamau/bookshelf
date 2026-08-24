@@ -319,6 +319,7 @@ const buildLibraryItem = (audiobook, options = {}) => {
     const expanded = options.expanded === true;
     const itemId = getAudiobookshelfItemId(audiobook.folder);
     const modifiedAt = toTimestamp(audiobook.modifiedAt);
+    const updatedAt = toTimestamp(audiobook.updatedAt || audiobook.modifiedAt);
     const contentUrlFactory = options.contentUrlFactory || ((id, _index, fileId) => `/api/items/${id}/file/${fileId}`);
     const audioTracks = buildAudioTracks(audiobook, itemId, contentUrlFactory);
     const audioFiles = buildAudioFiles(audiobook, audioTracks);
@@ -372,12 +373,12 @@ const buildLibraryItem = (audiobook, options = {}) => {
         path: `/audiobooks/${audiobook.folder}`,
         relPath: audiobook.folder,
         isFile: audiobook.folder === '.' && audiobook.tracks.length === 1,
-        mtimeMs: modifiedAt,
+        mtimeMs: updatedAt,
         ctimeMs: modifiedAt,
         birthtimeMs: 0,
         addedAt: modifiedAt,
-        updatedAt: modifiedAt,
-        lastScan: modifiedAt,
+        updatedAt,
+        lastScan: updatedAt,
         scanVersion: 'bookshelf-1',
         isMissing: false,
         isInvalid: false,

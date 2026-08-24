@@ -455,4 +455,39 @@ describe('Audiobookshelf client compatibility', () => {
             expect.objectContaining({ libraryItemId: itemId, progress: 0.25 })
         ]);
     });
+
+    test('refreshes minified SoundLeaf library metadata after an edit', async () => {
+        const before = await request(app)
+            .get('/api/libraries/lib_bookshelf_audiobooks/items')
+            .set('Authorization', `Bearer ${accessToken}`);
+        const beforeItem = before.body.results.find(({ id }) => id === itemId);
+
+        const update = await request(app)
+            .put('/api/audiobooks/metadata')
+            .set('Authorization', `Bearer ${accessToken}`)
+            .send({
+                folder: folderName,
+                metadata: {
+                    title: 'SoundLeaf Updated Title',
+                    author: 'Sound Leaf Author',
+                    narrator: 'Updated Narrator',
+                    series: 'SoundLeaf Saga',
+                    seriesSequence: '1'
+                }
+            });
+        expect(update.statusCode).toBe(200);
+
+        const after = await request(app)
+            .get('/api/libraries/lib_bookshelf_audiobooks/items')
+            .query({ minified: 1 })
+            .set('Authorization', `Bearer ${accessToken}`);
+        const afterItem = after.body.results.find(({ id }) => id === itemId);
+
+        expect(afterItem.media.metadata).toMatchObject({
+            title: 'SoundLeaf Updated Title',
+            narratorName: 'Updated Narrator'
+        });
+        expect(afterItem.addedAt).toBe(beforeItem.addedAt);
+        expect(afterItem.updatedAt).toBeGreaterThan(beforeItem.updatedAt);
+    });
 });

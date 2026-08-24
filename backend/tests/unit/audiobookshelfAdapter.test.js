@@ -81,6 +81,18 @@ describe('Audiobookshelf compatibility adapter', () => {
         expect(itemWithoutPhysicalCover.media.coverPath).toMatch(/^\/api\/items\/.+\/cover$/);
     });
 
+    test('marks minified items updated when only saved metadata changes', () => {
+        const item = buildLibraryItem({
+            ...audiobook,
+            updatedAt: '2026-08-24T10:00:00.000Z'
+        });
+
+        expect(item.addedAt).toBe(Date.parse(audiobook.modifiedAt));
+        expect(item.updatedAt).toBe(Date.parse('2026-08-24T10:00:00.000Z'));
+        expect(item.mtimeMs).toBe(item.updatedAt);
+        expect(item.lastScan).toBe(item.updatedAt);
+    });
+
     test('builds expanded tracks with cumulative offsets and protected URLs', () => {
         const item = buildLibraryItem(audiobook, { expanded: true });
 

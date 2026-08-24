@@ -361,6 +361,18 @@ const scanAudiobookCatalog = async (audiobooksDirectory, fsApi = fs.promises) =>
             );
             const folderName = directory === '.' ? tracks[0].title : path.posix.basename(directory);
             const metadata = await readAudiobookMetadata(audiobooksDirectory, directory, fsApi);
+            let metadataModifiedAt = null;
+            if (Object.keys(metadata).length > 0) {
+                try {
+                    const directoryPath = resolveAudiobookDirectoryPath(audiobooksDirectory, directory);
+                    const metadataStats = await fsApi.stat(path.join(directoryPath, METADATA_FILE_NAME));
+                    metadataModifiedAt = metadataStats.mtime instanceof Date
+                        ? metadataStats.mtime.toISOString()
+                        : new Date(metadataStats.mtimeMs).toISOString();
+                } catch {
+                    metadataModifiedAt = null;
+                }
+            }
 
             return {
                 id: directory,
@@ -371,6 +383,9 @@ const scanAudiobookCatalog = async (audiobooksDirectory, fsApi = fs.promises) =>
                 totalSize: tracks.reduce((total, track) => total + track.size, 0),
                 formats: [...new Set(tracks.map((track) => track.format))],
                 modifiedAt: latestModifiedAt,
+                updatedAt: metadataModifiedAt && metadataModifiedAt > latestModifiedAt
+                    ? metadataModifiedAt
+                    : latestModifiedAt,
                 author: metadata.author || '',
                 narrator: metadata.narrator || '',
                 series: metadata.series || null,

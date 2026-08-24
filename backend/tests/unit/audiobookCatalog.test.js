@@ -225,6 +225,28 @@ describe('audiobook catalog', () => {
         });
     });
 
+    test('uses the metadata file timestamp as the catalogue update timestamp', async () => {
+        const root = path.join(path.sep, 'srv', 'bookshelf', 'audiobooks');
+        const collection = path.join(root, 'Earthsea');
+        const audioModifiedAt = new Date('2026-08-14T10:00:00.000Z');
+        const metadataModifiedAt = new Date('2026-08-24T10:00:00.000Z');
+        const fsApi = {
+            readdir: jest.fn(async (directory) => directory === root
+                ? [directoryEntry('Earthsea')]
+                : [fileEntry('Chapter 01.mp3')]),
+            stat: jest.fn(async (filePath) => ({
+                size: 100,
+                mtime: filePath.endsWith(METADATA_FILE_NAME) ? metadataModifiedAt : audioModifiedAt
+            })),
+            readFile: jest.fn(async () => JSON.stringify({ title: 'A Wizard of Earthsea' }))
+        };
+
+        const [result] = await scanAudiobookCatalog(root, fsApi);
+
+        expect(result.modifiedAt).toBe(audioModifiedAt.toISOString());
+        expect(result.updatedAt).toBe(metadataModifiedAt.toISOString());
+    });
+
     test('writes sanitized metadata inside the collection directory', async () => {
         const root = path.join(path.sep, 'srv', 'bookshelf', 'audiobooks');
         const collection = path.join(root, 'Earthsea');
