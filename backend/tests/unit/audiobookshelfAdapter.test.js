@@ -10,7 +10,8 @@ const {
     findAudiobookByItemId,
     findAudiobooksByAuthorId,
     findAudiobooksBySeriesId,
-    getAudiobookshelfItemId
+    getAudiobookshelfItemId,
+    getAudiobookshelfTrackId
 } = require('../../utils/audiobookshelfAdapter');
 
 const audiobook = {
@@ -83,6 +84,11 @@ describe('Audiobookshelf compatibility adapter', () => {
     test('builds expanded tracks with cumulative offsets and protected URLs', () => {
         const item = buildLibraryItem(audiobook, { expanded: true });
 
+        expect(getAudiobookshelfTrackId(audiobook.tracks[0].path)).toMatch(/^\d+$/);
+        expect(getAudiobookshelfTrackId(audiobook.tracks[0].path)).toBe(
+            getAudiobookshelfTrackId(audiobook.tracks[0].path)
+        );
+
         expect(item.media.tracks).toEqual([
             expect.objectContaining({
                 index: 1,
@@ -102,6 +108,8 @@ describe('Audiobookshelf compatibility adapter', () => {
             })
         ]);
         expect(item.media.audioFiles).toHaveLength(2);
+        expect(item.media.audioFiles[0].ino).toMatch(/^\d+$/);
+        expect(item.libraryFiles[0].ino).toBe(item.media.audioFiles[0].ino);
         expect(item.media.id).toEqual(expect.any(String));
         expect(item.media.metadata.authors[0].name).toBe('Ursula K. Le Guin');
         expect(item.media.metadata).toMatchObject({

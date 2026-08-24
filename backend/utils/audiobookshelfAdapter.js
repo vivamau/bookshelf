@@ -14,7 +14,13 @@ const getAudiobookshelfItemId = (folder) => stableId('li', folder);
 const getAudiobookshelfMediaId = (folder) => stableId('media', folder);
 const getAudiobookshelfAuthorId = (authorId) => stableId('aut', authorId);
 const getAudiobookshelfSeriesId = (seriesName) => stableId('ser', seriesName.toLowerCase());
-const getAudiobookshelfTrackId = (trackPath) => stableId('lf', trackPath);
+// Audiobookshelf exposes filesystem inode values as decimal strings. Some
+// native clients use that numeric shape when associating background download
+// tasks with audioFiles, even though the API schema models `ino` as a string.
+// Keep the value deterministic without exposing host filesystem details.
+const getAudiobookshelfTrackId = (trackPath) => (
+    (BigInt(`0x${crypto.createHash('sha256').update(String(trackPath)).digest('hex').slice(0, 13)}`) + 1n).toString()
+);
 
 const toTimestamp = (value) => {
     const timestamp = Date.parse(value);

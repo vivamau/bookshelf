@@ -323,6 +323,7 @@ describe('Audiobookshelf client compatibility', () => {
 
         const audioFile = item.body.media.audioFiles[0];
         expect(audioFile.index).toBe(1);
+        expect(audioFile.ino).toMatch(/^\d+$/);
         expect(audioFile.metadata).toMatchObject({
             filename: '01 - Connection Test.mp3',
             ext: '.mp3',
