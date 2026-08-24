@@ -108,6 +108,13 @@ const getAudiobookAuthorsText = (audiobook) => (
     (audiobook.authors || []).map(authorName).filter(Boolean).join(', ')
 );
 
+const getAudiobookshelfFileMetadataPaths = (audiobook, filePath) => ({
+    path: `/audiobooks/${filePath}`,
+    relPath: audiobook.folder && audiobook.folder !== '.'
+        ? path.posix.relative(audiobook.folder, filePath)
+        : filePath
+});
+
 const buildMetadata = (audiobook, expanded) => {
     const names = getAudiobookAuthorsText(audiobook);
     const series = getAudiobookSeries(audiobook);
@@ -148,11 +155,11 @@ const buildMetadata = (audiobook, expanded) => {
 
 const buildFileMetadata = (audiobook, track) => {
     const timestamp = toTimestamp(track.modifiedAt || audiobook.modifiedAt);
+    const metadataPaths = getAudiobookshelfFileMetadataPaths(audiobook, track.path);
     return {
         filename: path.posix.basename(track.path),
-        ext: path.posix.extname(track.path).slice(1),
-        path: track.path,
-        relPath: track.path,
+        ext: path.posix.extname(track.path),
+        ...metadataPaths,
         size: Number(track.size) || 0,
         mtimeMs: timestamp,
         ctimeMs: timestamp,
@@ -261,9 +268,8 @@ const buildLibraryFiles = (audiobook) => {
         ino: getAudiobookshelfTrackId(audiobook.coverPath),
         metadata: {
             filename: path.posix.basename(audiobook.coverPath),
-            ext: path.posix.extname(audiobook.coverPath).slice(1),
-            path: audiobook.coverPath,
-            relPath: audiobook.coverPath,
+            ext: path.posix.extname(audiobook.coverPath),
+            ...getAudiobookshelfFileMetadataPaths(audiobook, audiobook.coverPath),
             size: 0,
             mtimeMs: timestamp,
             ctimeMs: timestamp,

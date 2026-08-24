@@ -128,6 +128,10 @@ describe('Audiobookshelf compatibility adapter', () => {
                 tagTrack: '1'
             },
             metadata: {
+                filename: '01.mp3',
+                ext: '.mp3',
+                path: '/audiobooks/Ursula Le Guin/Earthsea/01.mp3',
+                relPath: '01.mp3',
                 mtimeMs: expect.any(Number),
                 ctimeMs: expect.any(Number),
                 birthtimeMs: expect.any(Number)
@@ -142,7 +146,13 @@ describe('Audiobookshelf compatibility adapter', () => {
             ino: expect.any(String),
             fileType: 'audio',
             isSupplementary: null,
-            metadata: { filename: '01.mp3', size: 100 }
+            metadata: {
+                filename: '01.mp3',
+                ext: '.mp3',
+                path: '/audiobooks/Ursula Le Guin/Earthsea/01.mp3',
+                relPath: '01.mp3',
+                size: 100
+            }
         });
     });
 

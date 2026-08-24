@@ -323,6 +323,12 @@ describe('Audiobookshelf client compatibility', () => {
 
         const audioFile = item.body.media.audioFiles[0];
         expect(audioFile.index).toBe(1);
+        expect(audioFile.metadata).toMatchObject({
+            filename: '01 - Connection Test.mp3',
+            ext: '.mp3',
+            path: `/audiobooks/${folderName}/01 - Connection Test.mp3`,
+            relPath: '01 - Connection Test.mp3'
+        });
         const download = await request(app)
             .get(`/api/items/${itemId}/file/${audioFile.ino}/download`)
             .query({ token: accessToken })
