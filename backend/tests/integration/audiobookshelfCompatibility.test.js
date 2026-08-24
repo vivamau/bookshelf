@@ -335,6 +335,15 @@ describe('Audiobookshelf client compatibility', () => {
         expect(download.headers['content-disposition']).toContain('attachment;');
         expect(download.headers['content-disposition']).toContain('filename="01 - Connection Test.mp3"');
         expect(download.body.toString()).toBe('soundleaf');
+
+        const indexedDownload = await request(app)
+            .get(`/api/items/${itemId}/file/${audioFile.index}/download`)
+            .query({ token: accessToken })
+            .set('Range', 'bytes=0-8')
+            .buffer(true)
+            .parse(binaryParser);
+        expect(indexedDownload.statusCode).toBe(206);
+        expect(indexedDownload.body.toString()).toBe('soundleaf');
     });
 
     test('syncs progress through the Audiobookshelf media-progress API', async () => {
