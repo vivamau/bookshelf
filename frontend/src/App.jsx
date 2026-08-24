@@ -32,7 +32,9 @@ import {
   Trash2,
   Download,
   ImagePlus,
-  Link2
+  Link2,
+  Layers3,
+  LayoutGrid
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -62,6 +64,10 @@ import {
   shouldPersistAudiobookProgress
 } from './lib/audiobookProgress';
 import { truncateAudiobookTitle } from './lib/audiobookTitle';
+import {
+  getAudiobookSeriesCompletion,
+  getAudiobookSeriesLabel
+} from './lib/audiobookSeries';
 import ProfileModal from './components/ProfileModal';
 import InstallPWA from './components/InstallPWA';
 import { getOfflineBooks, getOfflineProgress, syncPendingProgress } from './lib/offline';
@@ -150,6 +156,7 @@ const AudiobookCard = ({ audiobook, index }) => {
   const authorNames = formatAudiobookAuthors(audiobook.authors);
   const completionPercentage = normalizeAudiobookProgress(audiobook.progress_percentage);
   const completionLabel = getAudiobookProgressLabel(completionPercentage);
+  const seriesLabel = getAudiobookSeriesLabel(audiobook);
   const coverUrl = audiobook.coverPath
     ? `${import.meta.env.VITE_API_BASE_URL}/api/audiobooks/cover?path=${encodeURIComponent(audiobook.coverPath)}&v=${encodeURIComponent(audiobook.modifiedAt)}`
     : null;
@@ -203,6 +210,11 @@ const AudiobookCard = ({ audiobook, index }) => {
         <p className="mt-1 truncate text-xs text-muted-foreground">
           {authorNames || audiobook.tracks[0]?.title || 'Audio collection'}
         </p>
+        {seriesLabel && (
+          <p className="mt-1 truncate text-[10px] font-bold tracking-wide text-foreground/65">
+            {seriesLabel}
+          </p>
+        )}
         <p className={cn(
           "mt-1.5 text-[10px] font-black uppercase tracking-[0.14em]",
           completionPercentage > 0 ? "text-primary" : "text-muted-foreground/70"
@@ -211,6 +223,46 @@ const AudiobookCard = ({ audiobook, index }) => {
         </p>
       </div>
     </button>
+  );
+};
+
+const AudiobookSeriesShelf = ({ series, index }) => {
+  const completion = getAudiobookSeriesCompletion(series);
+
+  return (
+    <article className="relative overflow-hidden rounded-[1.75rem] border border-border/80 bg-card/55 p-5 shadow-xl shadow-black/5 backdrop-blur-sm md:p-7">
+      <div className="pointer-events-none absolute -right-2 -top-8 select-none text-[7rem] font-black leading-none text-primary/[0.035]" aria-hidden="true">
+        {String(index + 1).padStart(2, '0')}
+      </div>
+      <header className="relative mb-6 flex flex-col gap-4 border-b border-border/70 pb-5 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <p className="mb-2 flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.24em] text-primary">
+            <Layers3 size={13} /> Series {String(index + 1).padStart(2, '0')}
+          </p>
+          <h3 className="truncate text-2xl font-black tracking-tight md:text-3xl">{series.name}</h3>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2 text-[9px] font-black uppercase tracking-widest text-muted-foreground">
+          <span className="rounded-full border border-border bg-background/60 px-3 py-1.5">
+            {series.audiobookCount} {series.audiobookCount === 1 ? 'book' : 'books'}
+          </span>
+          <span className="rounded-full border border-border bg-background/60 px-3 py-1.5">
+            {completion.completed}/{completion.total} complete
+          </span>
+          <span className="rounded-full border border-border bg-background/60 px-3 py-1.5">
+            {formatFileSize(series.totalSize)}
+          </span>
+        </div>
+      </header>
+      <div className="relative grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8">
+        {series.audiobooks.map((audiobook, audiobookIndex) => (
+          <AudiobookCard
+            key={audiobook.folder}
+            audiobook={audiobook}
+            index={audiobookIndex}
+          />
+        ))}
+      </div>
+    </article>
   );
 };
 
@@ -677,7 +729,11 @@ function Dashboard() {
   const [mostDownloaded, setMostDownloaded] = useState([]);
   const [genresWithBooks, setGenresWithBooks] = useState([]);
   const [audiobooks, setAudiobooks] = useState([]);
+  const [audiobookSeries, setAudiobookSeries] = useState([]);
   const [audiobooksError, setAudiobooksError] = useState('');
+  const [audiobookView, setAudiobookView] = useState(() => (
+    new URLSearchParams(window.location.search).get('view') === 'series' ? 'series' : 'all'
+  ));
   const [activeTab, setActiveTab] = useState(() => {
     const requestedTab = new URLSearchParams(window.location.search).get('tab');
     return ['Explore', 'Trending', 'Genres', 'Audiobooks'].includes(requestedTab) ? requestedTab : 'Explore';
@@ -697,8 +753,10 @@ function Dashboard() {
       try {
         if (activeTab === 'Audiobooks') {
           setAudiobooksError('');
-          const response = await audiobooksApi.getAll();
-          setAudiobooks(response.data.data || []);
+          const audiobooksResponse = await audiobooksApi.getAll();
+          const seriesResponse = await audiobooksApi.getSeries();
+          setAudiobooks(audiobooksResponse.data.data || []);
+          setAudiobookSeries(seriesResponse.data.data || []);
           return;
         }
 
@@ -883,15 +941,60 @@ function Dashboard() {
                       <p className="mt-2 text-sm text-muted-foreground">Collections uploaded from Settings appear here automatically.</p>
                     </div>
                     {!audiobooksError && (
-                      <span className="w-fit rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary">
-                        {audiobooks.length} {audiobooks.length === 1 ? 'audiobook' : 'audiobooks'}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex rounded-full border border-border bg-card/70 p-1 shadow-sm" role="group" aria-label="Audiobook view">
+                          {[
+                            { id: 'all', label: 'All titles', icon: LayoutGrid },
+                            { id: 'series', label: 'Series', icon: Layers3 }
+                          ].map(({ id, label, icon: Icon }) => (
+                            <button
+                              key={id}
+                              type="button"
+                              onClick={() => {
+                                setAudiobookView(id);
+                                navigate(`/?tab=Audiobooks${id === 'series' ? '&view=series' : ''}`, { replace: true });
+                              }}
+                              className={cn(
+                                "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition-colors",
+                                audiobookView === id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                              )}
+                              aria-pressed={audiobookView === id}
+                            >
+                              <Icon size={12} /> {label}
+                            </button>
+                          ))}
+                        </div>
+                        <span className="w-fit rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary">
+                          {audiobookView === 'series'
+                            ? `${audiobookSeries.length} series`
+                            : `${audiobooks.length} ${audiobooks.length === 1 ? 'audiobook' : 'audiobooks'}`}
+                        </span>
+                      </div>
                     )}
                   </div>
 
                   {audiobooksError ? (
                     <div role="alert" className="rounded-2xl border border-destructive/30 bg-destructive/10 p-6 text-sm text-destructive">
                       {audiobooksError}
+                    </div>
+                  ) : audiobookView === 'series' && audiobookSeries.length > 0 ? (
+                    <div className="flex flex-col gap-7">
+                      {audiobookSeries.map((series, index) => (
+                        <AudiobookSeriesShelf key={series.id} series={series} index={index} />
+                      ))}
+                    </div>
+                  ) : audiobookView === 'series' && audiobooks.length > 0 ? (
+                    <div className="relative overflow-hidden rounded-3xl border border-primary/20 bg-card p-8 shadow-xl shadow-black/10 md:p-10">
+                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.16),transparent_45%)] pointer-events-none" />
+                      <div className="relative max-w-xl">
+                        <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl border border-primary/20 bg-primary/15 text-primary">
+                          <Layers3 size={28} />
+                        </div>
+                        <h3 className="text-2xl font-black tracking-tight">No audiobook series yet.</h3>
+                        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                          Open an audiobook, edit its metadata, and assign a series name and book position. Series also appear automatically in Audiobookshelf clients.
+                        </p>
+                      </div>
                     </div>
                   ) : audiobooks.length > 0 ? (
                     <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8">
@@ -968,6 +1071,8 @@ function AudiobookDetails() {
     title: '',
     narrator: '',
     language: '',
+    series: '',
+    seriesSequence: '',
     publishedYear: '',
     description: ''
   });
@@ -1041,6 +1146,8 @@ function AudiobookDetails() {
             title: loadedAudiobook.title || '',
             narrator: loadedAudiobook.narrator || '',
             language: loadedAudiobook.language || '',
+            series: loadedAudiobook.series || '',
+            seriesSequence: loadedAudiobook.seriesSequence || '',
             publishedYear: loadedAudiobook.publishedYear ? String(loadedAudiobook.publishedYear) : '',
             description: loadedAudiobook.description || ''
           });
@@ -1137,6 +1244,8 @@ function AudiobookDetails() {
       title: audiobook.title || '',
       narrator: audiobook.narrator || '',
       language: audiobook.language || '',
+      series: audiobook.series || '',
+      seriesSequence: audiobook.seriesSequence || '',
       publishedYear: audiobook.publishedYear ? String(audiobook.publishedYear) : '',
       description: audiobook.description || ''
     });
@@ -1156,6 +1265,7 @@ function AudiobookDetails() {
     try {
       const response = await audiobooksApi.updateMetadata(audiobookFolder, {
         ...metadataForm,
+        seriesSequence: metadataForm.series.trim() ? metadataForm.seriesSequence : '',
         authorIds: selectedAuthors.map((author) => author.ID)
       });
       const updatedAudiobook = response.data.data;
@@ -1165,6 +1275,8 @@ function AudiobookDetails() {
         title: updatedAudiobook.title || '',
         narrator: updatedAudiobook.narrator || '',
         language: updatedAudiobook.language || '',
+        series: updatedAudiobook.series || '',
+        seriesSequence: updatedAudiobook.seriesSequence || '',
         publishedYear: updatedAudiobook.publishedYear ? String(updatedAudiobook.publishedYear) : '',
         description: updatedAudiobook.description || ''
       });
@@ -1423,6 +1535,17 @@ function AudiobookDetails() {
               </p>
             )}
 
+            {getAudiobookSeriesLabel(audiobook) && (
+              <button
+                type="button"
+                onClick={() => navigate('/?tab=Audiobooks&view=series')}
+                className="mt-5 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3.5 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-primary transition-colors hover:border-primary/50 hover:bg-primary/15"
+              >
+                <Layers3 size={14} />
+                {getAudiobookSeriesLabel(audiobook)}
+              </button>
+            )}
+
             <div className="mt-6 flex flex-wrap gap-2">
               {audiobook.formats.map((format) => (
                 <span key={format} className="rounded-full border border-border bg-card/65 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground backdrop-blur-md">
@@ -1471,19 +1594,38 @@ function AudiobookDetails() {
                   {[
                     ['title', 'Title', 300],
                     ['narrator', 'Narrator', 200],
-                    ['language', 'Language', 100]
+                    ['language', 'Language', 100],
+                    ['series', 'Series', 300]
                   ].map(([field, label, maxLength]) => (
                     <label key={field} className="block">
                       <span className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-muted-foreground">{label}</span>
                       <input
                         type="text"
-                        value={metadataForm[field]}
-                        maxLength={maxLength}
-                        onChange={(event) => setMetadataForm((current) => ({ ...current, [field]: event.target.value }))}
+                      value={metadataForm[field]}
+                      maxLength={maxLength}
+                      onChange={(event) => setMetadataForm((current) => ({
+                        ...current,
+                        [field]: event.target.value,
+                        ...(field === 'series' && !event.target.value.trim() ? { seriesSequence: '' } : {})
+                      }))}
                         className="w-full rounded-xl border border-border bg-background/70 px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-primary"
                       />
                     </label>
                   ))}
+
+                  <label className="block">
+                    <span className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-muted-foreground">Position in series</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={metadataForm.seriesSequence}
+                      maxLength={50}
+                      placeholder="e.g. 1 or 1.5"
+                      disabled={!metadataForm.series.trim()}
+                      onChange={(event) => setMetadataForm((current) => ({ ...current, seriesSequence: event.target.value }))}
+                      className="w-full rounded-xl border border-border bg-background/70 px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-primary disabled:cursor-not-allowed disabled:opacity-45"
+                    />
+                  </label>
 
                   <div className="sm:col-span-2">
                     <span className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-muted-foreground">Authors</span>

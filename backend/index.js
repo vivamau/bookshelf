@@ -62,6 +62,7 @@ const { RemoteImageError, downloadRemoteImage } = require('./utils/remoteImage')
 const {
     AUDIOBOOKSHELF_COMPATIBILITY_VERSION,
     buildAuthorizationResponse,
+    buildAudiobookSeriesCatalog,
     buildAudiobookshelfUser,
     buildMediaProgress
 } = require('./utils/audiobookshelfAdapter');
@@ -1806,32 +1807,44 @@ app.use('/api/settings', auth, checkManageBooks, settingsRouter);
 
 const audiobooksRouter = express.Router();
 
+const loadAudiobooksForUser = async (userId, { reload = false } = {}) => {
+    await fs.promises.mkdir(AUDIOBOOKS_DIR, { recursive: true });
+    const [audiobooks, progressRows] = await Promise.all([
+        reload ? loadAudiobookCatalog.reload() : loadAudiobookCatalog(),
+        new Promise((resolve, reject) => {
+            db.all(
+                'SELECT audiobook_folder, progress_percentage FROM AudiobooksUsers WHERE user_id = ?',
+                [userId],
+                (error, rows) => error ? reject(error) : resolve(rows)
+            );
+        })
+    ]);
+    const progressByFolder = new Map(progressRows.map((row) => [
+        row.audiobook_folder,
+        Math.min(100, Math.max(0, Number(row.progress_percentage) || 0))
+    ]));
+    return audiobooks.map((audiobook) => ({
+        ...audiobook,
+        progress_percentage: progressByFolder.get(audiobook.folder) || 0
+    }));
+};
+
 audiobooksRouter.get('/', async (req, res) => {
     try {
-        await fs.promises.mkdir(AUDIOBOOKS_DIR, { recursive: true });
-        const [audiobooks, progressRows] = await Promise.all([
-            loadAudiobookCatalog.reload(),
-            new Promise((resolve, reject) => {
-                db.all(
-                    'SELECT audiobook_folder, progress_percentage FROM AudiobooksUsers WHERE user_id = ?',
-                    [req.user.user_id],
-                    (error, rows) => error ? reject(error) : resolve(rows)
-                );
-            })
-        ]);
-        const progressByFolder = new Map(progressRows.map((row) => [
-            row.audiobook_folder,
-            Math.min(100, Math.max(0, Number(row.progress_percentage) || 0))
-        ]));
-        res.json({
-            data: audiobooks.map((audiobook) => ({
-                ...audiobook,
-                progress_percentage: progressByFolder.get(audiobook.folder) || 0
-            }))
-        });
+        res.json({ data: await loadAudiobooksForUser(req.user.user_id, { reload: true }) });
     } catch (err) {
         console.error('Audiobook catalog scan failed:', err);
         res.status(500).json({ error: 'Could not load the audiobook catalog' });
+    }
+});
+
+audiobooksRouter.get('/series', async (req, res) => {
+    try {
+        const audiobooks = await loadAudiobooksForUser(req.user.user_id);
+        res.json({ data: buildAudiobookSeriesCatalog(audiobooks) });
+    } catch (err) {
+        console.error('Audiobook series scan failed:', err);
+        res.status(500).json({ error: 'Could not load audiobook series' });
     }
 });
 

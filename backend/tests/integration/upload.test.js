@@ -441,6 +441,8 @@ describe('Upload Endpoint Integration', () => {
                     title: 'The Test Audiobook',
                     author: 'Test Author',
                     narrator: 'Test Narrator',
+                    series: 'Integration Cycle',
+                    seriesSequence: '2',
                     language: 'English',
                     publishedYear: 2026,
                     description: 'An integration-test collection.'
@@ -455,6 +457,8 @@ describe('Upload Endpoint Integration', () => {
                 author_lastname: 'Author'
             })],
             narrator: 'Test Narrator',
+            series: 'Integration Cycle',
+            seriesSequence: '2',
             language: 'English',
             publishedYear: 2026,
             description: 'An integration-test collection.'
@@ -472,6 +476,23 @@ describe('Upload Endpoint Integration', () => {
             expect.objectContaining({ author_name: 'Test', author_lastname: 'Author' })
         ]);
         expect(guestDetails.body.data).not.toHaveProperty('author');
+
+        const seriesResponse = await request(app)
+            .get('/api/audiobooks/series')
+            .set('Cookie', guestCookie);
+        expect(seriesResponse.statusCode).toBe(200);
+        expect(seriesResponse.body.data).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                id: expect.stringMatching(/^ser_/),
+                name: 'Integration Cycle',
+                audiobookCount: 1,
+                audiobooks: [expect.objectContaining({
+                    folder: 'Test Collection/Disc 1',
+                    seriesSequence: '2',
+                    progress_percentage: 0
+                })]
+            })
+        ]));
     });
 
     test('PUT /api/audiobooks/metadata rejects guest accounts', async () => {

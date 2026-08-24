@@ -1,6 +1,7 @@
 const {
     AUDIOBOOKSHELF_LIBRARY_ID,
     buildAuthorizationResponse,
+    buildAudiobookSeriesCatalog,
     buildLibraryAuthors,
     buildLibraryItem,
     buildLibrarySeries,
@@ -295,7 +296,21 @@ describe('Audiobookshelf compatibility adapter', () => {
             seriesSequence: '2'
         };
         const catalog = [second, first];
+        const bookshelfSeries = buildAudiobookSeriesCatalog(catalog);
         const series = buildLibrarySeries(catalog);
+
+        expect(bookshelfSeries).toEqual([
+            expect.objectContaining({
+                id: expect.stringMatching(/^ser_/),
+                name: 'Earthsea Cycle',
+                audiobookCount: 2,
+                totalSize: 600,
+                audiobooks: [
+                    expect.objectContaining({ folder: first.folder, seriesSequence: '1' }),
+                    expect.objectContaining({ folder: second.folder, seriesSequence: '2' })
+                ]
+            })
+        ]);
 
         expect(series).toEqual([
             expect.objectContaining({

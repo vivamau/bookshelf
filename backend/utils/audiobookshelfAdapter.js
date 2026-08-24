@@ -491,44 +491,56 @@ const buildLibraryStats = (catalog = []) => {
     };
 };
 
-const buildLibrarySeries = (catalog = []) => {
+const compareSeriesAudiobooks = (left, right) => {
+    const leftSequence = getAudiobookSeries(left)?.sequence;
+    const rightSequence = getAudiobookSeries(right)?.sequence;
+    const leftNumber = leftSequence === null ? NaN : Number(leftSequence);
+    const rightNumber = rightSequence === null ? NaN : Number(rightSequence);
+    if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) return leftNumber - rightNumber;
+    if (Number.isFinite(leftNumber)) return -1;
+    if (Number.isFinite(rightNumber)) return 1;
+    return left.title.localeCompare(right.title, undefined, { numeric: true });
+};
+
+const buildAudiobookSeriesCatalog = (catalog = []) => {
     const seriesById = new Map();
-    const sequenceByItemId = new Map();
     catalog.forEach((audiobook) => {
         const series = getAudiobookSeries(audiobook);
         if (!series) return;
-        const item = buildLibraryItem(audiobook);
-        sequenceByItemId.set(item.id, series.sequence);
         const existing = seriesById.get(series.id) || {
             id: series.id,
             name: series.name,
-            nameIgnorePrefix: series.name,
-            description: null,
-            addedAt: item.addedAt,
-            updatedAt: item.updatedAt,
-            libraryId: AUDIOBOOKSHELF_LIBRARY_ID,
-            books: []
+            audiobooks: []
         };
-        existing.addedAt = Math.min(existing.addedAt, item.addedAt);
-        existing.updatedAt = Math.max(existing.updatedAt, item.updatedAt);
-        existing.books.push(item);
+        existing.audiobooks.push({
+            ...audiobook,
+            series: series.name,
+            seriesSequence: series.sequence
+        });
         seriesById.set(series.id, existing);
     });
 
     return [...seriesById.values()].map((series) => ({
         ...series,
-        books: series.books.sort((left, right) => {
-            const leftSequence = sequenceByItemId.get(left.id);
-            const rightSequence = sequenceByItemId.get(right.id);
-            const leftNumber = leftSequence === null ? NaN : Number(leftSequence);
-            const rightNumber = rightSequence === null ? NaN : Number(rightSequence);
-            if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) {
-                return leftNumber - rightNumber;
-            }
-            return left.media.metadata.title.localeCompare(right.media.metadata.title, undefined, { numeric: true });
-        })
+        audiobookCount: series.audiobooks.length,
+        totalSize: series.audiobooks.reduce((total, audiobook) => total + Number(audiobook.totalSize || 0), 0),
+        audiobooks: series.audiobooks.sort(compareSeriesAudiobooks)
     })).sort((left, right) => left.name.localeCompare(right.name, undefined, { numeric: true }));
 };
+
+const buildLibrarySeries = (catalog = []) => buildAudiobookSeriesCatalog(catalog).map((series) => {
+    const books = series.audiobooks.map((audiobook) => buildLibraryItem(audiobook));
+    return {
+        id: series.id,
+        name: series.name,
+        nameIgnorePrefix: series.name,
+        description: null,
+        addedAt: Math.min(...books.map((item) => item.addedAt)),
+        updatedAt: Math.max(...books.map((item) => item.updatedAt)),
+        libraryId: AUDIOBOOKSHELF_LIBRARY_ID,
+        books
+    };
+});
 
 const buildListeningStats = (listeningSessions = [], now = Date.now()) => {
     const items = {};
@@ -648,6 +660,7 @@ module.exports = {
     AUDIOBOOKSHELF_COMPATIBILITY_VERSION,
     AUDIOBOOKSHELF_LIBRARY_ID,
     buildAuthorizationResponse,
+    buildAudiobookSeriesCatalog,
     buildAudiobookshelfUser,
     buildLibrary,
     buildLibraryAuthors,

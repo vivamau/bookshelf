@@ -141,6 +141,7 @@ export const settingsApi = {
 
 export const audiobooksApi = {
   getAll: () => api.get('/audiobooks'),
+  getSeries: () => api.get('/audiobooks/series'),
   getByFolder: (folder) => api.get('/audiobooks/details', { params: { folder } }),
   getProgress: (folder) => api.get('/audiobooks/progress', { params: { folder } }),
   updateProgress: (folder, progress) => api.post('/audiobooks/progress', { folder, ...progress }),
