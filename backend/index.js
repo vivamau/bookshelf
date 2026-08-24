@@ -117,7 +117,16 @@ app.use(cors({
         'Accept',
         'Origin'
     ],
-    exposedHeaders: ['Content-Disposition', 'X-Log-Entry-Count', 'X-Request-ID']
+    exposedHeaders: [
+        'Content-Disposition',
+        'Content-Length',
+        'Content-Range',
+        'Accept-Ranges',
+        'ETag',
+        'Last-Modified',
+        'X-Log-Entry-Count',
+        'X-Request-ID'
+    ]
 }));
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ extended: true, limit: '100mb' }));

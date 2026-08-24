@@ -338,8 +338,19 @@ describe('Audiobookshelf client compatibility', () => {
 
         expect(download.statusCode).toBe(206);
         expect(download.headers['accept-ranges']).toBe('bytes');
+        expect(download.headers['content-length']).toBe('9');
+        expect(download.headers['content-range']).toBe('bytes 0-8/15');
         expect(download.headers['content-disposition']).toContain('attachment;');
         expect(download.headers['content-disposition']).toContain('filename="01 - Connection Test.mp3"');
+        expect(download.headers['access-control-expose-headers']).toEqual(
+            expect.stringContaining('Content-Length')
+        );
+        expect(download.headers['access-control-expose-headers']).toEqual(
+            expect.stringContaining('Content-Range')
+        );
+        expect(download.headers['access-control-expose-headers']).toEqual(
+            expect.stringContaining('Accept-Ranges')
+        );
         expect(download.body.toString()).toBe('soundleaf');
 
         const indexedDownload = await request(app)
