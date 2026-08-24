@@ -109,6 +109,13 @@ const normalizeNumber = (value, fallback = 0) => {
     return Number.isFinite(number) && number >= 0 ? number : fallback;
 };
 
+const normalizeTimestamp = (value) => {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric) && numeric > 0) return numeric;
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+};
+
 const selectProgressTrack = (audiobook, input, existingRow) => {
     const duration = normalizeNumber(input.duration);
     const currentTime = normalizeNumber(input.currentTime);
@@ -152,12 +159,17 @@ const selectProgressTrack = (audiobook, input, existingRow) => {
     };
 };
 
-const saveProgress = async (db, userId, audiobook, input = {}) => {
+const saveProgress = async (db, userId, audiobook, input = {}, options = {}) => {
     const existing = await dbGet(
         db,
         'SELECT * FROM AudiobooksUsers WHERE audiobook_folder = ? AND user_id = ?',
         [audiobook.folder, userId]
     );
+    const incomingUpdatedAt = normalizeTimestamp(input.updatedAt);
+    const existingUpdatedAt = normalizeTimestamp(existing?.audiobooksusers_update_date);
+    if (options.ignoreStale && incomingUpdatedAt && existingUpdatedAt > incomingUpdatedAt) {
+        return buildMediaProgress(audiobook, existing);
+    }
     const progress = selectProgressTrack(audiobook, input, existing);
     const now = Date.now();
     const startedAt = existing?.audiobook_started_date || input.startedAt || now;
@@ -661,6 +673,56 @@ const createAudiobookshelfRouters = ({
         const audiobook = await loadItem(req.params.itemId);
         if (!audiobook) return res.status(404).json({ error: 'Library item not found' });
         return res.json(await saveProgress(db, req.user.user_id, audiobook, req.body));
+    }));
+
+    const syncLocalSession = async (userId, session, catalog) => {
+        const itemId = session?.libraryItemId || session?.mediaProgress?.libraryItemId;
+        const audiobook = findAudiobookByItemId(catalog, itemId);
+        if (!audiobook) {
+            return {
+                id: session?.id || null,
+                success: false,
+                progressSynced: false,
+                error: 'Media item not found'
+            };
+        }
+
+        const mediaProgress = session.mediaProgress || {};
+        await saveProgress(db, userId, audiobook, {
+            duration: session.duration ?? mediaProgress.duration,
+            currentTime: session.currentTime ?? mediaProgress.currentTime,
+            progress: session.progress ?? mediaProgress.progress,
+            isFinished: session.isFinished ?? mediaProgress.isFinished,
+            startedAt: session.startedAt ?? mediaProgress.startedAt,
+            finishedAt: session.finishedAt ?? mediaProgress.finishedAt,
+            updatedAt: session.updatedAt ?? mediaProgress.lastUpdate ?? mediaProgress.updatedAt
+        }, { ignoreStale: true });
+
+        return {
+            id: session.id || itemId,
+            success: true,
+            progressSynced: true
+        };
+    };
+
+    apiRouter.post('/session/local', asyncRoute(async (req, res) => {
+        const result = await syncLocalSession(
+            req.user.user_id,
+            req.body || {},
+            await loadAudiobookCatalog()
+        );
+        if (!result.success) return res.status(500).send(result.error);
+        return res.sendStatus(200);
+    }));
+
+    apiRouter.post('/session/local-all', asyncRoute(async (req, res) => {
+        const catalog = await loadAudiobookCatalog();
+        const inputSessions = Array.isArray(req.body?.sessions) ? req.body.sessions : [];
+        const results = [];
+        for (const session of inputSessions) {
+            results.push(await syncLocalSession(req.user.user_id, session, catalog));
+        }
+        return res.json({ results });
     }));
 
     const updateSession = async (req, res, close) => {

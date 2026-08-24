@@ -367,6 +367,66 @@ describe('Audiobookshelf client compatibility', () => {
         expect(indexedDownload.body.toString()).toBe('soundleaf');
     });
 
+    test('syncs downloaded playback through Audiobookshelf local sessions', async () => {
+        const localSession = await request(app)
+            .post('/api/session/local')
+            .set('Authorization', `Bearer ${accessToken}`)
+            .send({
+                id: 'play_local_soundleaf_1',
+                libraryItemId: itemId,
+                duration: 1000,
+                currentTime: 200,
+                timeListening: 200,
+                updatedAt: Date.now()
+            });
+        expect(localSession.statusCode).toBe(200);
+
+        const localSessions = await request(app)
+            .post('/api/session/local-all')
+            .set('Authorization', `Bearer ${accessToken}`)
+            .send({
+                deviceInfo: { clientName: 'SoundLeaf' },
+                sessions: [{
+                    id: 'play_local_soundleaf_2',
+                    libraryItemId: itemId,
+                    duration: 1000,
+                    currentTime: 320,
+                    timeListening: 120,
+                    updatedAt: Date.now() + 1000
+                }]
+            });
+        expect(localSessions.statusCode).toBe(200);
+        expect(localSessions.body.results).toEqual([{
+            id: 'play_local_soundleaf_2',
+            success: true,
+            progressSynced: true
+        }]);
+
+        const staleSession = await request(app)
+            .post('/api/session/local')
+            .set('Authorization', `Bearer ${accessToken}`)
+            .send({
+                id: 'play_local_soundleaf_stale',
+                libraryItemId: itemId,
+                duration: 1000,
+                currentTime: 100,
+                updatedAt: 1
+            });
+        expect(staleSession.statusCode).toBe(200);
+
+        const progress = await request(app)
+            .get(`/api/me/progress/${itemId}`)
+            .set('Authorization', `Bearer ${accessToken}`);
+        expect(progress.statusCode).toBe(200);
+        expect(progress.body).toMatchObject({
+            libraryItemId: itemId,
+            duration: 1000,
+            currentTime: 320,
+            progress: 0.32,
+            isFinished: false
+        });
+    });
+
     test('syncs progress through the Audiobookshelf media-progress API', async () => {
         const update = await request(app)
             .patch(`/api/me/progress/${itemId}`)
