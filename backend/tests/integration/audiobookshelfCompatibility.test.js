@@ -31,7 +31,9 @@ describe('Audiobookshelf client compatibility', () => {
         fs.writeFileSync(coverPath, 'soundleaf cover');
         fs.writeFileSync(metadataPath, JSON.stringify({
             title: folderName,
-            author: 'Sound Leaf Author'
+            author: 'Sound Leaf Author',
+            series: 'SoundLeaf Saga',
+            seriesSequence: '1'
         }));
         fs.mkdirSync(noCoverDirectory, { recursive: true });
         fs.writeFileSync(noCoverAudioPath, 'soundleaf audio without cover');
@@ -150,6 +152,24 @@ describe('Audiobookshelf client compatibility', () => {
             lastFirst: 'Author, Sound Leaf'
         });
 
+        const seriesResponse = await request(app)
+            .get('/api/libraries/lib_bookshelf_audiobooks/series')
+            .query({ limit: 50, page: 0, sort: 'name' })
+            .set('Authorization', `Bearer ${accessToken}`);
+        expect(seriesResponse.statusCode).toBe(200);
+        const series = seriesResponse.body.results.find(({ name }) => name === 'SoundLeaf Saga');
+        expect(series).toMatchObject({
+            id: expect.stringMatching(/^ser_/),
+            libraryId: 'lib_bookshelf_audiobooks',
+            books: [expect.objectContaining({ id: itemId })]
+        });
+
+        const seriesDetails = await request(app)
+            .get(`/api/series/${series.id}`)
+            .set('Authorization', `Bearer ${accessToken}`);
+        expect(seriesDetails.statusCode).toBe(200);
+        expect(seriesDetails.body).toMatchObject({ id: series.id, name: 'SoundLeaf Saga' });
+
         const authorDetails = await request(app)
             .get(`/api/authors/${author.id}`)
             .query({ include: 'items,series' })
@@ -158,7 +178,7 @@ describe('Audiobookshelf client compatibility', () => {
         expect(authorDetails.body).toMatchObject({
             id: author.id,
             libraryItems: [expect.objectContaining({ id: itemId })],
-            series: []
+            series: [expect.objectContaining({ id: series.id })]
         });
 
         const authorFilter = Buffer.from(author.id).toString('base64');
@@ -177,6 +197,18 @@ describe('Audiobookshelf client compatibility', () => {
             .set('Authorization', `Bearer ${accessToken}`);
         expect(filterData.statusCode).toBe(200);
         expect(filterData.body.authors).toContainEqual({ id: author.id, name: author.name });
+        expect(filterData.body.series).toContainEqual({ id: series.id, name: series.name });
+
+        const seriesFilter = Buffer.from(series.id).toString('base64');
+        const seriesItems = await request(app)
+            .get('/api/libraries/lib_bookshelf_audiobooks/items')
+            .query({ filter: `series.${seriesFilter}` })
+            .set('Authorization', `Bearer ${accessToken}`);
+        expect(seriesItems.statusCode).toBe(200);
+        expect(seriesItems.body).toMatchObject({
+            total: 1,
+            results: [expect.objectContaining({ id: itemId })]
+        });
 
         const itemWithoutPhysicalCover = items.body.results.find((candidate) => (
             candidate.media.metadata.title === noCoverFolderName

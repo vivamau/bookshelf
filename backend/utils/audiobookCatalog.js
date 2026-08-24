@@ -20,6 +20,8 @@ const METADATA_TEXT_LIMITS = Object.freeze({
     title: 300,
     author: 200,
     narrator: 200,
+    series: 300,
+    seriesSequence: 50,
     language: 100,
     description: 5000
 });
@@ -371,6 +373,8 @@ const scanAudiobookCatalog = async (audiobooksDirectory, fsApi = fs.promises) =>
                 modifiedAt: latestModifiedAt,
                 author: metadata.author || '',
                 narrator: metadata.narrator || '',
+                series: metadata.series || null,
+                seriesSequence: metadata.seriesSequence || null,
                 language: metadata.language || '',
                 description: metadata.description || '',
                 publishedYear: metadata.publishedYear || null,

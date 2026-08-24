@@ -13,6 +13,7 @@ const stableId = (prefix, value) => (
 const getAudiobookshelfItemId = (folder) => stableId('li', folder);
 const getAudiobookshelfMediaId = (folder) => stableId('media', folder);
 const getAudiobookshelfAuthorId = (authorId) => stableId('aut', authorId);
+const getAudiobookshelfSeriesId = (seriesName) => stableId('ser', seriesName.toLowerCase());
 const getAudiobookshelfTrackId = (trackPath) => stableId('lf', trackPath);
 
 const toTimestamp = (value) => {
@@ -74,6 +75,26 @@ const findAudiobooksByAuthorId = (catalog = [], authorId) => catalog.filter((aud
     (audiobook.authors || []).some((author) => getAudiobookshelfAuthorId(author.ID) === authorId)
 ));
 
+const getAudiobookSeries = (audiobook) => {
+    const explicitName = String(audiobook.series || '').trim();
+    const segments = String(audiobook.folder || '').split('/').filter(Boolean);
+    const inferredName = segments.length >= 3 ? segments.at(-2) : '';
+    const name = explicitName || inferredName;
+    if (!name) return null;
+
+    const explicitSequence = String(audiobook.seriesSequence || '').trim();
+    const titleSequence = /^\s*(\d+(?:\.\d+)?)\b/.exec(segments.at(-1) || audiobook.title || '');
+    return {
+        id: getAudiobookshelfSeriesId(name),
+        name,
+        sequence: explicitSequence || titleSequence?.[1] || null
+    };
+};
+
+const findAudiobooksBySeriesId = (catalog = [], seriesId) => catalog.filter((audiobook) => (
+    getAudiobookSeries(audiobook)?.id === seriesId
+));
+
 const getTrackDuration = (track) => {
     const duration = Number(track.duration);
     return Number.isFinite(duration) && duration > 0 ? duration : 0;
@@ -89,6 +110,7 @@ const getAudiobookAuthorsText = (audiobook) => (
 
 const buildMetadata = (audiobook, expanded) => {
     const names = getAudiobookAuthorsText(audiobook);
+    const series = getAudiobookSeries(audiobook);
     const common = {
         title: audiobook.title,
         titleIgnorePrefix: audiobook.title,
@@ -110,7 +132,7 @@ const buildMetadata = (audiobook, expanded) => {
         authorName: names,
         authorNameLF: names,
         narratorName: audiobook.narrator || '',
-        seriesName: ''
+        seriesName: series?.name || ''
     };
 
     if (!expanded) return { ...common, ...searchableNames };
@@ -120,7 +142,7 @@ const buildMetadata = (audiobook, expanded) => {
         ...searchableNames,
         authors: buildAuthors(audiobook),
         narrators: audiobook.narrator ? [audiobook.narrator] : [],
-        series: []
+        series: series ? [series] : []
     };
 };
 
@@ -445,6 +467,45 @@ const buildLibraryStats = (catalog = []) => {
     };
 };
 
+const buildLibrarySeries = (catalog = []) => {
+    const seriesById = new Map();
+    const sequenceByItemId = new Map();
+    catalog.forEach((audiobook) => {
+        const series = getAudiobookSeries(audiobook);
+        if (!series) return;
+        const item = buildLibraryItem(audiobook);
+        sequenceByItemId.set(item.id, series.sequence);
+        const existing = seriesById.get(series.id) || {
+            id: series.id,
+            name: series.name,
+            nameIgnorePrefix: series.name,
+            description: null,
+            addedAt: item.addedAt,
+            updatedAt: item.updatedAt,
+            libraryId: AUDIOBOOKSHELF_LIBRARY_ID,
+            books: []
+        };
+        existing.addedAt = Math.min(existing.addedAt, item.addedAt);
+        existing.updatedAt = Math.max(existing.updatedAt, item.updatedAt);
+        existing.books.push(item);
+        seriesById.set(series.id, existing);
+    });
+
+    return [...seriesById.values()].map((series) => ({
+        ...series,
+        books: series.books.sort((left, right) => {
+            const leftSequence = sequenceByItemId.get(left.id);
+            const rightSequence = sequenceByItemId.get(right.id);
+            const leftNumber = leftSequence === null ? NaN : Number(leftSequence);
+            const rightNumber = rightSequence === null ? NaN : Number(rightSequence);
+            if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) {
+                return leftNumber - rightNumber;
+            }
+            return left.media.metadata.title.localeCompare(right.media.metadata.title, undefined, { numeric: true });
+        })
+    })).sort((left, right) => left.name.localeCompare(right.name, undefined, { numeric: true }));
+};
+
 const buildListeningStats = (listeningSessions = [], now = Date.now()) => {
     const items = {};
     const days = {};
@@ -567,14 +628,18 @@ module.exports = {
     buildLibrary,
     buildLibraryAuthors,
     buildLibraryItem,
+    buildLibrarySeries,
     buildLibraryStats,
     buildListeningStats,
     buildMediaProgress,
     buildServerSettings,
     findAudiobookByItemId,
     findAudiobooksByAuthorId,
+    findAudiobooksBySeriesId,
+    getAudiobookSeries,
     getAudiobookDuration,
     getAudiobookshelfItemId,
     getAudiobookshelfAuthorId,
-    getAudiobookshelfMediaId
+    getAudiobookshelfMediaId,
+    getAudiobookshelfSeriesId
 };

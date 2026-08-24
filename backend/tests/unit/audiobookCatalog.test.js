@@ -202,6 +202,8 @@ describe('audiobook catalog', () => {
                     title: 'A Wizard of Earthsea',
                     author: 'Ursula K. Le Guin',
                     narrator: 'Rob Inglis',
+                    series: 'Earthsea Cycle',
+                    seriesSequence: '1',
                     language: 'English',
                     publishedYear: 1968,
                     description: 'A classic fantasy audiobook.'
@@ -215,6 +217,8 @@ describe('audiobook catalog', () => {
             title: 'A Wizard of Earthsea',
             author: 'Ursula K. Le Guin',
             narrator: 'Rob Inglis',
+            series: 'Earthsea Cycle',
+            seriesSequence: '1',
             language: 'English',
             publishedYear: 1968,
             description: 'A classic fantasy audiobook.'
@@ -233,12 +237,16 @@ describe('audiobook catalog', () => {
             title: '  A Wizard of Earthsea  ',
             author: 'Ursula K. Le Guin',
             narrator: '',
+            series: 'Earthsea Cycle',
+            seriesSequence: '1',
             language: 'English',
             publishedYear: '1968',
             description: '  A classic fantasy audiobook.  '
         }, fsApi);
 
         expect(metadata.title).toBe('A Wizard of Earthsea');
+        expect(metadata.series).toBe('Earthsea Cycle');
+        expect(metadata.seriesSequence).toBe('1');
         expect(metadata.publishedYear).toBe(1968);
         expect(fsApi.writeFile).toHaveBeenCalledWith(
             path.join(collection, METADATA_FILE_NAME),

@@ -12,11 +12,13 @@ const {
     buildLibrary,
     buildLibraryAuthors,
     buildLibraryItem,
+    buildLibrarySeries,
     buildLibraryStats,
     buildListeningStats,
     buildMediaProgress,
     findAudiobookByItemId,
     findAudiobooksByAuthorId,
+    findAudiobooksBySeriesId,
     getAudiobookDuration,
     getAudiobookshelfItemId
 } = require('../utils/audiobookshelfAdapter');
@@ -73,7 +75,7 @@ const buildFilterData = (catalog) => ({
     authors: buildLibraryAuthors(catalog).map(({ id, name }) => ({ id, name })),
     genres: [...new Set(catalog.flatMap((audiobook) => audiobook.genres || []).filter(Boolean))].sort(),
     tags: [],
-    series: [],
+    series: buildLibrarySeries(catalog).map(({ id, name }) => ({ id, name })),
     narrators: [...new Set(catalog.map((audiobook) => audiobook.narrator).filter(Boolean))].sort(),
     languages: [...new Set(catalog.map((audiobook) => audiobook.language).filter(Boolean))].sort(),
     publishers: []
@@ -85,6 +87,17 @@ const getAuthorIdFromFilter = (filter) => {
     try {
         const decoded = Buffer.from(match[1], 'base64').toString('utf8');
         return decoded.startsWith('aut_') ? decoded : match[1];
+    } catch {
+        return match[1];
+    }
+};
+
+const getSeriesIdFromFilter = (filter) => {
+    const match = /^series\.(.+)$/.exec(String(filter || ''));
+    if (!match) return null;
+    try {
+        const decoded = Buffer.from(match[1], 'base64').toString('utf8');
+        return decoded.startsWith('ser_') ? decoded : match[1];
     } catch {
         return match[1];
     }
@@ -333,6 +346,38 @@ const createAudiobookshelfRouters = ({
         return res.json(buildFilterData(await loadAudiobookCatalog()));
     }));
 
+    apiRouter.get('/libraries/:libraryId/series', asyncRoute(async (req, res) => {
+        if (!validateLibrary(res, req.params.libraryId)) return;
+        let catalog = await loadAudiobookCatalog();
+        const authorId = getAuthorIdFromFilter(req.query.filter);
+        if (authorId) catalog = findAudiobooksByAuthorId(catalog, authorId);
+
+        const limit = Math.min(500, Math.max(1, Number.parseInt(req.query.limit, 10) || 50));
+        const page = Math.max(0, Number.parseInt(req.query.page, 10) || 0);
+        const sortBy = req.query.sort || 'name';
+        const sortDesc = String(req.query.desc || '0') === '1';
+        const series = buildLibrarySeries(catalog).sort((left, right) => {
+            const comparison = sortBy === 'numBooks'
+                ? left.books.length - right.books.length
+                : sortBy === 'addedAt'
+                    ? left.addedAt - right.addedAt
+                    : left.name.localeCompare(right.name, undefined, { numeric: true });
+            return sortDesc ? -comparison : comparison;
+        });
+
+        return res.json({
+            results: series.slice(page * limit, (page + 1) * limit),
+            total: series.length,
+            limit,
+            page,
+            sortBy,
+            sortDesc,
+            filterBy: req.query.filter || null,
+            minified: String(req.query.minified || '0') === '1',
+            include: req.query.include || ''
+        });
+    }));
+
     apiRouter.get('/libraries/:libraryId/items', asyncRoute(async (req, res) => {
         if (!validateLibrary(res, req.params.libraryId)) return;
         try {
@@ -343,7 +388,9 @@ const createAudiobookshelfRouters = ({
             const progressRows = indexProgressRows(rows);
             const filteredCatalog = (() => {
                 const authorId = getAuthorIdFromFilter(req.query.filter);
-                return authorId ? findAudiobooksByAuthorId(catalog, authorId) : catalog;
+                if (authorId) return findAudiobooksByAuthorId(catalog, authorId);
+                const seriesId = getSeriesIdFromFilter(req.query.filter);
+                return seriesId ? findAudiobooksBySeriesId(catalog, seriesId) : catalog;
             })();
             const limit = Math.min(500, Math.max(1, Number.parseInt(req.query.limit, 10) || 50));
             const page = Math.max(0, Number.parseInt(req.query.page, 10) || 0);
@@ -398,8 +445,17 @@ const createAudiobookshelfRouters = ({
             response.libraryItems = findAudiobooksByAuthorId(catalog, author.id)
                 .map((audiobook) => buildLibraryItem(audiobook));
         }
-        if (include.includes('series')) response.series = [];
+        if (include.includes('series')) {
+            response.series = buildLibrarySeries(findAudiobooksByAuthorId(catalog, author.id));
+        }
         return res.json(response);
+    }));
+
+    apiRouter.get('/series/:seriesId', asyncRoute(async (req, res) => {
+        const series = buildLibrarySeries(await loadAudiobookCatalog())
+            .find(({ id }) => id === req.params.seriesId);
+        if (!series) return res.status(404).json({ error: 'Series not found' });
+        return res.json(series);
     }));
 
     apiRouter.get('/items/:itemId/cover', asyncRoute(async (req, res) => {

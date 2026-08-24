@@ -3,11 +3,13 @@ const {
     buildAuthorizationResponse,
     buildLibraryAuthors,
     buildLibraryItem,
+    buildLibrarySeries,
     buildLibraryStats,
     buildListeningStats,
     buildMediaProgress,
     findAudiobookByItemId,
     findAudiobooksByAuthorId,
+    findAudiobooksBySeriesId,
     getAudiobookshelfItemId
 } = require('../../utils/audiobookshelfAdapter');
 
@@ -235,6 +237,32 @@ describe('Audiobookshelf compatibility adapter', () => {
             })
         ]);
         expect(findAudiobooksByAuthorId(catalog, authors[0].id)).toEqual(catalog);
+    });
+
+    test('groups explicit audiobook series and orders books by sequence', () => {
+        const first = { ...audiobook, series: 'Earthsea Cycle', seriesSequence: '1' };
+        const second = {
+            ...audiobook,
+            folder: 'Ursula Le Guin/The Tombs of Atuan',
+            title: 'The Tombs of Atuan',
+            series: 'Earthsea Cycle',
+            seriesSequence: '2'
+        };
+        const catalog = [second, first];
+        const series = buildLibrarySeries(catalog);
+
+        expect(series).toEqual([
+            expect.objectContaining({
+                id: expect.stringMatching(/^ser_/),
+                name: 'Earthsea Cycle',
+                libraryId: AUDIOBOOKSHELF_LIBRARY_ID,
+                books: [
+                    expect.objectContaining({ id: getAudiobookshelfItemId(first.folder) }),
+                    expect.objectContaining({ id: getAudiobookshelfItemId(second.folder) })
+                ]
+            })
+        ]);
+        expect(findAudiobooksBySeriesId(catalog, series[0].id)).toEqual(catalog);
     });
 
     test('builds authenticated listening statistics in Audiobookshelf format', () => {

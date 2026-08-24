@@ -1281,6 +1281,34 @@ paths:
           description: Authors, genres, tags, series, narrators, languages, and publishers
         404:
           description: Library not found
+  /api/libraries/{libraryId}/series:
+    get:
+      summary: List Audiobookshelf-compatible series in a library
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: libraryId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: sort
+          schema:
+            type: string
+      responses:
+        200:
+          description: Paginated series with their minified library items
+        404:
+          description: Library not found
   /api/libraries/{libraryId}/personalized:
     get:
       summary: Get Continue Listening and Recently Added shelves
@@ -1337,6 +1365,22 @@ paths:
           description: Expanded author with optional libraryItems and series
         404:
           description: Author not found
+  /api/series/{seriesId}:
+    get:
+      summary: Get an Audiobookshelf-compatible series and its books
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: seriesId
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Series with minified library items
+        404:
+          description: Series not found
   /api/items/batch/get:
     post:
       summary: Get multiple expanded Audiobookshelf library items
