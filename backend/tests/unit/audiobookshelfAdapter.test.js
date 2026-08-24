@@ -85,7 +85,7 @@ describe('Audiobookshelf compatibility adapter', () => {
 
         expect(item.media.tracks).toEqual([
             expect.objectContaining({
-                index: 0,
+                index: 1,
                 startOffset: 0,
                 duration: 60,
                 mimeType: 'audio/mpeg',
@@ -95,7 +95,7 @@ describe('Audiobookshelf compatibility adapter', () => {
                 metaTags: expect.any(Object)
             }),
             expect.objectContaining({
-                index: 1,
+                index: 2,
                 startOffset: 60,
                 duration: 90,
                 mimeType: 'audio/mpeg'

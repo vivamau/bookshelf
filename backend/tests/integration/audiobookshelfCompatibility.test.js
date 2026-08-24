@@ -231,6 +231,7 @@ describe('Audiobookshelf client compatibility', () => {
             .set('Authorization', `Bearer ${accessToken}`);
         expect(expanded.statusCode).toBe(200);
         expect(expanded.body.media.tracks[0]).toMatchObject({
+            index: 1,
             contentUrl: `/api/items/${itemId}/file/0`,
             mimeType: 'audio/mpeg'
         });
@@ -321,6 +322,7 @@ describe('Audiobookshelf client compatibility', () => {
         expect(item.statusCode).toBe(200);
 
         const audioFile = item.body.media.audioFiles[0];
+        expect(audioFile.index).toBe(1);
         const download = await request(app)
             .get(`/api/items/${itemId}/file/${audioFile.ino}/download`)
             .query({ token: accessToken })

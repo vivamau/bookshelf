@@ -189,7 +189,9 @@ const buildAudioTracks = (audiobook, itemId, contentUrlFactory) => {
     return (audiobook.tracks || []).map((track, index) => {
         const duration = getTrackDuration(track);
         const audioTrack = {
-            index,
+            // Audiobookshelf uses 1-based indexes for included audio files.
+            // Keep the zero-based source index only in the generated content URL.
+            index: index + 1,
             startOffset,
             duration,
             title: path.posix.basename(track.path),
@@ -203,7 +205,7 @@ const buildAudioTracks = (audiobook, itemId, contentUrlFactory) => {
 };
 
 const buildAudioFiles = (audiobook, audioTracks) => audioTracks.map((track) => {
-    const sourceTrack = audiobook.tracks[track.index];
+    const sourceTrack = audiobook.tracks[track.index - 1];
     const timestamp = toTimestamp(sourceTrack.modifiedAt || audiobook.modifiedAt);
     return {
         index: track.index,
@@ -211,7 +213,7 @@ const buildAudioFiles = (audiobook, audioTracks) => audioTracks.map((track) => {
         metadata: track.metadata,
         addedAt: timestamp,
         updatedAt: timestamp,
-        trackNumFromMeta: track.index + 1,
+        trackNumFromMeta: track.index,
         discNumFromMeta: null,
         trackNumFromFilename: null,
         discNumFromFilename: null,
@@ -228,16 +230,16 @@ const buildAudioFiles = (audiobook, audioTracks) => audioTracks.map((track) => {
         channelLayout: '',
         chapters: [],
         embeddedCoverArt: null,
-        metaTags: buildMetaTags(audiobook, sourceTrack, track.index),
+        metaTags: buildMetaTags(audiobook, sourceTrack, track.index - 1),
         mimeType: track.mimeType
     };
 });
 
-const buildMediaChapters = (audiobook, audioTracks) => audioTracks.map((track) => ({
-    id: track.index,
+const buildMediaChapters = (audiobook, audioTracks) => audioTracks.map((track, index) => ({
+    id: index,
     start: track.startOffset,
     end: track.startOffset + track.duration,
-    title: audiobook.tracks[track.index].title || track.title
+    title: audiobook.tracks[index].title || track.title
 }));
 
 const buildLibraryFiles = (audiobook) => {
