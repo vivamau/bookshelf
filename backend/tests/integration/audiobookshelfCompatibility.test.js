@@ -134,7 +134,7 @@ describe('Audiobookshelf client compatibility', () => {
                 id: expect.any(String),
                 numTracks: 1,
                 metadata: { abridged: false },
-                coverPath: expect.stringMatching(/^\/api\/items\/.+\/cover\/\d+$/)
+                coverPath: `/audiobooks/${folderName}/cover.jpg`
             }
         });
         expect(item).not.toHaveProperty('libraryFiles');
@@ -213,9 +213,9 @@ describe('Audiobookshelf client compatibility', () => {
         const itemWithoutPhysicalCover = items.body.results.find((candidate) => (
             candidate.media.metadata.title === noCoverFolderName
         ));
-        expect(itemWithoutPhysicalCover.media.coverPath).toMatch(/^\/api\/items\/.+\/cover$/);
+        expect(itemWithoutPhysicalCover.media.coverPath).toBeNull();
         const fallbackCover = await request(app)
-            .get(itemWithoutPhysicalCover.media.coverPath)
+            .get(`/api/items/${itemWithoutPhysicalCover.id}/cover`)
             .set('Authorization', `Bearer ${accessToken}`)
             .buffer(true)
             .parse(binaryParser);
@@ -491,7 +491,7 @@ describe('Audiobookshelf client compatibility', () => {
         expect(afterItem.updatedAt).toBeGreaterThan(beforeItem.updatedAt);
     });
 
-    test('changes the SoundLeaf cover URL after the cover file is replaced', async () => {
+    test('marks the SoundLeaf item updated after the cover file is replaced', async () => {
         const before = await request(app)
             .get('/api/libraries/lib_bookshelf_audiobooks/items')
             .set('Authorization', `Bearer ${accessToken}`);
@@ -511,12 +511,12 @@ describe('Audiobookshelf client compatibility', () => {
             .set('Authorization', `Bearer ${accessToken}`);
         const afterItem = after.body.results.find(({ id }) => id === itemId);
 
-        expect(afterItem.media.coverPath).not.toBe(beforeItem.media.coverPath);
-        expect(afterItem.media.coverPath).toMatch(/^\/api\/items\/.+\/cover\/\d+$/);
+        expect(afterItem.media.coverPath).toBe(`/audiobooks/${folderName}/cover.jpg`);
+        expect(afterItem.updatedAt).toBeGreaterThan(beforeItem.updatedAt);
 
         const cover = await request(app)
-            .get(afterItem.media.coverPath)
-            .query({ token: accessToken })
+            .get(`/api/items/${itemId}/cover`)
+            .query({ token: accessToken, ts: afterItem.updatedAt })
             .buffer(true)
             .parse(binaryParser);
         expect(cover.statusCode).toBe(200);

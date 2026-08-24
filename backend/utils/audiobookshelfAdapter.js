@@ -5,6 +5,7 @@ const AUDIOBOOKSHELF_LIBRARY_ID = 'lib_bookshelf_audiobooks';
 const AUDIOBOOKSHELF_FOLDER_ID = 'fol_bookshelf_audiobooks';
 // SoundLeaf supports this pre-refresh-token Audiobookshelf contract and reads user.token.
 const AUDIOBOOKSHELF_COMPATIBILITY_VERSION = '2.25.1';
+const LIBRARY_ITEM_SCHEMA_REVISION = 2;
 
 const stableId = (prefix, value) => (
     `${prefix}_${crypto.createHash('sha256').update(String(value)).digest('hex').slice(0, 24)}`
@@ -320,13 +321,13 @@ const buildLibraryItem = (audiobook, options = {}) => {
     const itemId = getAudiobookshelfItemId(audiobook.folder);
     const modifiedAt = toTimestamp(audiobook.modifiedAt);
     const coverVersion = audiobook.coverPath ? toTimestamp(audiobook.coverModifiedAt) : 0;
-    // The one-millisecond schema revision makes clients replace library items
-    // cached before versioned cover paths were introduced. It remains stable
-    // until the underlying metadata or cover changes again.
+    // The small schema revision makes clients replace library items cached
+    // under an older compatibility payload. It remains stable until the
+    // underlying metadata or cover changes again.
     const updatedAt = Math.max(
         toTimestamp(audiobook.updatedAt || audiobook.modifiedAt),
         coverVersion
-    ) + (coverVersion ? 1 : 0);
+    ) + (coverVersion ? LIBRARY_ITEM_SCHEMA_REVISION : 0);
     const contentUrlFactory = options.contentUrlFactory || ((id, _index, fileId) => `/api/items/${id}/file/${fileId}`);
     const audioTracks = buildAudioTracks(audiobook, itemId, contentUrlFactory);
     const audioFiles = buildAudioFiles(audiobook, audioTracks);
@@ -339,10 +340,10 @@ const buildLibraryItem = (audiobook, options = {}) => {
     const chapters = buildMediaChapters(audiobook, audioTracks);
     const libraryFiles = buildLibraryFiles(audiobook);
     const duration = getAudiobookDuration(audiobook);
-    // Native clients such as SoundLeaf decode coverPath as a URL string for
-    // every minified item. The cover route supplies a PNG fallback when the
-    // audiobook has no physical cover file.
-    const coverPath = `/api/items/${itemId}/cover${coverVersion ? `/${coverVersion}` : ''}`;
+    // Audiobookshelf exposes the absolute media-file path here. Clients use its
+    // presence to decide whether to request /api/items/:id/cover; it is not the
+    // public cover URL itself.
+    const coverPath = audiobook.coverPath ? `/audiobooks/${audiobook.coverPath}` : null;
     const media = expanded ? {
         id: getAudiobookshelfMediaId(audiobook.folder),
         libraryItemId: itemId,

@@ -72,14 +72,14 @@ describe('Audiobookshelf compatibility adapter', () => {
                 id: expect.any(String),
                 numTracks: 2,
                 duration: 150,
-                coverPath: `/api/items/${firstId}/cover/${Date.parse(audiobook.coverModifiedAt)}`
+                coverPath: '/audiobooks/Ursula Le Guin/Earthsea/cover.jpg'
             }
         });
         expect(findAudiobookByItemId([audiobook], firstId)).toBe(audiobook);
         expect(item).not.toHaveProperty('libraryFiles');
 
         const itemWithoutPhysicalCover = buildLibraryItem({ ...audiobook, coverPath: null });
-        expect(itemWithoutPhysicalCover.media.coverPath).toMatch(/^\/api\/items\/.+\/cover$/);
+        expect(itemWithoutPhysicalCover.media.coverPath).toBeNull();
     });
 
     test('marks minified items updated when only saved metadata changes', () => {
@@ -89,22 +89,21 @@ describe('Audiobookshelf compatibility adapter', () => {
         });
 
         expect(item.addedAt).toBe(Date.parse(audiobook.modifiedAt));
-        expect(item.updatedAt).toBe(Date.parse('2026-08-24T10:00:00.000Z') + 1);
+        expect(item.updatedAt).toBe(Date.parse('2026-08-24T10:00:00.000Z') + 2);
         expect(item.mtimeMs).toBe(item.updatedAt);
         expect(item.lastScan).toBe(item.updatedAt);
     });
 
-    test('changes the cover URL when the cover file changes', () => {
+    test('marks the item updated when the cover file changes', () => {
         const before = buildLibraryItem(audiobook);
         const after = buildLibraryItem({
             ...audiobook,
+            updatedAt: '2026-08-24T12:00:00.000Z',
             coverModifiedAt: '2026-08-24T12:00:00.000Z'
         });
 
-        expect(after.media.coverPath).not.toBe(before.media.coverPath);
-        expect(after.media.coverPath).toBe(
-            `/api/items/${after.id}/cover/${Date.parse('2026-08-24T12:00:00.000Z')}`
-        );
+        expect(after.media.coverPath).toBe(before.media.coverPath);
+        expect(after.updatedAt).toBeGreaterThan(before.updatedAt);
     });
 
     test('builds expanded tracks with cumulative offsets and protected URLs', () => {
