@@ -549,6 +549,11 @@ booksGeneresRouter.post('/', (req, res) => {
 booksGeneresRouter.use('/', createCrudRouter('BooksGeneres', db));
 app.use('/api/books-generes', booksGeneresRouter);
 app.use('/api/authors', (req, res, next) => {
+    // Audiobookshelf author IDs are stable hashed strings. Let the compatibility
+    // router mounted below handle those while preserving Bookshelf's numeric
+    // author CRUD routes.
+    if (req.method === 'GET' && /^\/aut_[a-f0-9]+$/.test(req.path)) return next();
+
     // Custom Authors Routes
     const authorsRouter = express.Router();
     

@@ -24,6 +24,25 @@ const authorName = (author = {}) => (
     `${author.author_name || ''} ${author.author_lastname || ''}`.trim()
 );
 
+const authorNameLastFirst = (author = {}) => {
+    const first = String(author.author_name || '').trim();
+    const last = String(author.author_lastname || '').trim();
+    return last ? `${last}, ${first}`.replace(/, $/, '') : first;
+};
+
+const buildExpandedAuthor = (author, numBooks = 0) => ({
+    id: getAudiobookshelfAuthorId(author.ID),
+    asin: null,
+    name: authorName(author),
+    description: null,
+    imagePath: null,
+    libraryId: AUDIOBOOKSHELF_LIBRARY_ID,
+    addedAt: author.author_create_date || 0,
+    updatedAt: author.author_update_date || author.author_create_date || 0,
+    numBooks,
+    lastFirst: authorNameLastFirst(author)
+});
+
 const buildAuthors = (audiobook) => (audiobook.authors || []).map((author) => ({
     id: getAudiobookshelfAuthorId(author.ID),
     name: authorName(author),
@@ -33,6 +52,27 @@ const buildAuthors = (audiobook) => (audiobook.authors || []).map((author) => ({
     addedAt: author.author_create_date || 0,
     updatedAt: author.author_update_date || author.author_create_date || 0
 }));
+
+const buildLibraryAuthors = (catalog = []) => {
+    const authors = new Map();
+    catalog.forEach((audiobook) => {
+        const seen = new Set();
+        (audiobook.authors || []).forEach((author) => {
+            if (seen.has(author.ID)) return;
+            seen.add(author.ID);
+            const id = getAudiobookshelfAuthorId(author.ID);
+            const existing = authors.get(id);
+            authors.set(id, buildExpandedAuthor(author, (existing?.numBooks || 0) + 1));
+        });
+    });
+    return [...authors.values()].sort((left, right) => (
+        left.name.localeCompare(right.name, undefined, { numeric: true })
+    ));
+};
+
+const findAudiobooksByAuthorId = (catalog = [], authorId) => catalog.filter((audiobook) => (
+    (audiobook.authors || []).some((author) => getAudiobookshelfAuthorId(author.ID) === authorId)
+));
 
 const getTrackDuration = (track) => {
     const duration = Number(track.duration);
@@ -525,13 +565,16 @@ module.exports = {
     buildAuthorizationResponse,
     buildAudiobookshelfUser,
     buildLibrary,
+    buildLibraryAuthors,
     buildLibraryItem,
     buildLibraryStats,
     buildListeningStats,
     buildMediaProgress,
     buildServerSettings,
     findAudiobookByItemId,
+    findAudiobooksByAuthorId,
     getAudiobookDuration,
     getAudiobookshelfItemId,
+    getAudiobookshelfAuthorId,
     getAudiobookshelfMediaId
 };

@@ -1,11 +1,13 @@
 const {
     AUDIOBOOKSHELF_LIBRARY_ID,
     buildAuthorizationResponse,
+    buildLibraryAuthors,
     buildLibraryItem,
     buildLibraryStats,
     buildListeningStats,
     buildMediaProgress,
     findAudiobookByItemId,
+    findAudiobooksByAuthorId,
     getAudiobookshelfItemId
 } = require('../../utils/audiobookshelfAdapter');
 
@@ -212,6 +214,27 @@ describe('Audiobookshelf compatibility adapter', () => {
         });
         expect(stats.largestItems[0]).toMatchObject({ title: 'The Tombs of Atuan', size: 500 });
         expect(stats.longestItems[0]).toMatchObject({ title: 'The Tombs of Atuan', duration: 200 });
+    });
+
+    test('aggregates Audiobookshelf authors and finds their library items', () => {
+        const secondAudiobook = {
+            ...audiobook,
+            folder: 'Ursula Le Guin/The Tombs of Atuan',
+            title: 'The Tombs of Atuan'
+        };
+        const catalog = [audiobook, secondAudiobook];
+        const authors = buildLibraryAuthors(catalog);
+
+        expect(authors).toEqual([
+            expect.objectContaining({
+                id: expect.stringMatching(/^aut_/),
+                name: 'Ursula K. Le Guin',
+                lastFirst: 'Le Guin, Ursula K.',
+                numBooks: 2,
+                libraryId: AUDIOBOOKSHELF_LIBRARY_ID
+            })
+        ]);
+        expect(findAudiobooksByAuthorId(catalog, authors[0].id)).toEqual(catalog);
     });
 
     test('builds authenticated listening statistics in Audiobookshelf format', () => {

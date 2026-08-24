@@ -17,6 +17,7 @@ describe('Audiobookshelf client compatibility', () => {
     const audiobookDirectory = path.join(__dirname, '..', '..', 'audiobooks', folderName);
     const audioPath = path.join(audiobookDirectory, '01 - Connection Test.mp3');
     const coverPath = path.join(audiobookDirectory, 'cover.jpg');
+    const metadataPath = path.join(audiobookDirectory, '.bookshelf-metadata.json');
     const noCoverFolderName = 'SoundLeaf No Cover';
     const noCoverDirectory = path.join(__dirname, '..', '..', 'audiobooks', noCoverFolderName);
     const noCoverAudioPath = path.join(noCoverDirectory, '01 - No Cover.mp3');
@@ -28,6 +29,10 @@ describe('Audiobookshelf client compatibility', () => {
         fs.mkdirSync(audiobookDirectory, { recursive: true });
         fs.writeFileSync(audioPath, 'soundleaf audio');
         fs.writeFileSync(coverPath, 'soundleaf cover');
+        fs.writeFileSync(metadataPath, JSON.stringify({
+            title: folderName,
+            author: 'Sound Leaf Author'
+        }));
         fs.mkdirSync(noCoverDirectory, { recursive: true });
         fs.writeFileSync(noCoverAudioPath, 'soundleaf audio without cover');
 
@@ -132,6 +137,46 @@ describe('Audiobookshelf client compatibility', () => {
         });
         expect(item).not.toHaveProperty('libraryFiles');
         itemId = item.id;
+
+        const authors = await request(app)
+            .get('/api/libraries/lib_bookshelf_audiobooks/authors')
+            .set('Authorization', `Bearer ${accessToken}`);
+        expect(authors.statusCode).toBe(200);
+        const author = authors.body.authors.find(({ name }) => name === 'Sound Leaf Author');
+        expect(author).toMatchObject({
+            id: expect.stringMatching(/^aut_/),
+            libraryId: 'lib_bookshelf_audiobooks',
+            numBooks: 1,
+            lastFirst: 'Author, Sound Leaf'
+        });
+
+        const authorDetails = await request(app)
+            .get(`/api/authors/${author.id}`)
+            .query({ include: 'items,series' })
+            .set('Authorization', `Bearer ${accessToken}`);
+        expect(authorDetails.statusCode).toBe(200);
+        expect(authorDetails.body).toMatchObject({
+            id: author.id,
+            libraryItems: [expect.objectContaining({ id: itemId })],
+            series: []
+        });
+
+        const authorFilter = Buffer.from(author.id).toString('base64');
+        const authorItems = await request(app)
+            .get('/api/libraries/lib_bookshelf_audiobooks/items')
+            .query({ filter: `authors.${authorFilter}` })
+            .set('Authorization', `Bearer ${accessToken}`);
+        expect(authorItems.statusCode).toBe(200);
+        expect(authorItems.body).toMatchObject({
+            total: 1,
+            results: [expect.objectContaining({ id: itemId })]
+        });
+
+        const filterData = await request(app)
+            .get('/api/libraries/lib_bookshelf_audiobooks/filterdata')
+            .set('Authorization', `Bearer ${accessToken}`);
+        expect(filterData.statusCode).toBe(200);
+        expect(filterData.body.authors).toContainEqual({ id: author.id, name: author.name });
 
         const itemWithoutPhysicalCover = items.body.results.find((candidate) => (
             candidate.media.metadata.title === noCoverFolderName

@@ -10,11 +10,13 @@ const {
     AUDIOBOOKSHELF_LIBRARY_ID,
     buildAuthorizationResponse,
     buildLibrary,
+    buildLibraryAuthors,
     buildLibraryItem,
     buildLibraryStats,
     buildListeningStats,
     buildMediaProgress,
     findAudiobookByItemId,
+    findAudiobooksByAuthorId,
     getAudiobookDuration,
     getAudiobookshelfItemId
 } = require('../utils/audiobookshelfAdapter');
@@ -66,6 +68,27 @@ const getProgressRows = (db, userId) => dbAll(
 );
 
 const indexProgressRows = (rows) => new Map(rows.map((row) => [row.audiobook_folder, row]));
+
+const buildFilterData = (catalog) => ({
+    authors: buildLibraryAuthors(catalog).map(({ id, name }) => ({ id, name })),
+    genres: [...new Set(catalog.flatMap((audiobook) => audiobook.genres || []).filter(Boolean))].sort(),
+    tags: [],
+    series: [],
+    narrators: [...new Set(catalog.map((audiobook) => audiobook.narrator).filter(Boolean))].sort(),
+    languages: [...new Set(catalog.map((audiobook) => audiobook.language).filter(Boolean))].sort(),
+    publishers: []
+});
+
+const getAuthorIdFromFilter = (filter) => {
+    const match = /^authors\.(.+)$/.exec(String(filter || ''));
+    if (!match) return null;
+    try {
+        const decoded = Buffer.from(match[1], 'base64').toString('utf8');
+        return decoded.startsWith('aut_') ? decoded : match[1];
+    } catch {
+        return match[1];
+    }
+};
 
 const normalizeNumber = (value, fallback = 0) => {
     const number = Number(value);
@@ -300,6 +323,16 @@ const createAudiobookshelfRouters = ({
         }
     }));
 
+    apiRouter.get('/libraries/:libraryId/authors', asyncRoute(async (req, res) => {
+        if (!validateLibrary(res, req.params.libraryId)) return;
+        return res.json({ authors: buildLibraryAuthors(await loadAudiobookCatalog()) });
+    }));
+
+    apiRouter.get('/libraries/:libraryId/filterdata', asyncRoute(async (req, res) => {
+        if (!validateLibrary(res, req.params.libraryId)) return;
+        return res.json(buildFilterData(await loadAudiobookCatalog()));
+    }));
+
     apiRouter.get('/libraries/:libraryId/items', asyncRoute(async (req, res) => {
         if (!validateLibrary(res, req.params.libraryId)) return;
         try {
@@ -308,11 +341,15 @@ const createAudiobookshelfRouters = ({
                 getProgressRows(db, req.user.user_id)
             ]);
             const progressRows = indexProgressRows(rows);
+            const filteredCatalog = (() => {
+                const authorId = getAuthorIdFromFilter(req.query.filter);
+                return authorId ? findAudiobooksByAuthorId(catalog, authorId) : catalog;
+            })();
             const limit = Math.min(500, Math.max(1, Number.parseInt(req.query.limit, 10) || 50));
             const page = Math.max(0, Number.parseInt(req.query.page, 10) || 0);
             const sortBy = req.query.sort || 'media.metadata.title';
             const sortDesc = String(req.query.desc || '0') === '1';
-            const items = catalog.map((audiobook) => buildLibraryItem(audiobook, {
+            const items = filteredCatalog.map((audiobook) => buildLibraryItem(audiobook, {
                 progressRow: progressRows.get(audiobook.folder)
             })).sort((left, right) => {
                 const comparison = sortBy === 'addedAt'
@@ -341,22 +378,29 @@ const createAudiobookshelfRouters = ({
         }
     }));
 
-    apiRouter.get('/libraries/:libraryId', (req, res) => {
+    apiRouter.get('/libraries/:libraryId', asyncRoute(async (req, res) => {
         if (!validateLibrary(res, req.params.libraryId)) return;
         const library = buildLibrary();
         if (String(req.query.include || '').split(',').includes('filterdata')) {
-            library.filterdata = {
-                authors: [],
-                genres: [],
-                tags: [],
-                series: [],
-                narrators: [],
-                languages: [],
-                publishers: []
-            };
+            library.filterdata = buildFilterData(await loadAudiobookCatalog());
         }
         return res.json(library);
-    });
+    }));
+
+    apiRouter.get('/authors/:authorId', asyncRoute(async (req, res) => {
+        const catalog = await loadAudiobookCatalog();
+        const author = buildLibraryAuthors(catalog).find(({ id }) => id === req.params.authorId);
+        if (!author) return res.status(404).json({ error: 'Author not found' });
+
+        const { numBooks: ignoredNumBooks, lastFirst: ignoredLastFirst, ...response } = author;
+        const include = String(req.query.include || '').split(',');
+        if (include.includes('items')) {
+            response.libraryItems = findAudiobooksByAuthorId(catalog, author.id)
+                .map((audiobook) => buildLibraryItem(audiobook));
+        }
+        if (include.includes('series')) response.series = [];
+        return res.json(response);
+    }));
 
     apiRouter.get('/items/:itemId/cover', asyncRoute(async (req, res) => {
         try {
