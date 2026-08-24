@@ -248,6 +248,24 @@ describe('Upload Endpoint Integration', () => {
         });
     });
 
+    test('GET /api/audiobooks includes completion percentage for the current user', async () => {
+        const adminResponse = await request(app)
+            .get('/api/audiobooks')
+            .set('Cookie', authCookie);
+        expect(adminResponse.statusCode).toBe(200);
+        expect(adminResponse.body.data.find(({ folder }) => folder === 'Archive Collection')).toMatchObject({
+            progress_percentage: 75
+        });
+
+        const guestResponse = await request(app)
+            .get('/api/audiobooks')
+            .set('Cookie', guestCookie);
+        expect(guestResponse.statusCode).toBe(200);
+        expect(guestResponse.body.data.find(({ folder }) => folder === 'Archive Collection')).toMatchObject({
+            progress_percentage: 0
+        });
+    });
+
     test('POST /api/audiobooks/upload rejects traversal paths', async () => {
         const res = await request(app)
             .post('/api/audiobooks/upload')

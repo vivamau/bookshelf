@@ -35,3 +35,15 @@ export const shouldPersistAudiobookProgress = (positionSeconds, lastSavedPositio
   Number.isFinite(positionSeconds)
   && Math.abs(positionSeconds - lastSavedPosition) >= intervalSeconds
 );
+
+export const normalizeAudiobookProgress = (value) => {
+  const percentage = Number(value);
+  return Number.isFinite(percentage) ? Math.min(100, Math.max(0, percentage)) : 0;
+};
+
+export const getAudiobookProgressLabel = (value) => {
+  const percentage = normalizeAudiobookProgress(value);
+  if (percentage >= 100) return 'Completed';
+  if (percentage > 0) return `${Math.round(percentage)}% complete`;
+  return 'Not started';
+};

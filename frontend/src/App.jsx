@@ -56,6 +56,8 @@ import { audiobooksApi, booksApi, libraryApi, genresApi, searchApi } from './api
 import {
   getAudiobookFolderCandidates,
   getAudiobookPlaybackError,
+  getAudiobookProgressLabel,
+  normalizeAudiobookProgress,
   resolveAudiobookResume,
   shouldPersistAudiobookProgress
 } from './lib/audiobookProgress';
@@ -146,6 +148,8 @@ const formatAudiobookAuthors = (authors) => (
 const AudiobookCard = ({ audiobook, index }) => {
   const navigate = useNavigate();
   const authorNames = formatAudiobookAuthors(audiobook.authors);
+  const completionPercentage = normalizeAudiobookProgress(audiobook.progress_percentage);
+  const completionLabel = getAudiobookProgressLabel(completionPercentage);
   const coverUrl = audiobook.coverPath
     ? `${import.meta.env.VITE_API_BASE_URL}/api/audiobooks/cover?path=${encodeURIComponent(audiobook.coverPath)}&v=${encodeURIComponent(audiobook.modifiedAt)}`
     : null;
@@ -156,7 +160,7 @@ const AudiobookCard = ({ audiobook, index }) => {
       onClick={() => navigate(`/audiobook?folder=${encodeURIComponent(audiobook.folder)}`)}
       className="group min-w-0 text-left animate-in fade-in slide-in-from-bottom-3 duration-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-4 focus-visible:ring-offset-background rounded-2xl"
       style={{ animationDelay: `${Math.min(index, 8) * 45}ms` }}
-      aria-label={`Open ${audiobook.title}`}
+      aria-label={`Open ${audiobook.title}. ${completionLabel}`}
     >
       <div className="relative aspect-square overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/15 via-card to-secondary/30 shadow-lg shadow-black/10 transition-all duration-500 group-hover:-translate-y-1 group-hover:border-primary/50 group-hover:shadow-[0_18px_40px_rgba(241,24,76,0.16)]">
         <div className="absolute inset-0 flex items-center justify-center text-primary/35" aria-hidden="true">
@@ -176,11 +180,20 @@ const AudiobookCard = ({ audiobook, index }) => {
         <div className="absolute left-3 top-3 rounded-full border border-white/15 bg-black/55 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-white backdrop-blur-md">
           {audiobook.trackCount} {audiobook.trackCount === 1 ? 'track' : 'tracks'}
         </div>
+        <div className="absolute right-3 top-3 rounded-full border border-white/15 bg-black/65 px-2.5 py-1 text-[9px] font-black tabular-nums tracking-[0.12em] text-white backdrop-blur-md">
+          {Math.round(completionPercentage)}%
+        </div>
         <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-3 text-white">
           <span className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-white/75">
             {audiobook.formats.join(' · ')}
           </span>
           <span className="shrink-0 text-[10px] font-bold text-white/70">{formatFileSize(audiobook.totalSize)}</span>
+        </div>
+        <div className="absolute inset-x-0 bottom-0 h-1 bg-black/45" aria-hidden="true">
+          <div
+            className="h-full bg-primary transition-[width] duration-500"
+            style={{ width: `${completionPercentage}%` }}
+          />
         </div>
       </div>
       <div className="px-1 pt-3">
@@ -189,6 +202,12 @@ const AudiobookCard = ({ audiobook, index }) => {
         </h3>
         <p className="mt-1 truncate text-xs text-muted-foreground">
           {authorNames || audiobook.tracks[0]?.title || 'Audio collection'}
+        </p>
+        <p className={cn(
+          "mt-1.5 text-[10px] font-black uppercase tracking-[0.14em]",
+          completionPercentage > 0 ? "text-primary" : "text-muted-foreground/70"
+        )}>
+          {completionLabel}
         </p>
       </div>
     </button>
@@ -1329,7 +1348,7 @@ function AudiobookDetails() {
               </div>
             )}
 
-            <div className="mt-4 grid grid-cols-2 gap-2">
+            <div className="mt-4 grid grid-cols-3 gap-2">
               <div className="rounded-xl border border-border bg-card/70 p-3 backdrop-blur-md">
                 <ListMusic size={16} className="mb-2 text-primary" />
                 <p className="text-lg font-black">{audiobook.trackCount}</p>
@@ -1339,6 +1358,13 @@ function AudiobookDetails() {
                 <HardDrive size={16} className="mb-2 text-primary" />
                 <p className="text-lg font-black">{formatFileSize(audiobook.totalSize)}</p>
                 <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">On server</p>
+              </div>
+              <div className="rounded-xl border border-primary/25 bg-primary/10 p-3 backdrop-blur-md">
+                <Check size={16} className="mb-2 text-primary" />
+                <p className="text-lg font-black tabular-nums text-primary">
+                  {isProgressAvailable ? `${Math.round(normalizeAudiobookProgress(listeningProgress))}%` : '—'}
+                </p>
+                <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">Completion</p>
               </div>
             </div>
           </div>

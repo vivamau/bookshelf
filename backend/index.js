@@ -1809,8 +1809,26 @@ const audiobooksRouter = express.Router();
 audiobooksRouter.get('/', async (req, res) => {
     try {
         await fs.promises.mkdir(AUDIOBOOKS_DIR, { recursive: true });
-        const audiobooks = await loadAudiobookCatalog.reload();
-        res.json({ data: audiobooks });
+        const [audiobooks, progressRows] = await Promise.all([
+            loadAudiobookCatalog.reload(),
+            new Promise((resolve, reject) => {
+                db.all(
+                    'SELECT audiobook_folder, progress_percentage FROM AudiobooksUsers WHERE user_id = ?',
+                    [req.user.user_id],
+                    (error, rows) => error ? reject(error) : resolve(rows)
+                );
+            })
+        ]);
+        const progressByFolder = new Map(progressRows.map((row) => [
+            row.audiobook_folder,
+            Math.min(100, Math.max(0, Number(row.progress_percentage) || 0))
+        ]));
+        res.json({
+            data: audiobooks.map((audiobook) => ({
+                ...audiobook,
+                progress_percentage: progressByFolder.get(audiobook.folder) || 0
+            }))
+        });
     } catch (err) {
         console.error('Audiobook catalog scan failed:', err);
         res.status(500).json({ error: 'Could not load the audiobook catalog' });
