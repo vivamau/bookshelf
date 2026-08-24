@@ -68,6 +68,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Author'
+        genres:
+          type: array
+          items:
+            $ref: '#/components/schemas/Genere'
         narrator:
           type: string
         language:
@@ -965,6 +969,14 @@ paths:
           description: Audiobook not found
         502:
           description: Remote image download failed
+  /api/audiobooks/series:
+    get:
+      summary: Group audiobook collections by series in reading order
+      responses:
+        200:
+          description: Series with their ordered audiobook collections
+        403:
+          description: Authentication is required
   /api/audiobooks/details:
     get:
       summary: Get one audiobook collection by its server folder
@@ -1074,6 +1086,12 @@ paths:
                       items:
                         type: integer
                       description: IDs from the shared Authors table
+                    genreIds:
+                      type: array
+                      maxItems: 50
+                      items:
+                        type: integer
+                      description: IDs from the shared Generes table used by ebooks and audiobooks
                     narrator:
                       type: string
                     language:

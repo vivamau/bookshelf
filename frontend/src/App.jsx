@@ -34,7 +34,8 @@ import {
   ImagePlus,
   Link2,
   Layers3,
-  LayoutGrid
+  LayoutGrid,
+  Tag
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -54,6 +55,7 @@ import Readlists from './pages/Readlists';
 import ReadlistDetails from './pages/ReadlistDetails';
 import SearchResults from './pages/SearchResults';
 import AuthorSearch from './components/AuthorSearch';
+import GenreSearch from './components/GenreSearch';
 import { audiobooksApi, booksApi, libraryApi, genresApi, searchApi } from './api/api';
 import {
   getAudiobookFolderCandidates,
@@ -1061,6 +1063,9 @@ function AudiobookDetails() {
   const [isDeletingAudiobook, setIsDeletingAudiobook] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [selectedAuthors, setSelectedAuthors] = useState([]);
+  const [selectedGenres, setSelectedGenres] = useState([]);
+  const [allGenres, setAllGenres] = useState([]);
+  const [areGenresLoading, setAreGenresLoading] = useState(false);
   const [metadataForm, setMetadataForm] = useState({
     title: '',
     narrator: '',
@@ -1136,6 +1141,7 @@ function AudiobookDetails() {
           setListeningProgress(resume.progressPercentage);
           setIsEditingCover(!loadedAudiobook.coverPath && hasPermission('userrole_managebooks'));
           setSelectedAuthors(loadedAudiobook.authors || []);
+          setSelectedGenres(loadedAudiobook.genres || []);
           setMetadataForm({
             title: loadedAudiobook.title || '',
             narrator: loadedAudiobook.narrator || '',
@@ -1233,7 +1239,7 @@ function AudiobookDetails() {
     }
   };
 
-  const openMetadataEditor = () => {
+  const openMetadataEditor = async () => {
     setMetadataForm({
       title: audiobook.title || '',
       narrator: audiobook.narrator || '',
@@ -1244,8 +1250,19 @@ function AudiobookDetails() {
       description: audiobook.description || ''
     });
     setSelectedAuthors(audiobook.authors || []);
+    setSelectedGenres(audiobook.genres || []);
     setMetadataError('');
     setIsEditingMetadata(true);
+    setAreGenresLoading(true);
+    try {
+      const response = await genresApi.getAll();
+      setAllGenres(response.data.data || []);
+    } catch (requestError) {
+      console.error('Could not load audiobook genres', requestError);
+      setMetadataError('Genres could not be loaded. The other metadata fields remain editable.');
+    } finally {
+      setAreGenresLoading(false);
+    }
   };
 
   const saveMetadata = async (event) => {
@@ -1260,11 +1277,13 @@ function AudiobookDetails() {
       const response = await audiobooksApi.updateMetadata(audiobookFolder, {
         ...metadataForm,
         seriesSequence: metadataForm.series.trim() ? metadataForm.seriesSequence : '',
-        authorIds: selectedAuthors.map((author) => author.ID)
+        authorIds: selectedAuthors.map((author) => author.ID),
+        genreIds: selectedGenres.map((genre) => genre.ID)
       });
       const updatedAudiobook = response.data.data;
       setAudiobook(updatedAudiobook);
       setSelectedAuthors(updatedAudiobook.authors || []);
+      setSelectedGenres(updatedAudiobook.genres || []);
       setMetadataForm({
         title: updatedAudiobook.title || '',
         narrator: updatedAudiobook.narrator || '',
@@ -1541,6 +1560,14 @@ function AudiobookDetails() {
             )}
 
             <div className="mt-6 flex flex-wrap gap-2">
+              {(audiobook.genres || []).map((genre) => (
+                <span
+                  key={genre.ID}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary backdrop-blur-md"
+                >
+                  <Tag size={11} /> {genre.genere_title}
+                </span>
+              ))}
               {audiobook.formats.map((format) => (
                 <span key={format} className="rounded-full border border-border bg-card/65 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground backdrop-blur-md">
                   {format}
@@ -1664,6 +1691,58 @@ function AudiobookDetails() {
                     </div>
                     <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
                       Audiobook authors use the same author records as books.
+                    </p>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <span className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-muted-foreground">Genres</span>
+                    <div className="rounded-xl border border-border bg-background/45 p-3.5">
+                      <div className="mb-3 flex min-h-7 flex-wrap gap-2">
+                        {selectedGenres.length > 0 ? selectedGenres.map((genre) => (
+                          <div
+                            key={genre.ID}
+                            className="flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/12 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-primary"
+                          >
+                            <Tag size={11} />
+                            <span>{genre.genere_title}</span>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedGenres((current) => current.filter((item) => item.ID !== genre.ID))}
+                              className="ml-0.5 rounded-full p-0.5 text-primary/65 transition-colors hover:bg-primary/15 hover:text-primary"
+                              aria-label={`Remove ${genre.genere_title}`}
+                            >
+                              <X size={11} />
+                            </button>
+                          </div>
+                        )) : (
+                          <span className="text-xs italic text-muted-foreground">No genres assigned.</span>
+                        )}
+                      </div>
+
+                      {areGenresLoading ? (
+                        <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
+                          <Loader size={14} className="animate-spin" /> Loading shared genres…
+                        </div>
+                      ) : (
+                        <GenreSearch
+                          placeholder="Search or create a shared genre…"
+                          allGenres={allGenres}
+                          excludeIds={selectedGenres.map((genre) => genre.ID)}
+                          onSelect={(genre) => {
+                            if (!genre) return;
+                            setSelectedGenres((current) => current.some((item) => item.ID === genre.ID)
+                              ? current
+                              : [...current, genre]);
+                            setAllGenres((current) => current.some((item) => item.ID === genre.ID)
+                              ? current
+                              : [...current, genre]);
+                            setMetadataError('');
+                          }}
+                        />
+                      )}
+                    </div>
+                    <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
+                      These are the same genre records used by ebooks and Audiobookshelf clients.
                     </p>
                   </div>
 

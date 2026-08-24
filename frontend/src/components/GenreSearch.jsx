@@ -59,18 +59,24 @@ const GenreSearch = ({ onSelect, allGenres = [], excludeIds = [], className, pla
                     placeholder="Genre Name"
                     value={newGenreName}
                     onChange={e => setNewGenreName(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleCreate()}
+                    onKeyDown={(event) => {
+                        if (event.key !== 'Enter') return;
+                        event.preventDefault();
+                        handleCreate();
+                    }}
                     className="bg-black/20 border border-white/10 rounded px-2 py-1 text-sm text-foreground outline-none focus:border-primary"
                     autoFocus
                 />
                 <div className="flex justify-end gap-2 mt-1">
                     <button
+                        type="button"
                         onClick={() => { setIsCreating(false); setNewGenreName(''); }}
                         className="px-3 py-1 text-xs font-bold text-muted-foreground hover:text-foreground"
                     >
                         Cancel
                     </button>
                     <button
+                        type="button"
                         onClick={handleCreate}
                         disabled={!newGenreName.trim() || creating}
                         className="px-3 py-1 bg-primary text-primary-foreground text-xs font-bold rounded hover:bg-primary/90 disabled:opacity-50"
@@ -103,6 +109,7 @@ const GenreSearch = ({ onSelect, allGenres = [], excludeIds = [], className, pla
                     <div className="overflow-y-auto max-h-[200px] custom-scrollbar">
                         {filtered.map(genre => (
                             <button
+                                type="button"
                                 key={genre.ID}
                                 onClick={() => {
                                     onSelect(genre, false);
@@ -124,6 +131,7 @@ const GenreSearch = ({ onSelect, allGenres = [], excludeIds = [], className, pla
                     </div>
                     {query && (
                         <button
+                            type="button"
                             onClick={() => {
                                 setNewGenreName(query);
                                 setIsCreating(true);

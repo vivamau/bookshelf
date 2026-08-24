@@ -82,6 +82,25 @@ const findAudiobooksByAuthorId = (catalog = [], authorId) => catalog.filter((aud
     (audiobook.authors || []).some((author) => getAudiobookshelfAuthorId(author.ID) === authorId)
 ));
 
+const getAudiobookGenreNames = (audiobook = {}) => [...new Set(
+    (audiobook.genres || [])
+        .map((genre) => String(
+            typeof genre === 'string'
+                ? genre
+                : genre?.genere_title || genre?.name || ''
+        ).trim())
+        .filter(Boolean)
+)];
+
+const findAudiobooksByGenre = (catalog = [], genreName) => {
+    const normalizedName = String(genreName || '').trim().toLocaleLowerCase();
+    if (!normalizedName) return catalog;
+    return catalog.filter((audiobook) => (
+        getAudiobookGenreNames(audiobook)
+            .some((name) => name.toLocaleLowerCase() === normalizedName)
+    ));
+};
+
 const getAudiobookSeries = (audiobook) => {
     const explicitName = String(audiobook.series || '').trim();
     const segments = String(audiobook.folder || '').split('/').filter(Boolean);
@@ -129,7 +148,7 @@ const buildMetadata = (audiobook, expanded) => {
         title: audiobook.title,
         titleIgnorePrefix: audiobook.title,
         subtitle: null,
-        genres: [],
+        genres: getAudiobookGenreNames(audiobook),
         publishedYear: audiobook.publishedYear ? String(audiobook.publishedYear) : null,
         publishedDate: null,
         publisher: null,
@@ -177,7 +196,7 @@ const buildFileMetadata = (audiobook, track) => {
 const buildMetaTags = (audiobook, track, index) => ({
     tagAlbum: audiobook.title || '',
     tagArtist: getAudiobookAuthorsText(audiobook),
-    tagGenre: '',
+    tagGenre: getAudiobookGenreNames(audiobook).join(', '),
     tagTitle: track.title || path.posix.basename(track.path),
     tagTrack: String(index + 1),
     tagDisc: null,
@@ -452,7 +471,7 @@ const buildLibraryStats = (catalog = []) => {
             existing.count += 1;
             authors.set(id, existing);
         });
-        (audiobook.genres || []).forEach((genre) => {
+        getAudiobookGenreNames(audiobook).forEach((genre) => {
             if (!genre) return;
             genres.set(genre, (genres.get(genre) || 0) + 1);
         });
@@ -672,7 +691,9 @@ module.exports = {
     buildServerSettings,
     findAudiobookByItemId,
     findAudiobooksByAuthorId,
+    findAudiobooksByGenre,
     findAudiobooksBySeriesId,
+    getAudiobookGenreNames,
     getAudiobookSeries,
     getAudiobookDuration,
     getAudiobookshelfItemId,

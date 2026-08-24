@@ -58,6 +58,11 @@ const {
     findOrCreateAuthorByName,
     replaceAudiobookAuthors
 } = require('./utils/audiobookAuthors');
+const {
+    AudiobookGenreError,
+    enrichAudiobookGenres,
+    replaceAudiobookGenres
+} = require('./utils/audiobookGenres');
 const { RemoteImageError, downloadRemoteImage } = require('./utils/remoteImage');
 const {
     AUDIOBOOKSHELF_COMPATIBILITY_VERSION,
@@ -147,7 +152,8 @@ const AUDIOBOOKS_DIR = path.join(__dirname, 'audiobooks');
 const loadFreshAudiobookCatalog = async () => {
     const catalog = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
     const catalogWithDurations = await enrichAudiobookDurations(AUDIOBOOKS_DIR, catalog);
-    return enrichAudiobookCatalog(db, catalogWithDurations);
+    const catalogWithAuthors = await enrichAudiobookCatalog(db, catalogWithDurations);
+    return enrichAudiobookGenres(db, catalogWithAuthors);
 };
 const loadAudiobookCatalog = createStaleWhileRevalidateLoader(loadFreshAudiobookCatalog, {
     maxAgeMs: 30000,
@@ -1990,7 +1996,13 @@ audiobooksRouter.put('/metadata', checkManageBooks, async (req, res) => {
         }
 
         const requestedMetadata = req.body.metadata || {};
-        const { authorIds, author: legacyAuthorName, ...fileMetadata } = requestedMetadata;
+        const {
+            authorIds,
+            genreIds,
+            author: legacyAuthorName,
+            genres: ignoredGenres,
+            ...fileMetadata
+        } = requestedMetadata;
         await writeAudiobookMetadata(AUDIOBOOKS_DIR, audiobook.folder, {
             ...fileMetadata,
             author: ''
@@ -2002,12 +2014,18 @@ audiobooksRouter.put('/metadata', checkManageBooks, async (req, res) => {
             const legacyAuthor = await findOrCreateAuthorByName(db, legacyAuthorName);
             await replaceAudiobookAuthors(db, audiobook.folder, legacyAuthor ? [legacyAuthor.ID] : []);
         }
+        if (genreIds !== undefined) {
+            await replaceAudiobookGenres(db, audiobook.folder, genreIds);
+        }
 
         const updatedAudiobooks = await loadAudiobookCatalog.reload();
         const updatedAudiobook = updatedAudiobooks.find((item) => item.folder === audiobook.folder);
         res.json({ data: updatedAudiobook });
     } catch (err) {
         if (err instanceof AudiobookAuthorError) {
+            return res.status(err.statusCode).json({ error: err.message });
+        }
+        if (err instanceof AudiobookGenreError) {
             return res.status(err.statusCode).json({ error: err.message });
         }
         if (err instanceof AudiobookCatalogError) {

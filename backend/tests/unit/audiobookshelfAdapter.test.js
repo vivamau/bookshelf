@@ -10,7 +10,9 @@ const {
     buildMediaProgress,
     findAudiobookByItemId,
     findAudiobooksByAuthorId,
+    findAudiobooksByGenre,
     findAudiobooksBySeriesId,
+    getAudiobookGenreNames,
     getAudiobookshelfItemId,
     getAudiobookshelfTrackId
 } = require('../../utils/audiobookshelfAdapter');
@@ -27,6 +29,7 @@ const audiobook = {
     language: 'English',
     description: 'A classic fantasy audiobook.',
     publishedYear: 1968,
+    genres: [{ ID: 4, genere_title: 'Fantasy' }],
     authors: [{
         ID: 9,
         author_name: 'Ursula K.',
@@ -68,6 +71,7 @@ describe('Audiobookshelf compatibility adapter', () => {
                     title: 'A Wizard of Earthsea',
                     authorName: 'Ursula K. Le Guin',
                     narratorName: 'Rob Inglis',
+                    genres: ['Fantasy'],
                     abridged: false
                 },
                 id: expect.any(String),
@@ -146,6 +150,7 @@ describe('Audiobookshelf compatibility adapter', () => {
             authorNameLF: 'Ursula K. Le Guin',
             narratorName: 'Rob Inglis',
             seriesName: '',
+            genres: ['Fantasy'],
             descriptionPlain: 'A classic fantasy audiobook.'
         });
         expect(item.media).toMatchObject({
@@ -161,6 +166,7 @@ describe('Audiobookshelf compatibility adapter', () => {
             metaTags: {
                 tagAlbum: 'A Wizard of Earthsea',
                 tagArtist: 'Ursula K. Le Guin',
+                tagGenre: 'Fantasy',
                 tagTitle: 'Chapter 1',
                 tagTrack: '1'
             },
@@ -284,6 +290,8 @@ describe('Audiobookshelf compatibility adapter', () => {
             })
         ]);
         expect(findAudiobooksByAuthorId(catalog, authors[0].id)).toEqual(catalog);
+        expect(getAudiobookGenreNames(audiobook)).toEqual(['Fantasy']);
+        expect(findAudiobooksByGenre(catalog, 'fantasy')).toEqual(catalog);
     });
 
     test('groups explicit audiobook series and orders books by sequence', () => {

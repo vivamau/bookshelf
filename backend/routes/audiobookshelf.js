@@ -18,7 +18,9 @@ const {
     buildMediaProgress,
     findAudiobookByItemId,
     findAudiobooksByAuthorId,
+    findAudiobooksByGenre,
     findAudiobooksBySeriesId,
+    getAudiobookGenreNames,
     getAudiobookDuration,
     getAudiobookshelfItemId,
     getAudiobookshelfTrackId
@@ -74,7 +76,7 @@ const indexProgressRows = (rows) => new Map(rows.map((row) => [row.audiobook_fol
 
 const buildFilterData = (catalog) => ({
     authors: buildLibraryAuthors(catalog).map(({ id, name }) => ({ id, name })),
-    genres: [...new Set(catalog.flatMap((audiobook) => audiobook.genres || []).filter(Boolean))].sort(),
+    genres: [...new Set(catalog.flatMap(getAudiobookGenreNames))].sort(),
     tags: [],
     series: buildLibrarySeries(catalog).map(({ id, name }) => ({ id, name })),
     narrators: [...new Set(catalog.map((audiobook) => audiobook.narrator).filter(Boolean))].sort(),
@@ -99,6 +101,24 @@ const getSeriesIdFromFilter = (filter) => {
     try {
         const decoded = Buffer.from(match[1], 'base64').toString('utf8');
         return decoded.startsWith('ser_') ? decoded : match[1];
+    } catch {
+        return match[1];
+    }
+};
+
+const getGenreNameFromFilter = (filter) => {
+    const match = /^genres\.(.+)$/.exec(String(filter || ''));
+    if (!match) return null;
+    try {
+        const encodedName = match[1];
+        const decodedName = Buffer.from(encodedName, 'base64').toString('utf8');
+        const normalizedInput = encodedName.replace(/=+$/, '');
+        const normalizedDecoded = Buffer.from(decodedName).toString('base64').replace(/=+$/, '');
+        return decodedName
+            && !/[\u0000-\u001F\u007F]/u.test(decodedName)
+            && normalizedDecoded === normalizedInput
+            ? decodedName
+            : encodedName;
     } catch {
         return match[1];
     }
@@ -380,6 +400,8 @@ const createAudiobookshelfRouters = ({
         let catalog = await loadAudiobookCatalog();
         const authorId = getAuthorIdFromFilter(req.query.filter);
         if (authorId) catalog = findAudiobooksByAuthorId(catalog, authorId);
+        const genreName = getGenreNameFromFilter(req.query.filter);
+        if (genreName) catalog = findAudiobooksByGenre(catalog, genreName);
 
         const limit = Math.min(500, Math.max(1, Number.parseInt(req.query.limit, 10) || 50));
         const page = Math.max(0, Number.parseInt(req.query.page, 10) || 0);
@@ -419,7 +441,9 @@ const createAudiobookshelfRouters = ({
                 const authorId = getAuthorIdFromFilter(req.query.filter);
                 if (authorId) return findAudiobooksByAuthorId(catalog, authorId);
                 const seriesId = getSeriesIdFromFilter(req.query.filter);
-                return seriesId ? findAudiobooksBySeriesId(catalog, seriesId) : catalog;
+                if (seriesId) return findAudiobooksBySeriesId(catalog, seriesId);
+                const genreName = getGenreNameFromFilter(req.query.filter);
+                return genreName ? findAudiobooksByGenre(catalog, genreName) : catalog;
             })();
             const limit = Math.min(500, Math.max(1, Number.parseInt(req.query.limit, 10) || 50));
             const page = Math.max(0, Number.parseInt(req.query.page, 10) || 0);

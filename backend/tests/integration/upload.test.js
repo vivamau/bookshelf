@@ -31,6 +31,7 @@ describe('Upload Endpoint Integration', () => {
     let authCookie;
     let guestCookie;
     let manageBooksOnlyCookie;
+    let audiobookGenreId;
     const dummyFilePath = path.join(__dirname, 'test_upload.epub');
     const uploadedFilePath = path.join(__dirname, '..', '..', 'books', 'test_upload.epub');
     const dummyAudiobookPath = path.join(__dirname, 'sample-track.mp3');
@@ -48,6 +49,16 @@ describe('Upload Endpoint Integration', () => {
 
     beforeAll(async () => {
         await setupTestDb();
+        audiobookGenreId = await new Promise((resolve, reject) => {
+            db.run(
+                'INSERT INTO Generes (genere_title, genere_create_date, genere_update_date) VALUES (?, ?, ?)',
+                ['INTEGRATION FANTASY', Date.now(), Date.now()],
+                function onInsert(error) {
+                    if (error) reject(error);
+                    else resolve(this.lastID);
+                }
+            );
+        });
         
         // Create dummy file
         fs.writeFileSync(dummyFilePath, 'dummy content');
@@ -443,6 +454,7 @@ describe('Upload Endpoint Integration', () => {
                     narrator: 'Test Narrator',
                     series: 'Integration Cycle',
                     seriesSequence: '2',
+                    genreIds: [audiobookGenreId],
                     language: 'English',
                     publishedYear: 2026,
                     description: 'An integration-test collection.'
@@ -459,6 +471,10 @@ describe('Upload Endpoint Integration', () => {
             narrator: 'Test Narrator',
             series: 'Integration Cycle',
             seriesSequence: '2',
+            genres: [expect.objectContaining({
+                ID: audiobookGenreId,
+                genere_title: 'INTEGRATION FANTASY'
+            })],
             language: 'English',
             publishedYear: 2026,
             description: 'An integration-test collection.'

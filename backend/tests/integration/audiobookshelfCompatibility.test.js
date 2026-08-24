@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const request = require('supertest');
 const { setupTestDb, db } = require('../setup');
+const { replaceAudiobookGenres } = require('../../utils/audiobookGenres');
 const app = require('../../index');
 
 jest.setTimeout(30000);
@@ -23,6 +24,7 @@ describe('Audiobookshelf client compatibility', () => {
     const noCoverAudioPath = path.join(noCoverDirectory, '01 - No Cover.mp3');
     let accessToken;
     let itemId;
+    let genreId;
 
     beforeAll(async () => {
         await setupTestDb();
@@ -37,6 +39,18 @@ describe('Audiobookshelf client compatibility', () => {
         }));
         fs.mkdirSync(noCoverDirectory, { recursive: true });
         fs.writeFileSync(noCoverAudioPath, 'soundleaf audio without cover');
+
+        genreId = await new Promise((resolve, reject) => {
+            db.run(
+                'INSERT INTO Generes (genere_title, genere_create_date, genere_update_date) VALUES (?, ?, ?)',
+                ['ADVENTURE', Date.now(), Date.now()],
+                function onInsert(error) {
+                    if (error) reject(error);
+                    else resolve(this.lastID);
+                }
+            );
+        });
+        await replaceAudiobookGenres(db, folderName, [genreId]);
 
         const login = await request(app)
             .post('/login')
@@ -133,7 +147,7 @@ describe('Audiobookshelf client compatibility', () => {
             media: {
                 id: expect.any(String),
                 numTracks: 1,
-                metadata: { abridged: false },
+                metadata: { abridged: false, genres: ['ADVENTURE'] },
                 coverPath: `/audiobooks/${folderName}/cover.jpg`
             }
         });
@@ -197,7 +211,19 @@ describe('Audiobookshelf client compatibility', () => {
             .set('Authorization', `Bearer ${accessToken}`);
         expect(filterData.statusCode).toBe(200);
         expect(filterData.body.authors).toContainEqual({ id: author.id, name: author.name });
+        expect(filterData.body.genres).toContain('ADVENTURE');
         expect(filterData.body.series).toContainEqual({ id: series.id, name: series.name });
+
+        const genreFilter = Buffer.from('ADVENTURE').toString('base64');
+        const genreItems = await request(app)
+            .get('/api/libraries/lib_bookshelf_audiobooks/items')
+            .query({ filter: `genres.${genreFilter}` })
+            .set('Authorization', `Bearer ${accessToken}`);
+        expect(genreItems.statusCode).toBe(200);
+        expect(genreItems.body).toMatchObject({
+            total: 1,
+            results: [expect.objectContaining({ id: itemId })]
+        });
 
         const seriesFilter = Buffer.from(series.id).toString('base64');
         const seriesItems = await request(app)
