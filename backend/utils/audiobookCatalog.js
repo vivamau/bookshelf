@@ -379,6 +379,7 @@ const scanAudiobookCatalog = async (audiobooksDirectory, fsApi = fs.promises) =>
                 title: metadata.title || displayName(folderName),
                 folder: directory,
                 coverPath: cover?.relativePath || null,
+                coverModifiedAt: cover?.modifiedAt || null,
                 trackCount: tracks.length,
                 totalSize: tracks.reduce((total, track) => total + track.size, 0),
                 formats: [...new Set(tracks.map((track) => track.format))],

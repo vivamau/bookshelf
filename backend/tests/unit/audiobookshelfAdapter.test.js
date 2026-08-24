@@ -18,6 +18,7 @@ const audiobook = {
     folder: 'Ursula Le Guin/Earthsea',
     title: 'A Wizard of Earthsea',
     coverPath: 'Ursula Le Guin/Earthsea/cover.jpg',
+    coverModifiedAt: '2026-08-23T10:00:00.000Z',
     trackCount: 2,
     totalSize: 300,
     modifiedAt: '2026-08-23T10:00:00.000Z',
@@ -71,7 +72,7 @@ describe('Audiobookshelf compatibility adapter', () => {
                 id: expect.any(String),
                 numTracks: 2,
                 duration: 150,
-                coverPath: `/api/items/${firstId}/cover`
+                coverPath: `/api/items/${firstId}/cover?v=${Date.parse(audiobook.coverModifiedAt)}`
             }
         });
         expect(findAudiobookByItemId([audiobook], firstId)).toBe(audiobook);
@@ -91,6 +92,19 @@ describe('Audiobookshelf compatibility adapter', () => {
         expect(item.updatedAt).toBe(Date.parse('2026-08-24T10:00:00.000Z'));
         expect(item.mtimeMs).toBe(item.updatedAt);
         expect(item.lastScan).toBe(item.updatedAt);
+    });
+
+    test('changes the cover URL when the cover file changes', () => {
+        const before = buildLibraryItem(audiobook);
+        const after = buildLibraryItem({
+            ...audiobook,
+            coverModifiedAt: '2026-08-24T12:00:00.000Z'
+        });
+
+        expect(after.media.coverPath).not.toBe(before.media.coverPath);
+        expect(after.media.coverPath).toBe(
+            `/api/items/${after.id}/cover?v=${Date.parse('2026-08-24T12:00:00.000Z')}`
+        );
     });
 
     test('builds expanded tracks with cumulative offsets and protected URLs', () => {

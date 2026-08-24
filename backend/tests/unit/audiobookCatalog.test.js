@@ -147,7 +147,8 @@ describe('audiobook catalog', () => {
             trackCount: 2,
             totalSize: 200,
             formats: ['MP3'],
-            coverPath: '001. Ursula Le Guin - Earthsea [mp3 - 64 kbps]/cover.jpg'
+            coverPath: '001. Ursula Le Guin - Earthsea [mp3 - 64 kbps]/cover.jpg',
+            coverModifiedAt: '2026-08-14T10:00:00.000Z'
         });
         expect(catalog[0].tracks.map((track) => track.title)).toEqual(['Chapter 2', 'Chapter 10']);
         expect(fsApi.stat).toHaveBeenCalledTimes(3);

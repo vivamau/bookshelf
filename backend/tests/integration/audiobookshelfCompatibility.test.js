@@ -134,7 +134,7 @@ describe('Audiobookshelf client compatibility', () => {
                 id: expect.any(String),
                 numTracks: 1,
                 metadata: { abridged: false },
-                coverPath: expect.stringMatching(/^\/api\/items\/.+\/cover$/)
+                coverPath: expect.stringMatching(/^\/api\/items\/.+\/cover\?v=\d+$/)
             }
         });
         expect(item).not.toHaveProperty('libraryFiles');
@@ -489,5 +489,37 @@ describe('Audiobookshelf client compatibility', () => {
         });
         expect(afterItem.addedAt).toBe(beforeItem.addedAt);
         expect(afterItem.updatedAt).toBeGreaterThan(beforeItem.updatedAt);
+    });
+
+    test('changes the SoundLeaf cover URL after the cover file is replaced', async () => {
+        const before = await request(app)
+            .get('/api/libraries/lib_bookshelf_audiobooks/items')
+            .set('Authorization', `Bearer ${accessToken}`);
+        const beforeItem = before.body.results.find(({ id }) => id === itemId);
+
+        fs.writeFileSync(coverPath, 'updated soundleaf cover');
+        const futureModifiedAt = new Date(Date.now() + 5000);
+        fs.utimesSync(coverPath, futureModifiedAt, futureModifiedAt);
+        const reload = await request(app)
+            .get('/api/audiobooks')
+            .set('Authorization', `Bearer ${accessToken}`);
+        expect(reload.statusCode).toBe(200);
+
+        const after = await request(app)
+            .get('/api/libraries/lib_bookshelf_audiobooks/items')
+            .query({ minified: 1 })
+            .set('Authorization', `Bearer ${accessToken}`);
+        const afterItem = after.body.results.find(({ id }) => id === itemId);
+
+        expect(afterItem.media.coverPath).not.toBe(beforeItem.media.coverPath);
+        expect(afterItem.media.coverPath).toMatch(/^\/api\/items\/.+\/cover\?v=\d+$/);
+
+        const cover = await request(app)
+            .get(afterItem.media.coverPath)
+            .set('Authorization', `Bearer ${accessToken}`)
+            .buffer(true)
+            .parse(binaryParser);
+        expect(cover.statusCode).toBe(200);
+        expect(cover.body.toString()).toBe('updated soundleaf cover');
     });
 });
