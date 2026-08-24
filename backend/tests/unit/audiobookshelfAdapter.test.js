@@ -110,6 +110,9 @@ describe('Audiobookshelf compatibility adapter', () => {
         expect(item.media.audioFiles).toHaveLength(2);
         expect(item.media.audioFiles[0].ino).toMatch(/^\d+$/);
         expect(item.libraryFiles[0].ino).toBe(item.media.audioFiles[0].ino);
+        expect(item.media.tracks[0].contentUrl).toBe(
+            `/api/items/${item.id}/file/${item.media.audioFiles[0].ino}`
+        );
         expect(item.media.id).toEqual(expect.any(String));
         expect(item.media.metadata.authors[0].name).toBe('Ursula K. Le Guin');
         expect(item.media.metadata).toMatchObject({

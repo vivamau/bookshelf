@@ -232,7 +232,7 @@ describe('Audiobookshelf client compatibility', () => {
         expect(expanded.statusCode).toBe(200);
         expect(expanded.body.media.tracks[0]).toMatchObject({
             index: 1,
-            contentUrl: `/api/items/${itemId}/file/0`,
+            contentUrl: `/api/items/${itemId}/file/${expanded.body.media.audioFiles[0].ino}`,
             mimeType: 'audio/mpeg'
         });
 
@@ -324,6 +324,9 @@ describe('Audiobookshelf client compatibility', () => {
         const audioFile = item.body.media.audioFiles[0];
         expect(audioFile.index).toBe(1);
         expect(audioFile.ino).toMatch(/^\d+$/);
+        expect(item.body.media.tracks[0].contentUrl).toBe(
+            `/api/items/${itemId}/file/${audioFile.ino}`
+        );
         expect(audioFile.metadata).toMatchObject({
             filename: '01 - Connection Test.mp3',
             ext: '.mp3',

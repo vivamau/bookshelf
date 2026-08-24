@@ -201,14 +201,15 @@ const buildAudioTracks = (audiobook, itemId, contentUrlFactory) => {
     let startOffset = 0;
     return (audiobook.tracks || []).map((track, index) => {
         const duration = getTrackDuration(track);
+        const fileId = getAudiobookshelfTrackId(track.path);
         const audioTrack = {
-            // Audiobookshelf uses 1-based indexes for included audio files.
-            // Keep the zero-based source index only in the generated content URL.
+            // Audiobookshelf uses 1-based public indexes. The URL factory also
+            // receives the zero-based source position and stable file inode.
             index: index + 1,
             startOffset,
             duration,
             title: path.posix.basename(track.path),
-            contentUrl: contentUrlFactory(itemId, index),
+            contentUrl: contentUrlFactory(itemId, index, fileId),
             mimeType: track.mimeType || null,
             metadata: buildFileMetadata(audiobook, track)
         };
@@ -318,7 +319,7 @@ const buildLibraryItem = (audiobook, options = {}) => {
     const expanded = options.expanded === true;
     const itemId = getAudiobookshelfItemId(audiobook.folder);
     const modifiedAt = toTimestamp(audiobook.modifiedAt);
-    const contentUrlFactory = options.contentUrlFactory || ((id, index) => `/api/items/${id}/file/${index}`);
+    const contentUrlFactory = options.contentUrlFactory || ((id, _index, fileId) => `/api/items/${id}/file/${fileId}`);
     const audioTracks = buildAudioTracks(audiobook, itemId, contentUrlFactory);
     const audioFiles = buildAudioFiles(audiobook, audioTracks);
     const tracks = audioTracks.map((track, index) => ({
