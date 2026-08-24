@@ -134,7 +134,7 @@ describe('Audiobookshelf client compatibility', () => {
                 id: expect.any(String),
                 numTracks: 1,
                 metadata: { abridged: false },
-                coverPath: expect.stringMatching(/^\/api\/items\/.+\/cover\?v=\d+$/)
+                coverPath: expect.stringMatching(/^\/api\/items\/.+\/cover\/\d+$/)
             }
         });
         expect(item).not.toHaveProperty('libraryFiles');
@@ -512,11 +512,11 @@ describe('Audiobookshelf client compatibility', () => {
         const afterItem = after.body.results.find(({ id }) => id === itemId);
 
         expect(afterItem.media.coverPath).not.toBe(beforeItem.media.coverPath);
-        expect(afterItem.media.coverPath).toMatch(/^\/api\/items\/.+\/cover\?v=\d+$/);
+        expect(afterItem.media.coverPath).toMatch(/^\/api\/items\/.+\/cover\/\d+$/);
 
         const cover = await request(app)
             .get(afterItem.media.coverPath)
-            .set('Authorization', `Bearer ${accessToken}`)
+            .query({ token: accessToken })
             .buffer(true)
             .parse(binaryParser);
         expect(cover.statusCode).toBe(200);

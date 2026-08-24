@@ -487,7 +487,7 @@ const createAudiobookshelfRouters = ({
         return res.json(series);
     }));
 
-    apiRouter.get('/items/:itemId/cover', asyncRoute(async (req, res) => {
+    const sendItemCover = asyncRoute(async (req, res) => {
         try {
             const audiobook = await loadItem(req.params.itemId);
             if (!audiobook) return res.status(404).json({ error: 'Library item not found' });
@@ -501,7 +501,13 @@ const createAudiobookshelfRouters = ({
         } catch (error) {
             return res.status(400).json({ error: error.message });
         }
-    }));
+    });
+
+    // Keep the cache version in the URL path. Some native clients append their
+    // access token as a query parameter and cannot safely merge it with an
+    // existing cache-busting query string.
+    apiRouter.get('/items/:itemId/cover/:version', sendItemCover);
+    apiRouter.get('/items/:itemId/cover', sendItemCover);
 
     apiRouter.get('/items/:itemId/file/:trackId/download', asyncRoute(async (req, res) => {
         const audiobook = await loadItem(req.params.itemId);

@@ -72,7 +72,7 @@ describe('Audiobookshelf compatibility adapter', () => {
                 id: expect.any(String),
                 numTracks: 2,
                 duration: 150,
-                coverPath: `/api/items/${firstId}/cover?v=${Date.parse(audiobook.coverModifiedAt)}`
+                coverPath: `/api/items/${firstId}/cover/${Date.parse(audiobook.coverModifiedAt)}`
             }
         });
         expect(findAudiobookByItemId([audiobook], firstId)).toBe(audiobook);
@@ -89,7 +89,7 @@ describe('Audiobookshelf compatibility adapter', () => {
         });
 
         expect(item.addedAt).toBe(Date.parse(audiobook.modifiedAt));
-        expect(item.updatedAt).toBe(Date.parse('2026-08-24T10:00:00.000Z'));
+        expect(item.updatedAt).toBe(Date.parse('2026-08-24T10:00:00.000Z') + 1);
         expect(item.mtimeMs).toBe(item.updatedAt);
         expect(item.lastScan).toBe(item.updatedAt);
     });
@@ -103,7 +103,7 @@ describe('Audiobookshelf compatibility adapter', () => {
 
         expect(after.media.coverPath).not.toBe(before.media.coverPath);
         expect(after.media.coverPath).toBe(
-            `/api/items/${after.id}/cover?v=${Date.parse('2026-08-24T12:00:00.000Z')}`
+            `/api/items/${after.id}/cover/${Date.parse('2026-08-24T12:00:00.000Z')}`
         );
     });
 

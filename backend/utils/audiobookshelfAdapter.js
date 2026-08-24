@@ -319,7 +319,14 @@ const buildLibraryItem = (audiobook, options = {}) => {
     const expanded = options.expanded === true;
     const itemId = getAudiobookshelfItemId(audiobook.folder);
     const modifiedAt = toTimestamp(audiobook.modifiedAt);
-    const updatedAt = toTimestamp(audiobook.updatedAt || audiobook.modifiedAt);
+    const coverVersion = audiobook.coverPath ? toTimestamp(audiobook.coverModifiedAt) : 0;
+    // The one-millisecond schema revision makes clients replace library items
+    // cached before versioned cover paths were introduced. It remains stable
+    // until the underlying metadata or cover changes again.
+    const updatedAt = Math.max(
+        toTimestamp(audiobook.updatedAt || audiobook.modifiedAt),
+        coverVersion
+    ) + (coverVersion ? 1 : 0);
     const contentUrlFactory = options.contentUrlFactory || ((id, _index, fileId) => `/api/items/${id}/file/${fileId}`);
     const audioTracks = buildAudioTracks(audiobook, itemId, contentUrlFactory);
     const audioFiles = buildAudioFiles(audiobook, audioTracks);
@@ -335,8 +342,7 @@ const buildLibraryItem = (audiobook, options = {}) => {
     // Native clients such as SoundLeaf decode coverPath as a URL string for
     // every minified item. The cover route supplies a PNG fallback when the
     // audiobook has no physical cover file.
-    const coverVersion = audiobook.coverPath ? toTimestamp(audiobook.coverModifiedAt) : 0;
-    const coverPath = `/api/items/${itemId}/cover${coverVersion ? `?v=${coverVersion}` : ''}`;
+    const coverPath = `/api/items/${itemId}/cover${coverVersion ? `/${coverVersion}` : ''}`;
     const media = expanded ? {
         id: getAudiobookshelfMediaId(audiobook.folder),
         libraryItemId: itemId,
