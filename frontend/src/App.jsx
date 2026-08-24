@@ -156,7 +156,6 @@ const AudiobookCard = ({ audiobook, index }) => {
   const authorNames = formatAudiobookAuthors(audiobook.authors);
   const completionPercentage = normalizeAudiobookProgress(audiobook.progress_percentage);
   const completionLabel = getAudiobookProgressLabel(completionPercentage);
-  const seriesLabel = getAudiobookSeriesLabel(audiobook);
   const coverUrl = audiobook.coverPath
     ? `${import.meta.env.VITE_API_BASE_URL}/api/audiobooks/cover?path=${encodeURIComponent(audiobook.coverPath)}&v=${encodeURIComponent(audiobook.modifiedAt)}`
     : null;
@@ -210,11 +209,6 @@ const AudiobookCard = ({ audiobook, index }) => {
         <p className="mt-1 truncate text-xs text-muted-foreground">
           {authorNames || audiobook.tracks[0]?.title || 'Audio collection'}
         </p>
-        {seriesLabel && (
-          <p className="mt-1 truncate text-[10px] font-bold tracking-wide text-foreground/65">
-            {seriesLabel}
-          </p>
-        )}
         <p className={cn(
           "mt-1.5 text-[10px] font-black uppercase tracking-[0.14em]",
           completionPercentage > 0 ? "text-primary" : "text-muted-foreground/70"
