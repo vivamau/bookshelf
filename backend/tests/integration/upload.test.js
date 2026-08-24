@@ -249,6 +249,18 @@ describe('Upload Endpoint Integration', () => {
     });
 
     test('GET /api/audiobooks includes completion percentage for the current user', async () => {
+        const saveResponse = await request(app)
+            .post('/api/audiobooks/progress')
+            .set('Cookie', authCookie)
+            .send({
+                folder: 'Archive Collection',
+                trackPath: 'Archive Collection/02.mp3',
+                trackIndex: 1,
+                positionSeconds: 30,
+                durationSeconds: 60
+            });
+        expect(saveResponse.statusCode).toBe(200);
+
         const adminResponse = await request(app)
             .get('/api/audiobooks')
             .set('Cookie', authCookie);
