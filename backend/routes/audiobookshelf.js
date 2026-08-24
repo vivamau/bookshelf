@@ -20,7 +20,8 @@ const {
     findAudiobooksByAuthorId,
     findAudiobooksBySeriesId,
     getAudiobookDuration,
-    getAudiobookshelfItemId
+    getAudiobookshelfItemId,
+    getAudiobookshelfTrackId
 } = require('../utils/audiobookshelfAdapter');
 
 const dbAll = (db, sql, params = []) => new Promise((resolve, reject) => {
@@ -234,7 +235,19 @@ const createAudiobookshelfRouters = ({
         return findAudiobookByItemId(catalog, itemId);
     };
 
-    const streamTrack = async (req, res, audiobook, trackIndex) => {
+    const getTrackIndex = (audiobook, trackSelector) => {
+        const selector = String(trackSelector);
+        const fileIdIndex = audiobook.tracks.findIndex(
+            (track) => getAudiobookshelfTrackId(track.path) === selector
+        );
+        if (fileIdIndex >= 0) return fileIdIndex;
+
+        const trackIndex = Number.parseInt(selector, 10);
+        return Number.isInteger(trackIndex) && String(trackIndex) === selector ? trackIndex : -1;
+    };
+
+    const streamTrack = async (req, res, audiobook, trackSelector, options = {}) => {
+        const trackIndex = getTrackIndex(audiobook, trackSelector);
         const track = audiobook.tracks[trackIndex];
         if (!track) return res.status(404).json({ error: 'Audio track not found' });
 
@@ -249,6 +262,9 @@ const createAudiobookshelfRouters = ({
         res.setHeader('Accept-Ranges', 'bytes');
         res.setHeader('Vary', 'User-Agent');
         res.type(getAudiobookContentType(resolved.relativePath, req.get('user-agent')));
+        if (options.download) {
+            res.attachment(resolved.relativePath.split('/').at(-1));
+        }
         return res.sendFile(resolved.audioPath);
     };
 
@@ -474,10 +490,16 @@ const createAudiobookshelfRouters = ({
         }
     }));
 
-    apiRouter.get('/items/:itemId/file/:trackIndex', asyncRoute(async (req, res) => {
+    apiRouter.get('/items/:itemId/file/:trackId/download', asyncRoute(async (req, res) => {
         const audiobook = await loadItem(req.params.itemId);
         if (!audiobook) return res.status(404).json({ error: 'Library item not found' });
-        return streamTrack(req, res, audiobook, Number.parseInt(req.params.trackIndex, 10));
+        return streamTrack(req, res, audiobook, req.params.trackId, { download: true });
+    }));
+
+    apiRouter.get('/items/:itemId/file/:trackId', asyncRoute(async (req, res) => {
+        const audiobook = await loadItem(req.params.itemId);
+        if (!audiobook) return res.status(404).json({ error: 'Library item not found' });
+        return streamTrack(req, res, audiobook, req.params.trackId);
     }));
 
     apiRouter.post('/items/batch/get', asyncRoute(async (req, res) => {

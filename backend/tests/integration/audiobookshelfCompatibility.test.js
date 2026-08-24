@@ -314,6 +314,27 @@ describe('Audiobookshelf client compatibility', () => {
         expect(stream.body.toString()).toBe('soundleaf');
     });
 
+    test('downloads an audio file by its Audiobookshelf file ID', async () => {
+        const item = await request(app)
+            .get(`/api/items/${itemId}?expanded=1`)
+            .set('Authorization', `Bearer ${accessToken}`);
+        expect(item.statusCode).toBe(200);
+
+        const audioFile = item.body.media.audioFiles[0];
+        const download = await request(app)
+            .get(`/api/items/${itemId}/file/${audioFile.ino}/download`)
+            .query({ token: accessToken })
+            .set('Range', 'bytes=0-8')
+            .buffer(true)
+            .parse(binaryParser);
+
+        expect(download.statusCode).toBe(206);
+        expect(download.headers['accept-ranges']).toBe('bytes');
+        expect(download.headers['content-disposition']).toContain('attachment;');
+        expect(download.headers['content-disposition']).toContain('filename="01 - Connection Test.mp3"');
+        expect(download.body.toString()).toBe('soundleaf');
+    });
+
     test('syncs progress through the Audiobookshelf media-progress API', async () => {
         const update = await request(app)
             .patch(`/api/me/progress/${itemId}`)

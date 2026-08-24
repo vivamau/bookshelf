@@ -641,5 +641,6 @@ module.exports = {
     getAudiobookshelfItemId,
     getAudiobookshelfAuthorId,
     getAudiobookshelfMediaId,
-    getAudiobookshelfSeriesId
+    getAudiobookshelfSeriesId,
+    getAudiobookshelfTrackId
 };

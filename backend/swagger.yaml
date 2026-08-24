@@ -1419,7 +1419,7 @@ paths:
           description: Cover image
         404:
           description: Cover not found
-  /api/items/{itemId}/file/{trackIndex}:
+  /api/items/{itemId}/file/{trackId}:
     get:
       summary: Stream one protected Audiobookshelf audio track with byte ranges
       security:
@@ -1431,15 +1431,42 @@ paths:
           schema:
             type: string
         - in: path
-          name: trackIndex
+          name: trackId
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         200:
           description: Full audio track
         206:
           description: Requested audio byte range
+  /api/items/{itemId}/file/{trackId}/download:
+    get:
+      summary: Download one protected Audiobookshelf audio file
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: trackId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: token
+          schema:
+            type: string
+      responses:
+        200:
+          description: Complete audio file attachment
+        206:
+          description: Requested audio byte range attachment
+        404:
+          description: Library item or audio file not found
   /api/items/{itemId}/play:
     post:
       summary: Start an Audiobookshelf direct-play session
