@@ -24,6 +24,11 @@ const normalizeDestinationId = (destinationId) => {
     return numericId;
 };
 
+const isUnmountedNetworkPath = (serverPath) => (
+    /^(?:smb|cifs):\/\//i.test(String(serverPath || '').trim())
+    || /^\\\\/.test(String(serverPath || '').trim())
+);
+
 const pathsOverlap = (firstPath, secondPath) => {
     const first = path.resolve(firstPath);
     const second = path.resolve(secondPath);
@@ -79,6 +84,7 @@ module.exports = {
     AudiobookDestinationError,
     DEFAULT_AUDIOBOOK_DESTINATION_ID,
     DESTINATION_PATH_PREFIX,
+    isUnmountedNetworkPath,
     normalizeDestinationId,
     parseVirtualAudiobookPath,
     pathsOverlap,

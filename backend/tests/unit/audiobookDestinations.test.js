@@ -1,6 +1,7 @@
 const path = require('path');
 const {
     AudiobookDestinationError,
+    isUnmountedNetworkPath,
     normalizeDestinationId,
     parseVirtualAudiobookPath,
     pathsOverlap,
@@ -14,6 +15,14 @@ describe('audiobook destinations', () => {
         expect(normalizeDestinationId('default')).toBe('default');
         expect(normalizeDestinationId('7')).toBe(7);
         expect(() => normalizeDestinationId('../7')).toThrow(AudiobookDestinationError);
+    });
+
+    test('recognizes network addresses that must be mounted by the server first', () => {
+        expect(isUnmountedNetworkPath('smb://nas.local/audiobooks')).toBe(true);
+        expect(isUnmountedNetworkPath('cifs://nas.local/audiobooks')).toBe(true);
+        expect(isUnmountedNetworkPath('\\\\nas.local\\audiobooks')).toBe(true);
+        expect(isUnmountedNetworkPath('/mnt/nas/audiobooks')).toBe(false);
+        expect(isUnmountedNetworkPath('/Volumes/Audiobooks')).toBe(false);
     });
 
     test('round-trips virtual paths for additional destinations', () => {

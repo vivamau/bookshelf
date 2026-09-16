@@ -37,6 +37,7 @@ const {
 const {
     AudiobookDestinationError,
     DEFAULT_AUDIOBOOK_DESTINATION_ID,
+    isUnmountedNetworkPath,
     normalizeDestinationId,
     parseVirtualAudiobookPath,
     pathsOverlap,
@@ -170,6 +171,26 @@ const dbRunAsync = (sql, params = []) => new Promise((resolve, reject) => {
         else resolve(this);
     });
 });
+const getAudiobookDestinationAccess = async (destination) => {
+    try {
+        if (destination.isDefault) {
+            await fs.promises.mkdir(destination.path, { recursive: true });
+        }
+        const stats = await fs.promises.stat(destination.path);
+        if (!stats.isDirectory()) {
+            return { isAvailable: false, isWritable: false, accessStatus: 'not-a-folder' };
+        }
+        await fs.promises.access(destination.path, fs.constants.R_OK);
+        try {
+            await fs.promises.access(destination.path, fs.constants.W_OK);
+            return { isAvailable: true, isWritable: true, accessStatus: 'writable' };
+        } catch {
+            return { isAvailable: true, isWritable: false, accessStatus: 'read-only' };
+        }
+    } catch {
+        return { isAvailable: false, isWritable: false, accessStatus: 'unavailable' };
+    }
+};
 const getAudiobookDestinations = async () => {
     const rows = await dbAllAsync(
         `SELECT ID, audiobookdestination_name, audiobookdestination_path,
@@ -177,7 +198,7 @@ const getAudiobookDestinations = async () => {
          FROM AudiobookDestinations
          ORDER BY audiobookdestination_create_date ASC, ID ASC`
     );
-    return [{
+    const destinations = [{
         id: DEFAULT_AUDIOBOOK_DESTINATION_ID,
         name: 'Built-in storage',
         path: AUDIOBOOKS_DIR,
@@ -190,6 +211,10 @@ const getAudiobookDestinations = async () => {
         isDefault: false,
         createdAt: row.audiobookdestination_create_date
     }))];
+    return Promise.all(destinations.map(async (destination) => ({
+        ...destination,
+        ...await getAudiobookDestinationAccess(destination)
+    })));
 };
 const refreshAudiobookDestinationRoots = async () => {
     const destinations = await getAudiobookDestinations();
@@ -204,6 +229,21 @@ const getAudiobookDestination = async (requestedId) => {
     const destinations = await refreshAudiobookDestinationRoots();
     const destination = destinations.find((item) => String(item.id) === String(destinationId));
     if (!destination) throw new AudiobookDestinationError('Audiobook destination not found', 404);
+    return destination;
+};
+const requireWritableAudiobookDestination = (destination) => {
+    if (!destination.isAvailable) {
+        throw new AudiobookDestinationError(
+            'The audiobook destination is unavailable. Check that the SMB share is mounted on the server.',
+            409
+        );
+    }
+    if (!destination.isWritable) {
+        throw new AudiobookDestinationError(
+            'The audiobook destination is read-only for the backend service account',
+            403
+        );
+    }
     return destination;
 };
 const resolveVirtualAudiobookLocation = (virtualPath) => {
@@ -231,6 +271,7 @@ const loadFreshAudiobookCatalog = async () => {
     const destinations = await refreshAudiobookDestinationRoots();
     const destinationCatalogs = await Promise.all(destinations.map(async (destination) => {
         try {
+            if (!destination.isAvailable) return [];
             if (destination.isDefault) {
                 await fs.promises.mkdir(destination.path, { recursive: true });
             }
@@ -1918,6 +1959,11 @@ audiobooksRouter.get('/destinations', checkManageBooks, async (req, res) => {
 audiobooksRouter.post('/destinations', checkManageBooks, async (req, res) => {
     try {
         const requestedPath = String(req.body?.path || '').trim();
+        if (isUnmountedNetworkPath(requestedPath)) {
+            throw new AudiobookDestinationError(
+                'Mount this SMB share on the server first, then add its local path (for example /mnt/audiobooks or /Volumes/Audiobooks)'
+            );
+        }
         if (!requestedPath || !path.isAbsolute(requestedPath)) {
             throw new AudiobookDestinationError('Select an absolute server folder path');
         }
@@ -1929,14 +1975,14 @@ audiobooksRouter.post('/destinations', checkManageBooks, async (req, res) => {
             if (!stats.isDirectory()) {
                 throw new AudiobookDestinationError('The selected server path is not a folder');
             }
-            await fs.promises.access(destinationPath, fs.constants.R_OK | fs.constants.W_OK);
+            await fs.promises.access(destinationPath, fs.constants.R_OK);
         } catch (err) {
             if (err instanceof AudiobookDestinationError) throw err;
             if (err?.code === 'ENOENT') {
                 throw new AudiobookDestinationError('The selected server folder does not exist', 404);
             }
             if (['EACCES', 'EPERM'].includes(err?.code)) {
-                throw new AudiobookDestinationError('The server cannot read and write this folder', 403);
+                throw new AudiobookDestinationError('The backend service account cannot read this folder', 403);
             }
             throw err;
         }
@@ -2420,7 +2466,9 @@ audiobooksRouter.post('/upload/check-duplicates', checkManageBooks, async (req, 
 
 audiobooksRouter.post('/import-directory', checkManageBooks, async (req, res) => {
     try {
-        const destination = await getAudiobookDestination(req.body?.destinationId);
+        const destination = requireWritableAudiobookDestination(
+            await getAudiobookDestination(req.body?.destinationId)
+        );
         const result = await importAudiobookDirectory(req.body?.path, destination.path);
         const audiobooks = await loadAudiobookCatalog.reload();
         res.status(result.importedCount > 0 ? 201 : 200).json({
@@ -2451,7 +2499,9 @@ audiobooksRouter.post('/upload', checkManageBooks, async (req, res) => {
     const audiobookFile = req.files.audiobook;
     let destination;
     try {
-        const storageDestination = await getAudiobookDestination(req.body.destinationId);
+        const storageDestination = requireWritableAudiobookDestination(
+            await getAudiobookDestination(req.body.destinationId)
+        );
         destination = resolveAudiobookUploadPath(
             storageDestination.path,
             req.body.relativePath,

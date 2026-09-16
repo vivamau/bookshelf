@@ -394,6 +394,7 @@ export default function Settings() {
   const [showAudiobookDestinationBrowser, setShowAudiobookDestinationBrowser] = useState(false);
   const [isAudiobookDestinationSaving, setIsAudiobookDestinationSaving] = useState(false);
   const [removingAudiobookDestinationId, setRemovingAudiobookDestinationId] = useState(null);
+  const [audiobookDestinationPath, setAudiobookDestinationPath] = useState('');
   const audiobookFolderInputRef = useRef(null);
   const selectedAudiobookDestination = audiobookDestinations.find((destination) => (
     String(destination.id) === String(selectedAudiobookDestinationId)
@@ -751,7 +752,9 @@ export default function Settings() {
         const destinations = response.data.data || [];
         setAudiobookDestinations(destinations);
         setSelectedAudiobookDestinationId((currentDestinationId) => (
-          destinations.some((destination) => String(destination.id) === String(currentDestinationId))
+          destinations.some((destination) => (
+            String(destination.id) === String(currentDestinationId) && destination.isWritable
+          ))
             ? currentDestinationId
             : 'default'
         ));
@@ -980,15 +983,26 @@ export default function Settings() {
       const response = await audiobooksApi.addDestination(serverPath);
       const destination = response.data.data;
       setAudiobookDestinations((current) => [...current, destination]);
-      setSelectedAudiobookDestinationId(String(destination.id));
+      if (destination.isWritable) {
+        setSelectedAudiobookDestinationId(String(destination.id));
+      }
+      setAudiobookDestinationPath('');
       setShowAudiobookDestinationBrowser(false);
-      setAudiobookMessage(`Added ${destination.name}. New imports will be stored there.`);
+      setAudiobookMessage(destination.isWritable
+        ? `Added ${destination.name}. New imports will be stored there.`
+        : `Added ${destination.name} as a read-only library. Existing audiobooks can be played, but new files cannot be stored there.`);
     } catch (err) {
       setAudiobookHasError(true);
       setAudiobookMessage(err.response?.data?.error || 'Could not add the audiobook destination.');
     } finally {
       setIsAudiobookDestinationSaving(false);
     }
+  };
+
+  const handleAudiobookDestinationPathSubmit = (event) => {
+    event.preventDefault();
+    const serverPath = audiobookDestinationPath.trim();
+    if (serverPath) handleAudiobookDestinationAdd(serverPath);
   };
 
   const handleAudiobookDestinationRemove = async (destination) => {
@@ -1965,10 +1979,40 @@ export default function Settings() {
                             >
                                 {isAudiobookDestinationSaving
                                     ? <Loader size={17} className="animate-spin" />
-                                    : <FolderPlus size={17} />}
-                                Add destination
+                                    : <FolderSearch size={17} />}
+                                Browse server
                             </button>
                         </div>
+
+                        <form
+                            onSubmit={handleAudiobookDestinationPathSubmit}
+                            className="relative mb-4 rounded-xl border border-border bg-card/80 p-3"
+                        >
+                            <div className="flex flex-col sm:flex-row gap-2">
+                                <input
+                                    type="text"
+                                    value={audiobookDestinationPath}
+                                    onChange={(event) => setAudiobookDestinationPath(event.target.value)}
+                                    placeholder="/mnt/nas/audiobooks"
+                                    disabled={isAudiobookDestinationSaving}
+                                    className="min-w-0 flex-1 rounded-lg border border-input bg-background/70 px-3 py-2.5 font-mono text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:opacity-50"
+                                    aria-label="Mounted server path for audiobook destination"
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={!audiobookDestinationPath.trim() || isAudiobookDestinationSaving}
+                                    className="rounded-lg bg-primary px-4 py-2.5 text-sm font-black text-primary-foreground hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                                >
+                                    {isAudiobookDestinationSaving
+                                        ? <Loader size={16} className="animate-spin" />
+                                        : <FolderPlus size={16} />}
+                                    Add path
+                                </button>
+                            </div>
+                            <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+                                SMB shares must be mounted by the server first. Use the mounted path, such as <span className="font-mono text-foreground/80">/mnt/nas/audiobooks</span> on Linux or <span className="font-mono text-foreground/80">/Volumes/Audiobooks</span> on macOS—not an <span className="font-mono text-foreground/80">smb://</span> address.
+                            </p>
+                        </form>
 
                         <div className="relative grid grid-cols-1 lg:grid-cols-2 gap-3">
                             {audiobookDestinations.map((destination) => {
@@ -1986,8 +2030,13 @@ export default function Settings() {
                                     >
                                         <button
                                             type="button"
-                                            onClick={() => setSelectedAudiobookDestinationId(String(destination.id))}
-                                            className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                                            onClick={() => {
+                                                if (destination.isWritable) {
+                                                    setSelectedAudiobookDestinationId(String(destination.id));
+                                                }
+                                            }}
+                                            disabled={!destination.isWritable}
+                                            className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-default"
                                             aria-pressed={isSelected}
                                         >
                                             <span className={cn(
@@ -2007,6 +2056,21 @@ export default function Settings() {
                                                     {isSelected && (
                                                         <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-primary">
                                                             Selected
+                                                        </span>
+                                                    )}
+                                                    {!destination.isAvailable && (
+                                                        <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-destructive">
+                                                            Unavailable
+                                                        </span>
+                                                    )}
+                                                    {destination.isAvailable && !destination.isWritable && (
+                                                        <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                                                            Read only
+                                                        </span>
+                                                    )}
+                                                    {destination.isWritable && !isSelected && (
+                                                        <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                                                            Writable
                                                         </span>
                                                     )}
                                                 </span>
@@ -2032,7 +2096,7 @@ export default function Settings() {
                             })}
                         </div>
                         <p className="relative mt-3 text-xs text-muted-foreground">
-                            Removing a destination disconnects it from Bookshelf but never deletes the files stored there.
+                            Read-only SMB destinations remain available for browsing and playback. Removing any destination disconnects it from Bookshelf but never deletes its files.
                         </p>
                     </section>
 
@@ -2052,7 +2116,7 @@ export default function Settings() {
                         <button
                             type="button"
                             onClick={() => audiobookFolderInputRef.current?.click()}
-                            disabled={isAudiobookUploading || isAudiobookServerImporting}
+                            disabled={isAudiobookUploading || isAudiobookServerImporting || !selectedAudiobookDestination?.isWritable}
                             className="min-h-24 bg-primary text-primary-foreground font-black px-7 py-4 rounded-2xl hover:bg-primary/90 transition-all flex md:flex-col items-center justify-center gap-2 shadow-lg shadow-primary/20 active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100"
                         >
                             {isAudiobookUploading ? <Loader size={23} className="animate-spin" /> : <FolderSearch size={23} />}
@@ -2062,7 +2126,7 @@ export default function Settings() {
                         <button
                             type="button"
                             onClick={() => setShowAudiobookServerBrowser(true)}
-                            disabled={isAudiobookUploading || isAudiobookServerImporting}
+                            disabled={isAudiobookUploading || isAudiobookServerImporting || !selectedAudiobookDestination?.isWritable}
                             className="min-h-24 border border-primary/30 bg-card text-foreground font-black px-7 py-4 rounded-2xl hover:bg-primary/10 hover:border-primary/50 transition-all flex md:flex-col items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100"
                         >
                             {isAudiobookServerImporting ? <Loader size={23} className="animate-spin" /> : <Server size={23} className="text-primary" />}

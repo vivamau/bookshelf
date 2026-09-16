@@ -156,6 +156,8 @@ Librarians can open **Settings → Audiobooks** and configure one or more writab
 
 Removing a configured destination only disconnects it from Bookshelf; files in that folder are never deleted. Add the same destination again to make its collections available in the catalog.
 
+SMB/CIFS shares must be mounted by the operating system before Bookshelf can use them. Add the resulting local mount path—for example `/mnt/nas/audiobooks` on Linux or `/Volumes/Audiobooks` on macOS—rather than an `smb://` URL. A readable mount can be connected for catalog browsing and playback even when it is read-only; uploads and imports require write permission for the account running the backend service.
+
 Supported audio formats are:
 
 - AAC (`.aac`)

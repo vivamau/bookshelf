@@ -278,7 +278,10 @@ describe('Upload Endpoint Integration', () => {
         expect(res.body.data).toMatchObject({
             name: 'Integration NAS',
             path: additionalAudiobookDestinationPath,
-            isDefault: false
+            isDefault: false,
+            isAvailable: true,
+            isWritable: true,
+            accessStatus: 'writable'
         });
         additionalAudiobookDestinationId = res.body.data.id;
     });
@@ -293,6 +296,16 @@ describe('Upload Endpoint Integration', () => {
             expect.objectContaining({ id: 'default', isDefault: true }),
             expect.objectContaining({ id: additionalAudiobookDestinationId, name: 'Integration NAS' })
         ]));
+    });
+
+    test('POST /api/audiobooks/destinations explains that SMB URLs must be mounted first', async () => {
+        const res = await request(app)
+            .post('/api/audiobooks/destinations')
+            .set('Cookie', authCookie)
+            .send({ path: 'smb://nas.local/audiobooks' });
+
+        expect(res.statusCode).toBe(400);
+        expect(res.body.error).toMatch(/mount.*SMB.*local path/i);
     });
 
     test('POST /api/audiobooks/import-directory imports into the selected destination', async () => {
