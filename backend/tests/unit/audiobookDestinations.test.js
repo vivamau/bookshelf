@@ -1,3 +1,4 @@
+const fs = require('fs');
 const path = require('path');
 const {
     AudiobookDestinationError,
@@ -5,6 +6,7 @@ const {
     normalizeDestinationId,
     parseVirtualAudiobookPath,
     pathsOverlap,
+    probeAudiobookDestinationAccess,
     toVirtualAudiobookPath,
     virtualizeAudiobookCatalog
 } = require('../../utils/audiobookDestinations');
@@ -23,6 +25,82 @@ describe('audiobook destinations', () => {
         expect(isUnmountedNetworkPath('\\\\nas.local\\audiobooks')).toBe(true);
         expect(isUnmountedNetworkPath('/mnt/nas/audiobooks')).toBe(false);
         expect(isUnmountedNetworkPath('/Volumes/Audiobooks')).toBe(false);
+    });
+
+    test('uses a real write probe when SMB permission hints report read-only', async () => {
+        const close = jest.fn().mockResolvedValue(undefined);
+        const fsApi = {
+            stat: jest.fn().mockResolvedValue({ isDirectory: () => true }),
+            access: jest.fn(async (serverPath, mode) => {
+                if (mode === fs.constants.W_OK) throw Object.assign(new Error('Denied'), { code: 'EACCES' });
+            }),
+            open: jest.fn().mockResolvedValue({ close }),
+            unlink: jest.fn().mockResolvedValue(undefined)
+        };
+
+        await expect(probeAudiobookDestinationAccess(
+            { path: '/mnt/nas/audiobooks', isDefault: false },
+            fsApi,
+            fs.constants,
+            () => 'fixed-id'
+        )).resolves.toEqual({
+            isAvailable: true,
+            isWritable: true,
+            accessStatus: 'writable'
+        });
+        expect(fsApi.open).toHaveBeenCalledWith(
+            expect.stringContaining('.bookshelf-write-test-'),
+            'wx',
+            0o600
+        );
+        expect(close).toHaveBeenCalledTimes(1);
+        expect(fsApi.unlink).toHaveBeenCalledTimes(1);
+    });
+
+    test('keeps a destination read-only when the real write probe also fails', async () => {
+        const fsApi = {
+            stat: jest.fn().mockResolvedValue({ isDirectory: () => true }),
+            access: jest.fn(async (serverPath, mode) => {
+                if (mode === fs.constants.W_OK) throw Object.assign(new Error('Denied'), { code: 'EACCES' });
+            }),
+            open: jest.fn().mockRejectedValue(Object.assign(new Error('Denied'), { code: 'EACCES' })),
+            unlink: jest.fn()
+        };
+
+        await expect(probeAudiobookDestinationAccess(
+            { path: '/mnt/nas/audiobooks', isDefault: false },
+            fsApi,
+            fs.constants,
+            () => 'fixed-id'
+        )).resolves.toEqual({
+            isAvailable: true,
+            isWritable: false,
+            accessStatus: 'read-only'
+        });
+        expect(fsApi.unlink).not.toHaveBeenCalled();
+    });
+
+    test('can skip the real write probe during background catalog scans', async () => {
+        const fsApi = {
+            stat: jest.fn().mockResolvedValue({ isDirectory: () => true }),
+            access: jest.fn(async (serverPath, mode) => {
+                if (mode === fs.constants.W_OK) throw Object.assign(new Error('Denied'), { code: 'EACCES' });
+            }),
+            open: jest.fn()
+        };
+
+        await expect(probeAudiobookDestinationAccess(
+            { path: '/mnt/nas/audiobooks', isDefault: false },
+            fsApi,
+            fs.constants,
+            () => 'fixed-id',
+            false
+        )).resolves.toEqual({
+            isAvailable: true,
+            isWritable: false,
+            accessStatus: 'read-only'
+        });
+        expect(fsApi.open).not.toHaveBeenCalled();
     });
 
     test('round-trips virtual paths for additional destinations', () => {

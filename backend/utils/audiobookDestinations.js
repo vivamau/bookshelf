@@ -1,3 +1,5 @@
+const crypto = require('crypto');
+const fs = require('fs');
 const path = require('path');
 
 const DEFAULT_AUDIOBOOK_DESTINATION_ID = 'default';
@@ -28,6 +30,59 @@ const isUnmountedNetworkPath = (serverPath) => (
     /^(?:smb|cifs):\/\//i.test(String(serverPath || '').trim())
     || /^\\\\/.test(String(serverPath || '').trim())
 );
+
+const probeAudiobookDestinationAccess = async (
+    destination,
+    fsApi = fs.promises,
+    constants = fs.constants,
+    createProbeId = () => crypto.randomUUID(),
+    verifyWrite = true
+) => {
+    try {
+        if (destination.isDefault) {
+            await fsApi.mkdir(destination.path, { recursive: true });
+        }
+        const stats = await fsApi.stat(destination.path);
+        if (!stats.isDirectory()) {
+            return { isAvailable: false, isWritable: false, accessStatus: 'not-a-folder' };
+        }
+        await fsApi.access(destination.path, constants.R_OK);
+    } catch {
+        return { isAvailable: false, isWritable: false, accessStatus: 'unavailable' };
+    }
+
+    try {
+        await fsApi.access(destination.path, constants.W_OK);
+        return { isAvailable: true, isWritable: true, accessStatus: 'writable' };
+    } catch {
+        // SMB/CIFS mounts do not always expose reliable POSIX permission bits.
+        // When W_OK is inconclusive, verify the capability with an actual empty file.
+    }
+
+    if (!verifyWrite) {
+        return { isAvailable: true, isWritable: false, accessStatus: 'read-only' };
+    }
+
+    const probePath = path.join(
+        destination.path,
+        `.bookshelf-write-test-${process.pid}-${createProbeId()}`
+    );
+    let probeHandle;
+    let probeCreated = false;
+    try {
+        probeHandle = await fsApi.open(probePath, 'wx', 0o600);
+        probeCreated = true;
+        await probeHandle.close();
+        probeHandle = null;
+        await fsApi.unlink(probePath);
+        probeCreated = false;
+        return { isAvailable: true, isWritable: true, accessStatus: 'writable' };
+    } catch {
+        if (probeHandle) await probeHandle.close().catch(() => undefined);
+        if (probeCreated) await fsApi.unlink(probePath).catch(() => undefined);
+        return { isAvailable: true, isWritable: false, accessStatus: 'read-only' };
+    }
+};
 
 const pathsOverlap = (firstPath, secondPath) => {
     const first = path.resolve(firstPath);
@@ -88,6 +143,7 @@ module.exports = {
     normalizeDestinationId,
     parseVirtualAudiobookPath,
     pathsOverlap,
+    probeAudiobookDestinationAccess,
     toVirtualAudiobookPath,
     virtualizeAudiobookCatalog
 };

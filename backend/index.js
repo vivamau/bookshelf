@@ -41,6 +41,7 @@ const {
     normalizeDestinationId,
     parseVirtualAudiobookPath,
     pathsOverlap,
+    probeAudiobookDestinationAccess,
     virtualizeAudiobookCatalog
 } = require('./utils/audiobookDestinations');
 const {
@@ -171,27 +172,7 @@ const dbRunAsync = (sql, params = []) => new Promise((resolve, reject) => {
         else resolve(this);
     });
 });
-const getAudiobookDestinationAccess = async (destination) => {
-    try {
-        if (destination.isDefault) {
-            await fs.promises.mkdir(destination.path, { recursive: true });
-        }
-        const stats = await fs.promises.stat(destination.path);
-        if (!stats.isDirectory()) {
-            return { isAvailable: false, isWritable: false, accessStatus: 'not-a-folder' };
-        }
-        await fs.promises.access(destination.path, fs.constants.R_OK);
-        try {
-            await fs.promises.access(destination.path, fs.constants.W_OK);
-            return { isAvailable: true, isWritable: true, accessStatus: 'writable' };
-        } catch {
-            return { isAvailable: true, isWritable: false, accessStatus: 'read-only' };
-        }
-    } catch {
-        return { isAvailable: false, isWritable: false, accessStatus: 'unavailable' };
-    }
-};
-const getAudiobookDestinations = async () => {
+const getAudiobookDestinations = async ({ probeWrite = true } = {}) => {
     const rows = await dbAllAsync(
         `SELECT ID, audiobookdestination_name, audiobookdestination_path,
                 audiobookdestination_create_date
@@ -213,11 +194,17 @@ const getAudiobookDestinations = async () => {
     }))];
     return Promise.all(destinations.map(async (destination) => ({
         ...destination,
-        ...await getAudiobookDestinationAccess(destination)
+        ...await probeAudiobookDestinationAccess(
+            destination,
+            fs.promises,
+            fs.constants,
+            undefined,
+            probeWrite
+        )
     })));
 };
-const refreshAudiobookDestinationRoots = async () => {
-    const destinations = await getAudiobookDestinations();
+const refreshAudiobookDestinationRoots = async (options) => {
+    const destinations = await getAudiobookDestinations(options);
     audiobookDestinationRoots.clear();
     destinations.forEach((destination) => {
         audiobookDestinationRoots.set(String(destination.id), destination.path);
@@ -268,7 +255,7 @@ const resolveStoredAudiobookDirectoryPath = (virtualPath) => {
     };
 };
 const loadFreshAudiobookCatalog = async () => {
-    const destinations = await refreshAudiobookDestinationRoots();
+    const destinations = await refreshAudiobookDestinationRoots({ probeWrite: false });
     const destinationCatalogs = await Promise.all(destinations.map(async (destination) => {
         try {
             if (!destination.isAvailable) return [];
