@@ -32,6 +32,8 @@ describe('Upload Endpoint Integration', () => {
     let guestCookie;
     let manageBooksOnlyCookie;
     let audiobookGenreId;
+    let additionalAudiobookDestinationId;
+    let additionalDestinationAudiobook;
     const dummyFilePath = path.join(__dirname, 'test_upload.epub');
     const uploadedFilePath = path.join(__dirname, '..', '..', 'books', 'test_upload.epub');
     const dummyAudiobookPath = path.join(__dirname, 'sample-track.mp3');
@@ -46,6 +48,7 @@ describe('Upload Endpoint Integration', () => {
     const archiveCollectionPath = path.join(__dirname, '..', '..', 'audiobooks', 'Archive Collection');
     const serverImportSourcePath = path.join(__dirname, 'Server Import Collection');
     const serverImportDestinationPath = path.join(__dirname, '..', '..', 'audiobooks', 'Server Import Collection');
+    const additionalAudiobookDestinationPath = path.join(__dirname, 'Additional Audiobook Destination');
     const rootAudiobookPath = path.join(__dirname, '..', '..', 'audiobooks', 'Standalone Audiobook.m4b');
     const secondRootAudiobookPath = path.join(__dirname, '..', '..', 'audiobooks', 'Second Standalone Audiobook.mp3');
 
@@ -73,6 +76,7 @@ describe('Upload Endpoint Integration', () => {
         fs.writeFileSync(path.join(serverImportSourcePath, 'Disc 1', '01.mp3'), 'server audio');
         fs.writeFileSync(path.join(serverImportSourcePath, 'cover.jpg'), 'server cover');
         fs.writeFileSync(path.join(serverImportSourcePath, 'ignored.docx'), 'unsupported');
+        fs.mkdirSync(additionalAudiobookDestinationPath, { recursive: true });
         
         // Login to get token
         const res = await request(app)
@@ -133,6 +137,9 @@ describe('Upload Endpoint Integration', () => {
         }
         if (fs.existsSync(serverImportDestinationPath)) {
             fs.rmSync(serverImportDestinationPath, { recursive: true, force: true });
+        }
+        if (fs.existsSync(additionalAudiobookDestinationPath)) {
+            fs.rmSync(additionalAudiobookDestinationPath, { recursive: true, force: true });
         }
         if (fs.existsSync(rootAudiobookPath)) {
             fs.unlinkSync(rootAudiobookPath);
@@ -254,6 +261,122 @@ describe('Upload Endpoint Integration', () => {
             .post('/api/audiobooks/import-directory')
             .set('Cookie', guestCookie)
             .send({ path: serverImportSourcePath });
+
+        expect(res.statusCode).toBe(403);
+    });
+
+    test('POST /api/audiobooks/destinations adds another writable server destination', async () => {
+        const res = await request(app)
+            .post('/api/audiobooks/destinations')
+            .set('Cookie', authCookie)
+            .send({
+                path: additionalAudiobookDestinationPath,
+                name: 'Integration NAS'
+            });
+
+        expect(res.statusCode).toBe(201);
+        expect(res.body.data).toMatchObject({
+            name: 'Integration NAS',
+            path: additionalAudiobookDestinationPath,
+            isDefault: false
+        });
+        additionalAudiobookDestinationId = res.body.data.id;
+    });
+
+    test('GET /api/audiobooks/destinations lists built-in and additional destinations', async () => {
+        const res = await request(app)
+            .get('/api/audiobooks/destinations')
+            .set('Cookie', authCookie);
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.data).toEqual(expect.arrayContaining([
+            expect.objectContaining({ id: 'default', isDefault: true }),
+            expect.objectContaining({ id: additionalAudiobookDestinationId, name: 'Integration NAS' })
+        ]));
+    });
+
+    test('POST /api/audiobooks/import-directory imports into the selected destination', async () => {
+        const res = await request(app)
+            .post('/api/audiobooks/import-directory')
+            .set('Cookie', authCookie)
+            .send({
+                path: serverImportSourcePath,
+                destinationId: additionalAudiobookDestinationId
+            });
+
+        expect(res.statusCode).toBe(201);
+        expect(res.body.data).toMatchObject({
+            destinationId: additionalAudiobookDestinationId,
+            destinationName: 'Integration NAS',
+            importedCount: 2
+        });
+        expect(fs.readFileSync(path.join(
+            additionalAudiobookDestinationPath,
+            'Server Import Collection',
+            'Disc 1',
+            '01.mp3'
+        ), 'utf8')).toBe('server audio');
+
+        const catalogResponse = await request(app)
+            .get('/api/audiobooks')
+            .set('Cookie', authCookie);
+        additionalDestinationAudiobook = catalogResponse.body.data.find((audiobook) => (
+            audiobook.destinationId === additionalAudiobookDestinationId
+        ));
+        expect(additionalDestinationAudiobook).toMatchObject({
+            destinationId: additionalAudiobookDestinationId,
+            destinationName: 'Integration NAS'
+        });
+    });
+
+    test('external destination audiobooks support playback and metadata updates', async () => {
+        const audioResponse = await request(app)
+            .get('/api/audiobooks/audio')
+            .set('Cookie', authCookie)
+            .query({ path: additionalDestinationAudiobook.tracks[0].path });
+
+        expect(audioResponse.statusCode).toBe(200);
+        expect(audioResponse.headers['content-type']).toMatch(/^audio\/mpeg/);
+
+        const metadataResponse = await request(app)
+            .put('/api/audiobooks/metadata')
+            .set('Cookie', authCookie)
+            .send({
+                folder: additionalDestinationAudiobook.folder,
+                metadata: { title: 'Remote Destination Book' }
+            });
+
+        expect(metadataResponse.statusCode).toBe(200);
+        expect(metadataResponse.body.data.title).toBe('Remote Destination Book');
+        expect(fs.existsSync(path.join(
+            additionalAudiobookDestinationPath,
+            'Server Import Collection',
+            'Disc 1',
+            '.bookshelf-metadata.json'
+        ))).toBe(true);
+    });
+
+    test('DELETE /api/audiobooks/destinations disconnects a destination without deleting files', async () => {
+        const importedTrack = path.join(
+            additionalAudiobookDestinationPath,
+            'Server Import Collection',
+            'Disc 1',
+            '01.mp3'
+        );
+        const res = await request(app)
+            .delete(`/api/audiobooks/destinations/${additionalAudiobookDestinationId}`)
+            .set('Cookie', authCookie);
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.message).toContain('not deleted');
+        expect(fs.existsSync(importedTrack)).toBe(true);
+    });
+
+    test('POST /api/audiobooks/destinations rejects guest accounts', async () => {
+        const res = await request(app)
+            .post('/api/audiobooks/destinations')
+            .set('Cookie', guestCookie)
+            .send({ path: additionalAudiobookDestinationPath });
 
         expect(res.statusCode).toBe(403);
     });

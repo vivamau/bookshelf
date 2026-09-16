@@ -87,6 +87,14 @@ CREATE TABLE IF NOT EXISTS AudiobooksGeneres (
 CREATE INDEX IF NOT EXISTS idx_audiobooks_generes_genere
     ON AudiobooksGeneres (genere_id);
 
+-- Table: AudiobookDestinations
+CREATE TABLE IF NOT EXISTS AudiobookDestinations (
+    ID                          INTEGER PRIMARY KEY AUTOINCREMENT,
+    audiobookdestination_name  TEXT    NOT NULL,
+    audiobookdestination_path  TEXT    NOT NULL UNIQUE,
+    audiobookdestination_create_date INTEGER NOT NULL
+);
+
 
 -- Table: BooksGeneres
 CREATE TABLE IF NOT EXISTS BooksGeneres (

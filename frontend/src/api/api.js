@@ -141,6 +141,9 @@ export const settingsApi = {
 
 export const audiobooksApi = {
   getAll: () => api.get('/audiobooks'),
+  getDestinations: () => api.get('/audiobooks/destinations'),
+  addDestination: (path, name) => api.post('/audiobooks/destinations', { path, name }),
+  removeDestination: (id) => api.delete(`/audiobooks/destinations/${id}`),
   getSeries: () => api.get('/audiobooks/series'),
   getByFolder: (folder) => api.get('/audiobooks/details', { params: { folder } }),
   getProgress: (folder) => api.get('/audiobooks/progress', { params: { folder } }),
@@ -149,8 +152,8 @@ export const audiobooksApi = {
   setCoverFromUrl: (folder, coverUrl) => api.post('/audiobooks/cover-from-url', { folder, coverUrl }),
   remove: (folder) => api.delete('/audiobooks', { params: { folder } }),
   getDownloadUrl: (folder) => `${API_URL}/audiobooks/download?folder=${encodeURIComponent(folder)}`,
-  importDirectory: (path) => api.post('/audiobooks/import-directory', { path }),
-  checkUploadDuplicates: (files) => api.post('/audiobooks/upload/check-duplicates', { files }),
+  importDirectory: (path, destinationId) => api.post('/audiobooks/import-directory', { path, destinationId }),
+  checkUploadDuplicates: (files, destinationId) => api.post('/audiobooks/upload/check-duplicates', { files, destinationId }),
   upload: (formData, config = {}) => api.post('/audiobooks/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
     ...config

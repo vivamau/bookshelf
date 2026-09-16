@@ -152,7 +152,9 @@ Bookshelf includes a server-backed audiobook library for every authenticated use
 
 ### Importing an Audiobook Collection
 
-Librarians can open **Settings → Audiobooks** and choose a folder from their computer, or browse to a folder already accessible to the server. Local uploads and server imports preserve the selected folder's structure, including nested disc folders. Server imports skip unsupported assets and existing files instead of overwriting them. Managed files are stored under `backend/audiobooks/` on the server.
+Librarians can open **Settings → Audiobooks** and configure one or more writable server destinations. The built-in `backend/audiobooks/` folder remains available, while mounted drives, NAS folders, or other server paths can be added and selected independently. New files can then be uploaded from the librarian's computer or imported from another server folder into the selected destination. Collection structure, including nested disc folders, is preserved. Server imports skip unsupported assets and existing files instead of overwriting them.
+
+Removing a configured destination only disconnects it from Bookshelf; files in that folder are never deleted. Add the same destination again to make its collections available in the catalog.
 
 Supported audio formats are:
 
@@ -169,7 +171,7 @@ Cover images in JPEG, PNG, or WebP format are also uploaded, together with suppo
 
 ### Browsing and Managing Audiobooks
 
-Open the **Audiobooks** tab on the home page to browse all collections found in the server audiobook folder. Selecting a collection opens its detail page with the cover, metadata, ordered track list, and protected in-browser audio playback.
+Open the **Audiobooks** tab on the home page to browse collections found across every available server destination. Selecting a collection opens its detail page with the cover, metadata, ordered track list, and protected in-browser audio playback.
 
 Audiobook authors use the same `Authors` records as books. Librarians can search, create, and assign one or more authors in the audiobook metadata editor. Audiobooks then appear alongside books on each linked author’s profile. Existing free-text audiobook authors are matched to an existing author by full name, or migrated into a new author record, when the audiobook catalog is first loaded.
 

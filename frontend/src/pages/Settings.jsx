@@ -389,7 +389,15 @@ export default function Settings() {
   const [audiobookHasError, setAudiobookHasError] = useState(false);
   const [showAudiobookServerBrowser, setShowAudiobookServerBrowser] = useState(false);
   const [isAudiobookServerImporting, setIsAudiobookServerImporting] = useState(false);
+  const [audiobookDestinations, setAudiobookDestinations] = useState([]);
+  const [selectedAudiobookDestinationId, setSelectedAudiobookDestinationId] = useState('default');
+  const [showAudiobookDestinationBrowser, setShowAudiobookDestinationBrowser] = useState(false);
+  const [isAudiobookDestinationSaving, setIsAudiobookDestinationSaving] = useState(false);
+  const [removingAudiobookDestinationId, setRemovingAudiobookDestinationId] = useState(null);
   const audiobookFolderInputRef = useRef(null);
+  const selectedAudiobookDestination = audiobookDestinations.find((destination) => (
+    String(destination.id) === String(selectedAudiobookDestinationId)
+  )) || audiobookDestinations[0];
 
   // Local Bulk Upload States
   const [selectedFiles, setSelectedFiles] = useState([]);
@@ -736,6 +744,24 @@ export default function Settings() {
     }
   }, [isLibrarian, activeTab]);
 
+  useEffect(() => {
+    if (!isLibrarian || activeTab !== 'audiobooks') return;
+    audiobooksApi.getDestinations()
+      .then((response) => {
+        const destinations = response.data.data || [];
+        setAudiobookDestinations(destinations);
+        setSelectedAudiobookDestinationId((currentDestinationId) => (
+          destinations.some((destination) => String(destination.id) === String(currentDestinationId))
+            ? currentDestinationId
+            : 'default'
+        ));
+      })
+      .catch((err) => {
+        setAudiobookHasError(true);
+        setAudiobookMessage(err.response?.data?.error || 'Could not load audiobook destinations.');
+      });
+  }, [isLibrarian, activeTab]);
+
   const handleSavePreferences = async () => {
         setIsSaving(true);
         setSaveMessage('');
@@ -867,7 +893,7 @@ export default function Settings() {
       const response = await audiobooksApi.checkUploadDuplicates(candidateFiles.map(file => ({
         relativePath: file.path,
         size: file.file.size
-      })));
+      })), selectedAudiobookDestinationId);
       uploadConflicts = response.data.data || [];
     } catch (err) {
       const responseError = typeof err.response?.data === 'string'
@@ -890,7 +916,7 @@ export default function Settings() {
     setAudiobookUploadProgress({ completed: initiallyProcessed, total: queuedFiles.length });
     setAudiobookHasError(initialConflictCount > 0);
     if (filesToUpload.length) {
-      setAudiobookMessage(`Uploading 0 of ${filesToUpload.length} new files to audiobooks/...`);
+      setAudiobookMessage(`Uploading 0 of ${filesToUpload.length} new files to ${selectedAudiobookDestination?.name || 'the selected destination'}…`);
     } else if (duplicateCount) {
       setAudiobookMessage(`No new files to upload. Skipped ${duplicateCount} duplicate ${duplicateCount === 1 ? 'file' : 'files'}.`);
     } else {
@@ -906,6 +932,7 @@ export default function Settings() {
       const formData = new FormData();
       formData.append('audiobook', queuedFile.file);
       formData.append('relativePath', queuedFile.path);
+      formData.append('destinationId', selectedAudiobookDestinationId);
 
       try {
         await audiobooksApi.upload(formData, {
@@ -932,7 +959,7 @@ export default function Settings() {
 
       const processedCount = initiallyProcessed + completedCount + uploadFailureCount;
       setAudiobookUploadProgress({ completed: processedCount, total: queuedFiles.length });
-      setAudiobookMessage(`Uploaded ${completedCount} of ${filesToUpload.length} new files to audiobooks/...`);
+      setAudiobookMessage(`Uploaded ${completedCount} of ${filesToUpload.length} new files to ${selectedAudiobookDestination?.name || 'the selected destination'}…`);
     }
 
     setIsAudiobookUploading(false);
@@ -945,13 +972,50 @@ export default function Settings() {
     event.target.value = '';
   };
 
+  const handleAudiobookDestinationAdd = async (serverPath) => {
+    setIsAudiobookDestinationSaving(true);
+    setAudiobookHasError(false);
+    setAudiobookMessage(`Adding ${serverPath} as an audiobook destination…`);
+    try {
+      const response = await audiobooksApi.addDestination(serverPath);
+      const destination = response.data.data;
+      setAudiobookDestinations((current) => [...current, destination]);
+      setSelectedAudiobookDestinationId(String(destination.id));
+      setShowAudiobookDestinationBrowser(false);
+      setAudiobookMessage(`Added ${destination.name}. New imports will be stored there.`);
+    } catch (err) {
+      setAudiobookHasError(true);
+      setAudiobookMessage(err.response?.data?.error || 'Could not add the audiobook destination.');
+    } finally {
+      setIsAudiobookDestinationSaving(false);
+    }
+  };
+
+  const handleAudiobookDestinationRemove = async (destination) => {
+    setRemovingAudiobookDestinationId(String(destination.id));
+    setAudiobookHasError(false);
+    try {
+      await audiobooksApi.removeDestination(destination.id);
+      setAudiobookDestinations((current) => current.filter((item) => String(item.id) !== String(destination.id)));
+      if (String(selectedAudiobookDestinationId) === String(destination.id)) {
+        setSelectedAudiobookDestinationId('default');
+      }
+      setAudiobookMessage(`Removed ${destination.name} from Bookshelf. Files in that folder were not deleted.`);
+    } catch (err) {
+      setAudiobookHasError(true);
+      setAudiobookMessage(err.response?.data?.error || 'Could not remove the audiobook destination.');
+    } finally {
+      setRemovingAudiobookDestinationId(null);
+    }
+  };
+
   const handleAudiobookServerFolderImport = async (serverPath) => {
     setIsAudiobookServerImporting(true);
     setAudiobookHasError(false);
     setAudiobookMessage(`Importing ${serverPath} from the server…`);
 
     try {
-      const response = await audiobooksApi.importDirectory(serverPath);
+      const response = await audiobooksApi.importDirectory(serverPath, selectedAudiobookDestinationId);
       const result = response.data.data;
       const summary = [];
       if (result.importedCount) {
@@ -1877,24 +1941,113 @@ export default function Settings() {
                         accept=".aac,.cue,.flac,.jpeg,.jpg,.json,.m4a,.m4b,.mp3,.nfo,.ogg,.opus,.png,.txt,.wav,.webp"
                     />
 
-                    <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-4 items-stretch">
-                        <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-primary/5 p-5">
-                            <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-primary/10 to-transparent pointer-events-none" />
-                            <div className="relative flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0">
-                                    <HardDrive size={24} />
+                    <section className="relative overflow-hidden rounded-2xl border border-primary/20 bg-primary/5 p-5">
+                        <div className="absolute inset-y-0 right-0 w-52 bg-gradient-to-l from-primary/10 to-transparent pointer-events-none" />
+                        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-11 h-11 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0">
+                                    <HardDrive size={22} />
                                 </div>
-                                <div className="min-w-0">
+                                <div>
                                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
-                                        Server destination
+                                        Storage destinations
                                     </p>
-                                    <p className="font-mono font-bold text-sm mt-1">audiobooks/</p>
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                        Folder names and nested discs are preserved.
+                                    <p className="font-bold mt-0.5">
+                                        Choose where new audiobook files are stored
                                     </p>
                                 </div>
                             </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowAudiobookDestinationBrowser(true)}
+                                disabled={isAudiobookUploading || isAudiobookServerImporting || isAudiobookDestinationSaving}
+                                className="rounded-xl border border-primary/30 bg-card px-4 py-2.5 text-sm font-black text-primary hover:bg-primary/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                                {isAudiobookDestinationSaving
+                                    ? <Loader size={17} className="animate-spin" />
+                                    : <FolderPlus size={17} />}
+                                Add destination
+                            </button>
                         </div>
+
+                        <div className="relative grid grid-cols-1 lg:grid-cols-2 gap-3">
+                            {audiobookDestinations.map((destination) => {
+                                const isSelected = String(destination.id) === String(selectedAudiobookDestinationId);
+                                const isRemoving = String(destination.id) === removingAudiobookDestinationId;
+                                return (
+                                    <div
+                                        key={destination.id}
+                                        className={cn(
+                                            "group flex items-center gap-3 rounded-xl border p-3 transition-all",
+                                            isSelected
+                                                ? "border-primary bg-primary/10 shadow-sm shadow-primary/10"
+                                                : "border-border bg-card/80 hover:border-primary/30"
+                                        )}
+                                    >
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedAudiobookDestinationId(String(destination.id))}
+                                            className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                                            aria-pressed={isSelected}
+                                        >
+                                            <span className={cn(
+                                                "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+                                                isSelected ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
+                                            )}>
+                                                {destination.isDefault ? <HardDrive size={17} /> : <Server size={17} />}
+                                            </span>
+                                            <span className="min-w-0 flex-1">
+                                                <span className="flex flex-wrap items-center gap-2">
+                                                    <span className="font-bold text-sm">{destination.name}</span>
+                                                    {destination.isDefault && (
+                                                        <span className="rounded-full bg-secondary px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-muted-foreground">
+                                                            Built in
+                                                        </span>
+                                                    )}
+                                                    {isSelected && (
+                                                        <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-primary">
+                                                            Selected
+                                                        </span>
+                                                    )}
+                                                </span>
+                                                <span className="mt-0.5 block truncate font-mono text-[11px] text-muted-foreground" title={destination.path}>
+                                                    {destination.path}
+                                                </span>
+                                            </span>
+                                        </button>
+                                        {!destination.isDefault && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleAudiobookDestinationRemove(destination)}
+                                                disabled={isRemoving || isAudiobookUploading || isAudiobookServerImporting}
+                                                className="shrink-0 rounded-lg p-2 text-muted-foreground opacity-60 hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 transition-all disabled:opacity-30"
+                                                title={`Remove ${destination.name} from Bookshelf without deleting its files`}
+                                                aria-label={`Remove audiobook destination ${destination.name}`}
+                                            >
+                                                {isRemoving ? <Loader size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                                            </button>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <p className="relative mt-3 text-xs text-muted-foreground">
+                            Removing a destination disconnects it from Bookshelf but never deletes the files stored there.
+                        </p>
+                    </section>
+
+                    <BrowserModal
+                        isOpen={showAudiobookDestinationBrowser}
+                        onClose={() => {
+                            if (!isAudiobookDestinationSaving) setShowAudiobookDestinationBrowser(false);
+                        }}
+                        onSelect={handleAudiobookDestinationAdd}
+                        title="Add Audiobook Destination"
+                        selectLabel="Add This Destination"
+                        isSelecting={isAudiobookDestinationSaving}
+                    />
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
 
                         <button
                             type="button"

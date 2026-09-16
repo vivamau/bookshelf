@@ -35,6 +35,14 @@ const {
     resolveAudiobookUploadPath
 } = require('./utils/audiobookUpload');
 const {
+    AudiobookDestinationError,
+    DEFAULT_AUDIOBOOK_DESTINATION_ID,
+    normalizeDestinationId,
+    parseVirtualAudiobookPath,
+    pathsOverlap,
+    virtualizeAudiobookCatalog
+} = require('./utils/audiobookDestinations');
+const {
     AudiobookProgressError,
     buildAudiobookProgress
 } = require('./utils/audiobookProgress');
@@ -150,10 +158,94 @@ app.use(fileUpload({
 app.use('/covers', express.static(path.join(__dirname, 'covers')));
 const BOOKS_DIR = path.join(__dirname, 'books');
 const AUDIOBOOKS_DIR = path.join(__dirname, 'audiobooks');
+const audiobookDestinationRoots = new Map([
+    [DEFAULT_AUDIOBOOK_DESTINATION_ID, AUDIOBOOKS_DIR]
+]);
+const dbAllAsync = (sql, params = []) => new Promise((resolve, reject) => {
+    db.all(sql, params, (error, rows) => error ? reject(error) : resolve(rows));
+});
+const dbRunAsync = (sql, params = []) => new Promise((resolve, reject) => {
+    db.run(sql, params, function onRun(error) {
+        if (error) reject(error);
+        else resolve(this);
+    });
+});
+const getAudiobookDestinations = async () => {
+    const rows = await dbAllAsync(
+        `SELECT ID, audiobookdestination_name, audiobookdestination_path,
+                audiobookdestination_create_date
+         FROM AudiobookDestinations
+         ORDER BY audiobookdestination_create_date ASC, ID ASC`
+    );
+    return [{
+        id: DEFAULT_AUDIOBOOK_DESTINATION_ID,
+        name: 'Built-in storage',
+        path: AUDIOBOOKS_DIR,
+        isDefault: true,
+        createdAt: null
+    }, ...rows.map((row) => ({
+        id: row.ID,
+        name: row.audiobookdestination_name,
+        path: row.audiobookdestination_path,
+        isDefault: false,
+        createdAt: row.audiobookdestination_create_date
+    }))];
+};
+const refreshAudiobookDestinationRoots = async () => {
+    const destinations = await getAudiobookDestinations();
+    audiobookDestinationRoots.clear();
+    destinations.forEach((destination) => {
+        audiobookDestinationRoots.set(String(destination.id), destination.path);
+    });
+    return destinations;
+};
+const getAudiobookDestination = async (requestedId) => {
+    const destinationId = normalizeDestinationId(requestedId);
+    const destinations = await refreshAudiobookDestinationRoots();
+    const destination = destinations.find((item) => String(item.id) === String(destinationId));
+    if (!destination) throw new AudiobookDestinationError('Audiobook destination not found', 404);
+    return destination;
+};
+const resolveVirtualAudiobookLocation = (virtualPath) => {
+    const parsed = parseVirtualAudiobookPath(virtualPath);
+    const rootPath = audiobookDestinationRoots.get(String(parsed.destinationId));
+    if (!rootPath) throw new AudiobookCatalogError('Audiobook destination not found');
+    return { ...parsed, rootPath };
+};
+const resolveStoredAudiobookAudioPath = (virtualPath) => {
+    const location = resolveVirtualAudiobookLocation(virtualPath);
+    return resolveAudiobookAudioPath(location.rootPath, location.relativePath);
+};
+const resolveStoredAudiobookCoverPath = (virtualPath) => {
+    const location = resolveVirtualAudiobookLocation(virtualPath);
+    return resolveAudiobookCoverPath(location.rootPath, location.relativePath);
+};
+const resolveStoredAudiobookDirectoryPath = (virtualPath) => {
+    const location = resolveVirtualAudiobookLocation(virtualPath);
+    return {
+        ...location,
+        directoryPath: resolveAudiobookDirectoryPath(location.rootPath, location.relativePath)
+    };
+};
 const loadFreshAudiobookCatalog = async () => {
-    const catalog = await scanAudiobookCatalog(AUDIOBOOKS_DIR);
-    const catalogWithDurations = await enrichAudiobookDurations(AUDIOBOOKS_DIR, catalog);
-    const catalogWithAuthors = await enrichAudiobookCatalog(db, catalogWithDurations);
+    const destinations = await refreshAudiobookDestinationRoots();
+    const destinationCatalogs = await Promise.all(destinations.map(async (destination) => {
+        try {
+            if (destination.isDefault) {
+                await fs.promises.mkdir(destination.path, { recursive: true });
+            }
+            const catalog = await scanAudiobookCatalog(destination.path);
+            const catalogWithDurations = await enrichAudiobookDurations(destination.path, catalog);
+            return virtualizeAudiobookCatalog(catalogWithDurations, destination);
+        } catch (error) {
+            if (!destination.isDefault) {
+                console.warn(`Audiobook destination unavailable: ${destination.path}`, error?.message || error);
+                return [];
+            }
+            throw error;
+        }
+    }));
+    const catalogWithAuthors = await enrichAudiobookCatalog(db, destinationCatalogs.flat());
     return enrichAudiobookGenres(db, catalogWithAuthors);
 };
 const loadAudiobookCatalog = createStaleWhileRevalidateLoader(loadFreshAudiobookCatalog, {
@@ -1814,6 +1906,96 @@ app.use('/api/settings', auth, checkManageBooks, settingsRouter);
 
 const audiobooksRouter = express.Router();
 
+audiobooksRouter.get('/destinations', checkManageBooks, async (req, res) => {
+    try {
+        res.json({ data: await refreshAudiobookDestinationRoots() });
+    } catch (err) {
+        console.error('Audiobook destinations lookup failed:', err);
+        res.status(500).json({ error: 'Could not load audiobook destinations' });
+    }
+});
+
+audiobooksRouter.post('/destinations', checkManageBooks, async (req, res) => {
+    try {
+        const requestedPath = String(req.body?.path || '').trim();
+        if (!requestedPath || !path.isAbsolute(requestedPath)) {
+            throw new AudiobookDestinationError('Select an absolute server folder path');
+        }
+
+        let destinationPath;
+        try {
+            destinationPath = await fs.promises.realpath(requestedPath);
+            const stats = await fs.promises.stat(destinationPath);
+            if (!stats.isDirectory()) {
+                throw new AudiobookDestinationError('The selected server path is not a folder');
+            }
+            await fs.promises.access(destinationPath, fs.constants.R_OK | fs.constants.W_OK);
+        } catch (err) {
+            if (err instanceof AudiobookDestinationError) throw err;
+            if (err?.code === 'ENOENT') {
+                throw new AudiobookDestinationError('The selected server folder does not exist', 404);
+            }
+            if (['EACCES', 'EPERM'].includes(err?.code)) {
+                throw new AudiobookDestinationError('The server cannot read and write this folder', 403);
+            }
+            throw err;
+        }
+
+        const destinations = await getAudiobookDestinations();
+        if (destinations.some((destination) => pathsOverlap(destination.path, destinationPath))) {
+            throw new AudiobookDestinationError('This folder overlaps an existing audiobook destination');
+        }
+
+        const requestedName = String(req.body?.name || '').trim();
+        const destinationName = requestedName || path.basename(destinationPath);
+        if (!destinationName || destinationName.length > 120) {
+            throw new AudiobookDestinationError('Destination name must be no longer than 120 characters');
+        }
+
+        const result = await dbRunAsync(
+            `INSERT INTO AudiobookDestinations (
+                audiobookdestination_name, audiobookdestination_path,
+                audiobookdestination_create_date
+             ) VALUES (?, ?, ?)`,
+            [destinationName, destinationPath, Date.now()]
+        );
+        const destination = await getAudiobookDestination(result.lastID);
+        await loadAudiobookCatalog.reload();
+        res.status(201).json({ data: destination });
+    } catch (err) {
+        if (err instanceof AudiobookDestinationError) {
+            return res.status(err.statusCode).json({ error: err.message });
+        }
+        if (err?.message?.includes('UNIQUE constraint failed')) {
+            return res.status(409).json({ error: 'This audiobook destination is already configured' });
+        }
+        console.error('Audiobook destination creation failed:', err);
+        res.status(500).json({ error: 'Could not add the audiobook destination' });
+    }
+});
+
+audiobooksRouter.delete('/destinations/:id', checkManageBooks, async (req, res) => {
+    try {
+        const destinationId = normalizeDestinationId(req.params.id);
+        if (destinationId === DEFAULT_AUDIOBOOK_DESTINATION_ID) {
+            throw new AudiobookDestinationError('The built-in audiobook destination cannot be removed');
+        }
+        const result = await dbRunAsync('DELETE FROM AudiobookDestinations WHERE ID = ?', [destinationId]);
+        if (!result.changes) {
+            throw new AudiobookDestinationError('Audiobook destination not found', 404);
+        }
+        await refreshAudiobookDestinationRoots();
+        await loadAudiobookCatalog.reload();
+        res.json({ message: 'Audiobook destination removed. Its files were not deleted.' });
+    } catch (err) {
+        if (err instanceof AudiobookDestinationError) {
+            return res.status(err.statusCode).json({ error: err.message });
+        }
+        console.error('Audiobook destination removal failed:', err);
+        res.status(500).json({ error: 'Could not remove the audiobook destination' });
+    }
+});
+
 const loadAudiobooksForUser = async (userId, { reload = false } = {}) => {
     await fs.promises.mkdir(AUDIOBOOKS_DIR, { recursive: true });
     const [audiobooks, progressRows] = await Promise.all([
@@ -2004,7 +2186,8 @@ audiobooksRouter.put('/metadata', checkManageBooks, async (req, res) => {
             genres: ignoredGenres,
             ...fileMetadata
         } = requestedMetadata;
-        await writeAudiobookMetadata(AUDIOBOOKS_DIR, audiobook.folder, {
+        const storage = resolveVirtualAudiobookLocation(audiobook.folder);
+        await writeAudiobookMetadata(storage.rootPath, storage.relativePath, {
             ...fileMetadata,
             author: ''
         });
@@ -2047,7 +2230,7 @@ audiobooksRouter.post('/cover-from-url', checkManageBooks, async (req, res) => {
         }
 
         const cover = await downloadRemoteImage(req.body.coverUrl);
-        const directoryPath = resolveAudiobookDirectoryPath(AUDIOBOOKS_DIR, audiobook.folder);
+        const { directoryPath } = resolveStoredAudiobookDirectoryPath(audiobook.folder);
         const fileName = `${MANAGED_COVER_PREFIX}${cover.extension}`;
         const filePath = path.join(directoryPath, fileName);
         const temporaryPath = path.join(
@@ -2084,7 +2267,7 @@ audiobooksRouter.post('/cover-from-url', checkManageBooks, async (req, res) => {
 audiobooksRouter.get('/cover', (req, res) => {
     let cover;
     try {
-        cover = resolveAudiobookCoverPath(AUDIOBOOKS_DIR, req.query.path);
+        cover = resolveStoredAudiobookCoverPath(req.query.path);
     } catch (err) {
         if (err instanceof AudiobookCatalogError) {
             return res.status(400).json({ error: err.message });
@@ -2105,7 +2288,7 @@ audiobooksRouter.get('/cover', (req, res) => {
 audiobooksRouter.get('/audio', (req, res) => {
     let audio;
     try {
-        audio = resolveAudiobookAudioPath(AUDIOBOOKS_DIR, req.query.path);
+        audio = resolveStoredAudiobookAudioPath(req.query.path);
     } catch (err) {
         if (err instanceof AudiobookCatalogError) {
             return res.status(400).json({ error: err.message });
@@ -2144,12 +2327,12 @@ audiobooksRouter.get('/download', async (req, res) => {
 
         const downloadName = safeDownloadName(audiobook.title);
         if (audiobook.tracks.length === 1) {
-            const track = resolveAudiobookAudioPath(AUDIOBOOKS_DIR, audiobook.tracks[0].path);
+            const track = resolveStoredAudiobookAudioPath(audiobook.tracks[0].path);
             const extension = path.extname(track.audioPath).toLowerCase();
             return res.download(track.audioPath, `${downloadName}${extension}`);
         }
 
-        const directoryPath = resolveAudiobookDirectoryPath(AUDIOBOOKS_DIR, audiobook.folder);
+        const { directoryPath } = resolveStoredAudiobookDirectoryPath(audiobook.folder);
         res.attachment(`${downloadName}.tar`);
         res.type('application/x-tar');
 
@@ -2190,22 +2373,22 @@ audiobooksRouter.delete('/', checkManageUsers, async (req, res) => {
         if (!audiobook) {
             return res.status(404).json({ error: 'Audiobook not found' });
         }
-        if (audiobook.folder === '.') {
+        const storage = resolveStoredAudiobookDirectoryPath(audiobook.folder);
+        if (storage.relativePath === '.') {
             if (audiobook.tracks.length !== 1) {
                 return res.status(400).json({
                     error: 'Root-level audiobook files must be placed in separate folders before deletion'
                 });
             }
 
-            const rootTrack = resolveAudiobookAudioPath(AUDIOBOOKS_DIR, audiobook.tracks[0].path);
+            const rootTrack = resolveStoredAudiobookAudioPath(audiobook.tracks[0].path);
             await fs.promises.unlink(rootTrack.audioPath);
             await deleteAudiobookRecord(db, audiobook.folder);
             await loadAudiobookCatalog.reload();
             return res.json({ message: 'Audiobook deleted' });
         }
 
-        const directoryPath = resolveAudiobookDirectoryPath(AUDIOBOOKS_DIR, audiobook.folder);
-        await fs.promises.rm(directoryPath, { recursive: true, force: false });
+        await fs.promises.rm(storage.directoryPath, { recursive: true, force: false });
         await deleteAudiobookRecord(db, audiobook.folder);
         await loadAudiobookCatalog.reload();
         res.json({ message: 'Audiobook deleted' });
@@ -2220,9 +2403,13 @@ audiobooksRouter.delete('/', checkManageUsers, async (req, res) => {
 
 audiobooksRouter.post('/upload/check-duplicates', checkManageBooks, async (req, res) => {
     try {
-        const conflicts = await findAudiobookUploadConflicts(AUDIOBOOKS_DIR, req.body?.files);
+        const destination = await getAudiobookDestination(req.body?.destinationId);
+        const conflicts = await findAudiobookUploadConflicts(destination.path, req.body?.files);
         res.json({ data: conflicts });
     } catch (err) {
+        if (err instanceof AudiobookDestinationError) {
+            return res.status(err.statusCode).json({ error: err.message });
+        }
         if (err instanceof AudiobookUploadError) {
             return res.status(400).json({ error: err.message });
         }
@@ -2233,7 +2420,8 @@ audiobooksRouter.post('/upload/check-duplicates', checkManageBooks, async (req, 
 
 audiobooksRouter.post('/import-directory', checkManageBooks, async (req, res) => {
     try {
-        const result = await importAudiobookDirectory(req.body?.path, AUDIOBOOKS_DIR);
+        const destination = await getAudiobookDestination(req.body?.destinationId);
+        const result = await importAudiobookDirectory(req.body?.path, destination.path);
         const audiobooks = await loadAudiobookCatalog.reload();
         res.status(result.importedCount > 0 ? 201 : 200).json({
             message: result.importedCount > 0
@@ -2241,11 +2429,13 @@ audiobooksRouter.post('/import-directory', checkManageBooks, async (req, res) =>
                 : 'Server audiobook folder already imported',
             data: {
                 ...result,
+                destinationId: destination.id,
+                destinationName: destination.name,
                 audiobookCount: audiobooks.length
             }
         });
     } catch (err) {
-        if (err instanceof AudiobookUploadError) {
+        if (err instanceof AudiobookUploadError || err instanceof AudiobookDestinationError) {
             return res.status(err.statusCode).json({ error: err.message });
         }
         console.error('Audiobook server folder import failed:', err);
@@ -2261,14 +2451,15 @@ audiobooksRouter.post('/upload', checkManageBooks, async (req, res) => {
     const audiobookFile = req.files.audiobook;
     let destination;
     try {
+        const storageDestination = await getAudiobookDestination(req.body.destinationId);
         destination = resolveAudiobookUploadPath(
-            AUDIOBOOKS_DIR,
+            storageDestination.path,
             req.body.relativePath,
             audiobookFile.name
         );
     } catch (err) {
-        if (err instanceof AudiobookUploadError) {
-            return res.status(400).json({ error: err.message });
+        if (err instanceof AudiobookUploadError || err instanceof AudiobookDestinationError) {
+            return res.status(err.statusCode).json({ error: err.message });
         }
         return res.status(500).json({ error: 'Could not prepare audiobook upload' });
     }
@@ -2316,8 +2507,12 @@ const audiobookshelfRouters = createAudiobookshelfRouters({
     db,
     loadAudiobookCatalog,
     audiobooksDirectory: AUDIOBOOKS_DIR,
-    resolveAudiobookAudioPath,
-    resolveAudiobookCoverPath,
+    resolveAudiobookAudioPath: (_audiobooksDirectory, virtualPath) => (
+        resolveStoredAudiobookAudioPath(virtualPath)
+    ),
+    resolveAudiobookCoverPath: (_audiobooksDirectory, virtualPath) => (
+        resolveStoredAudiobookCoverPath(virtualPath)
+    ),
     getAudiobookContentType,
     serverVersion
 });
