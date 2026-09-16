@@ -149,6 +149,7 @@ export const audiobooksApi = {
   setCoverFromUrl: (folder, coverUrl) => api.post('/audiobooks/cover-from-url', { folder, coverUrl }),
   remove: (folder) => api.delete('/audiobooks', { params: { folder } }),
   getDownloadUrl: (folder) => `${API_URL}/audiobooks/download?folder=${encodeURIComponent(folder)}`,
+  importDirectory: (path) => api.post('/audiobooks/import-directory', { path }),
   checkUploadDuplicates: (files) => api.post('/audiobooks/upload/check-duplicates', { files }),
   upload: (formData, config = {}) => api.post('/audiobooks/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },

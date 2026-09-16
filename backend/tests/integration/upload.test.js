@@ -44,6 +44,8 @@ describe('Upload Endpoint Integration', () => {
     const managedAudiobookCoverPath = path.join(__dirname, '..', '..', 'audiobooks', 'Test Collection', 'Disc 1', 'bookshelf-cover.png');
     const uploadedAudiobookMetadataPath = path.join(__dirname, '..', '..', 'audiobooks', 'Test Collection', 'Disc 1', '.bookshelf-metadata.json');
     const archiveCollectionPath = path.join(__dirname, '..', '..', 'audiobooks', 'Archive Collection');
+    const serverImportSourcePath = path.join(__dirname, 'Server Import Collection');
+    const serverImportDestinationPath = path.join(__dirname, '..', '..', 'audiobooks', 'Server Import Collection');
     const rootAudiobookPath = path.join(__dirname, '..', '..', 'audiobooks', 'Standalone Audiobook.m4b');
     const secondRootAudiobookPath = path.join(__dirname, '..', '..', 'audiobooks', 'Second Standalone Audiobook.mp3');
 
@@ -67,6 +69,10 @@ describe('Upload Endpoint Integration', () => {
         fs.mkdirSync(archiveCollectionPath, { recursive: true });
         fs.writeFileSync(path.join(archiveCollectionPath, '01.mp3'), 'first track');
         fs.writeFileSync(path.join(archiveCollectionPath, '02.mp3'), 'second track');
+        fs.mkdirSync(path.join(serverImportSourcePath, 'Disc 1'), { recursive: true });
+        fs.writeFileSync(path.join(serverImportSourcePath, 'Disc 1', '01.mp3'), 'server audio');
+        fs.writeFileSync(path.join(serverImportSourcePath, 'cover.jpg'), 'server cover');
+        fs.writeFileSync(path.join(serverImportSourcePath, 'ignored.docx'), 'unsupported');
         
         // Login to get token
         const res = await request(app)
@@ -121,6 +127,12 @@ describe('Upload Endpoint Integration', () => {
         }
         if (fs.existsSync(archiveCollectionPath)) {
             fs.rmSync(archiveCollectionPath, { recursive: true, force: true });
+        }
+        if (fs.existsSync(serverImportSourcePath)) {
+            fs.rmSync(serverImportSourcePath, { recursive: true, force: true });
+        }
+        if (fs.existsSync(serverImportDestinationPath)) {
+            fs.rmSync(serverImportDestinationPath, { recursive: true, force: true });
         }
         if (fs.existsSync(rootAudiobookPath)) {
             fs.unlinkSync(rootAudiobookPath);
@@ -208,6 +220,42 @@ describe('Upload Endpoint Integration', () => {
         expect(res.statusCode).toBe(409);
         expect(res.body.duplicate).toBe(true);
         expect(fs.readFileSync(uploadedAudiobookPath, 'utf8')).toBe(originalContent);
+    });
+
+    test('POST /api/audiobooks/import-directory imports a selected server folder', async () => {
+        const res = await request(app)
+            .post('/api/audiobooks/import-directory')
+            .set('Cookie', authCookie)
+            .send({ path: serverImportSourcePath });
+
+        expect(res.statusCode).toBe(201);
+        expect(res.body.data).toMatchObject({
+            collectionFolder: 'Server Import Collection',
+            importedCount: 2,
+            skippedCount: 1
+        });
+        expect(fs.readFileSync(path.join(serverImportDestinationPath, 'Disc 1', '01.mp3'), 'utf8'))
+            .toBe('server audio');
+        expect(fs.existsSync(path.join(serverImportDestinationPath, 'ignored.docx'))).toBe(false);
+    });
+
+    test('POST /api/audiobooks/import-directory skips an already imported folder', async () => {
+        const res = await request(app)
+            .post('/api/audiobooks/import-directory')
+            .set('Cookie', authCookie)
+            .send({ path: serverImportSourcePath });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.data).toMatchObject({ importedCount: 0, duplicateCount: 2 });
+    });
+
+    test('POST /api/audiobooks/import-directory rejects guest accounts', async () => {
+        const res = await request(app)
+            .post('/api/audiobooks/import-directory')
+            .set('Cookie', guestCookie)
+            .send({ path: serverImportSourcePath });
+
+        expect(res.statusCode).toBe(403);
     });
 
     test('POST and GET /api/audiobooks/progress retain a user chapter and timestamp', async () => {

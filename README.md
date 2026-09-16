@@ -152,7 +152,7 @@ Bookshelf includes a server-backed audiobook library for every authenticated use
 
 ### Importing an Audiobook Collection
 
-Librarians can open **Settings → Audiobooks** and choose a folder from their computer. Uploading starts immediately and preserves the selected folder's structure, including nested disc folders. Files are stored under `backend/audiobooks/` on the server.
+Librarians can open **Settings → Audiobooks** and choose a folder from their computer, or browse to a folder already accessible to the server. Local uploads and server imports preserve the selected folder's structure, including nested disc folders. Server imports skip unsupported assets and existing files instead of overwriting them. Managed files are stored under `backend/audiobooks/` on the server.
 
 Supported audio formats are:
 

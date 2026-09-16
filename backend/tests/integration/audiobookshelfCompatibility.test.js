@@ -35,7 +35,8 @@ describe('Audiobookshelf client compatibility', () => {
             title: folderName,
             author: 'Sound Leaf Author',
             series: 'SoundLeaf Saga',
-            seriesSequence: '1'
+            seriesSequence: '1',
+            description: 'A compatibility description for SoundLeaf.'
         }));
         fs.mkdirSync(noCoverDirectory, { recursive: true });
         fs.writeFileSync(noCoverAudioPath, 'soundleaf audio without cover');
@@ -147,7 +148,12 @@ describe('Audiobookshelf client compatibility', () => {
             media: {
                 id: expect.any(String),
                 numTracks: 1,
-                metadata: { abridged: false, genres: ['ADVENTURE'] },
+                metadata: {
+                    abridged: false,
+                    genres: ['ADVENTURE'],
+                    description: 'A compatibility description for SoundLeaf.',
+                    descriptionPlain: 'A compatibility description for SoundLeaf.'
+                },
                 coverPath: `/audiobooks/${folderName}/cover.jpg`
             }
         });
@@ -256,6 +262,10 @@ describe('Audiobookshelf client compatibility', () => {
             .query({ expanded: 1, include: 'progress' })
             .set('Authorization', `Bearer ${accessToken}`);
         expect(expanded.statusCode).toBe(200);
+        expect(expanded.body.media.metadata).toMatchObject({
+            description: 'A compatibility description for SoundLeaf.',
+            descriptionPlain: 'A compatibility description for SoundLeaf.'
+        });
         expect(expanded.body.media.tracks[0]).toMatchObject({
             index: 1,
             contentUrl: `/api/items/${itemId}/file/${expanded.body.media.audioFiles[0].ino}`,
@@ -498,7 +508,8 @@ describe('Audiobookshelf client compatibility', () => {
                     author: 'Sound Leaf Author',
                     narrator: 'Updated Narrator',
                     series: 'SoundLeaf Saga',
-                    seriesSequence: '1'
+                    seriesSequence: '1',
+                    description: 'An updated description for SoundLeaf.'
                 }
             });
         expect(update.statusCode).toBe(200);
@@ -511,7 +522,9 @@ describe('Audiobookshelf client compatibility', () => {
 
         expect(afterItem.media.metadata).toMatchObject({
             title: 'SoundLeaf Updated Title',
-            narratorName: 'Updated Narrator'
+            narratorName: 'Updated Narrator',
+            description: 'An updated description for SoundLeaf.',
+            descriptionPlain: 'An updated description for SoundLeaf.'
         });
         expect(afterItem.addedAt).toBe(beforeItem.addedAt);
         expect(afterItem.updatedAt).toBeGreaterThan(beforeItem.updatedAt);

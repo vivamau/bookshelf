@@ -156,7 +156,14 @@ const ApplicationLogEntry = ({ entry }) => {
     );
 };
 
-const BrowserModal = ({ isOpen, onClose, onSelect }) => {
+const BrowserModal = ({
+    isOpen,
+    onClose,
+    onSelect,
+    title = 'Browse Server Folders',
+    selectLabel = 'Select This Folder',
+    isSelecting = false
+}) => {
     const [currentPath, setCurrentPath] = useState('');
     const [folders, setFolders] = useState([]);
     const [parentPath, setParentPath] = useState('');
@@ -188,7 +195,7 @@ const BrowserModal = ({ isOpen, onClose, onSelect }) => {
                 <div className="p-4 border-b border-border flex items-center justify-between bg-secondary/20">
                     <h3 className="font-bold flex items-center gap-2">
                         <FolderSearch size={18} />
-                        Browse Server Folders
+                        {title}
                     </h3>
                     <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
                         <X size={20} />
@@ -236,12 +243,14 @@ const BrowserModal = ({ isOpen, onClose, onSelect }) => {
                 </div>
 
                 <div className="p-4 border-t border-border bg-secondary/20 flex justify-end gap-2">
-                    <button onClick={onClose} className="px-4 py-2 text-sm hover:underline">Cancel</button>
+                    <button disabled={isSelecting} onClick={onClose} className="px-4 py-2 text-sm hover:underline disabled:opacity-50">Cancel</button>
                     <button 
-                        onClick={() => { onSelect(currentPath); onClose(); }} 
-                        className="bg-primary text-primary-foreground px-6 py-2 rounded-lg text-sm font-bold hover:scale-105 transition-transform"
+                        onClick={() => onSelect(currentPath)}
+                        disabled={!currentPath || loading || isSelecting}
+                        className="bg-primary text-primary-foreground px-6 py-2 rounded-lg text-sm font-bold hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100 flex items-center gap-2"
                     >
-                        Select This Folder
+                        {isSelecting && <Loader size={15} className="animate-spin" />}
+                        {isSelecting ? 'Importing…' : selectLabel}
                     </button>
                 </div>
             </div>
@@ -378,6 +387,8 @@ export default function Settings() {
   const [audiobookUploadProgress, setAudiobookUploadProgress] = useState({ completed: 0, total: 0 });
   const [audiobookMessage, setAudiobookMessage] = useState('');
   const [audiobookHasError, setAudiobookHasError] = useState(false);
+  const [showAudiobookServerBrowser, setShowAudiobookServerBrowser] = useState(false);
+  const [isAudiobookServerImporting, setIsAudiobookServerImporting] = useState(false);
   const audiobookFolderInputRef = useRef(null);
 
   // Local Bulk Upload States
@@ -932,6 +943,37 @@ export default function Settings() {
     if (unsupportedCount) summary.push(`Skipped ${unsupportedCount} unsupported ${unsupportedCount === 1 ? 'file' : 'files'}.`);
     setAudiobookMessage(summary.join(' '));
     event.target.value = '';
+  };
+
+  const handleAudiobookServerFolderImport = async (serverPath) => {
+    setIsAudiobookServerImporting(true);
+    setAudiobookHasError(false);
+    setAudiobookMessage(`Importing ${serverPath} from the server…`);
+
+    try {
+      const response = await audiobooksApi.importDirectory(serverPath);
+      const result = response.data.data;
+      const summary = [];
+      if (result.importedCount) {
+        summary.push(`Imported ${result.importedCount} ${result.importedCount === 1 ? 'file' : 'files'} into ${result.collectionFolder}.`);
+      } else {
+        summary.push(`${result.collectionFolder} is already in the audiobook library.`);
+      }
+      if (result.duplicateCount) summary.push(`Skipped ${result.duplicateCount} duplicate ${result.duplicateCount === 1 ? 'file' : 'files'}.`);
+      if (result.conflictCount) summary.push(`Skipped ${result.conflictCount} existing ${result.conflictCount === 1 ? 'file' : 'files'} with different contents.`);
+      if (result.skippedCount) summary.push(`Ignored ${result.skippedCount} unsupported ${result.skippedCount === 1 ? 'item' : 'items'}.`);
+      setAudiobookFiles([]);
+      setAudiobookMessage(summary.join(' '));
+      setShowAudiobookServerBrowser(false);
+    } catch (err) {
+      const responseError = typeof err.response?.data === 'string'
+        ? err.response.data
+        : err.response?.data?.error;
+      setAudiobookHasError(true);
+      setAudiobookMessage(responseError || 'Could not import the selected server folder.');
+    } finally {
+      setIsAudiobookServerImporting(false);
+    }
   };
 
   const handleFileSelect = (e) => {
@@ -1574,7 +1616,10 @@ export default function Settings() {
                     <BrowserModal 
                         isOpen={showBrowser} 
                         onClose={() => setShowBrowser(false)} 
-                        onSelect={(path) => setNewPath(path)} 
+                        onSelect={(path) => {
+                            setNewPath(path);
+                            setShowBrowser(false);
+                        }}
                     />
 
                     {error && (
@@ -1805,7 +1850,7 @@ export default function Settings() {
                                 Import Collection
                             </h2>
                             <p className="text-sm text-muted-foreground mt-1 max-w-xl">
-                                Choose an audiobook folder on this computer. Its supported content uploads immediately while preserving the collection structure.
+                                Import an audiobook folder from this device or from a location already available on the server. The collection structure is preserved.
                             </p>
                         </div>
                         <div className="hidden sm:flex items-end gap-1 h-11 px-4 py-2 rounded-xl border border-primary/20 bg-primary/5" aria-hidden="true">
@@ -1832,7 +1877,7 @@ export default function Settings() {
                         accept=".aac,.cue,.flac,.jpeg,.jpg,.json,.m4a,.m4b,.mp3,.nfo,.ogg,.opus,.png,.txt,.wav,.webp"
                     />
 
-                    <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-stretch">
+                    <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-4 items-stretch">
                         <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-primary/5 p-5">
                             <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-primary/10 to-transparent pointer-events-none" />
                             <div className="relative flex items-center gap-4">
@@ -1854,13 +1899,34 @@ export default function Settings() {
                         <button
                             type="button"
                             onClick={() => audiobookFolderInputRef.current?.click()}
-                            disabled={isAudiobookUploading}
+                            disabled={isAudiobookUploading || isAudiobookServerImporting}
                             className="min-h-24 bg-primary text-primary-foreground font-black px-7 py-4 rounded-2xl hover:bg-primary/90 transition-all flex md:flex-col items-center justify-center gap-2 shadow-lg shadow-primary/20 active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100"
                         >
                             {isAudiobookUploading ? <Loader size={23} className="animate-spin" /> : <FolderSearch size={23} />}
-                            {isAudiobookUploading ? 'Uploading…' : 'Choose Folder'}
+                            {isAudiobookUploading ? 'Uploading…' : 'From this device'}
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setShowAudiobookServerBrowser(true)}
+                            disabled={isAudiobookUploading || isAudiobookServerImporting}
+                            className="min-h-24 border border-primary/30 bg-card text-foreground font-black px-7 py-4 rounded-2xl hover:bg-primary/10 hover:border-primary/50 transition-all flex md:flex-col items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100"
+                        >
+                            {isAudiobookServerImporting ? <Loader size={23} className="animate-spin" /> : <Server size={23} className="text-primary" />}
+                            {isAudiobookServerImporting ? 'Importing…' : 'From server'}
                         </button>
                     </div>
+
+                    <BrowserModal
+                        isOpen={showAudiobookServerBrowser}
+                        onClose={() => {
+                            if (!isAudiobookServerImporting) setShowAudiobookServerBrowser(false);
+                        }}
+                        onSelect={handleAudiobookServerFolderImport}
+                        title="Import Audiobooks from Server"
+                        selectLabel="Import This Folder"
+                        isSelecting={isAudiobookServerImporting}
+                    />
 
                     {audiobookMessage && (
                         <div className={cn(

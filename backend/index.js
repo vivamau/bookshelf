@@ -31,6 +31,7 @@ const { OpenAIConfigError, OpenAIRequestError, synthesizeSpeech } = require('./u
 const {
     AudiobookUploadError,
     findAudiobookUploadConflicts,
+    importAudiobookDirectory,
     resolveAudiobookUploadPath
 } = require('./utils/audiobookUpload');
 const {
@@ -2227,6 +2228,28 @@ audiobooksRouter.post('/upload/check-duplicates', checkManageBooks, async (req, 
         }
         console.error('Audiobook duplicate check failed:', err);
         res.status(500).json({ error: 'Could not check audiobook files' });
+    }
+});
+
+audiobooksRouter.post('/import-directory', checkManageBooks, async (req, res) => {
+    try {
+        const result = await importAudiobookDirectory(req.body?.path, AUDIOBOOKS_DIR);
+        const audiobooks = await loadAudiobookCatalog.reload();
+        res.status(result.importedCount > 0 ? 201 : 200).json({
+            message: result.importedCount > 0
+                ? 'Server audiobook folder imported'
+                : 'Server audiobook folder already imported',
+            data: {
+                ...result,
+                audiobookCount: audiobooks.length
+            }
+        });
+    } catch (err) {
+        if (err instanceof AudiobookUploadError) {
+            return res.status(err.statusCode).json({ error: err.message });
+        }
+        console.error('Audiobook server folder import failed:', err);
+        res.status(500).json({ error: 'Could not import the server audiobook folder' });
     }
 });
 
