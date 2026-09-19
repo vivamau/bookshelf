@@ -258,6 +258,77 @@ const BrowserModal = ({
     );
 };
 
+const AudiobookScanDialog = ({ destination, isScanning, onCancel, onConfirm }) => {
+    const cancelButtonRef = useRef(null);
+
+    useEffect(() => {
+        if (!destination) return undefined;
+        cancelButtonRef.current?.focus();
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape' && !isScanning) onCancel();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [destination, isScanning, onCancel]);
+
+    if (!destination) return null;
+
+    return (
+        <div
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="audiobook-scan-title"
+        >
+            <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-primary/25 bg-card shadow-2xl">
+                <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-primary/15 to-transparent pointer-events-none" />
+                <div className="relative p-6">
+                    <div className="flex items-start gap-4">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+                            <Search size={23} />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">
+                                Destination connected
+                            </p>
+                            <h3 id="audiobook-scan-title" className="mt-1 text-xl font-black">
+                                Scan for audiobooks now?
+                            </h3>
+                            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                                Bookshelf will inspect <span className="font-bold text-foreground">{destination.name}</span> and add the audiobooks it finds to the catalog. Files stay exactly where they are—nothing is copied or moved.
+                            </p>
+                            <div className="mt-4 rounded-xl border border-border bg-background/60 px-3 py-2.5 font-mono text-xs text-muted-foreground break-all">
+                                {destination.path}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                        <button
+                            ref={cancelButtonRef}
+                            type="button"
+                            onClick={onCancel}
+                            disabled={isScanning}
+                            className="rounded-xl border border-border bg-card px-5 py-2.5 text-sm font-bold hover:bg-secondary/30 transition-colors disabled:opacity-50"
+                        >
+                            Scan later
+                        </button>
+                        <button
+                            type="button"
+                            onClick={onConfirm}
+                            disabled={isScanning}
+                            className="rounded-xl bg-primary px-5 py-2.5 text-sm font-black text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+                        >
+                            {isScanning ? <Loader size={17} className="animate-spin" /> : <Search size={17} />}
+                            {isScanning ? 'Scanning…' : 'Scan destination'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const OfflineRemovalDialog = ({
     isOpen,
     bookCount,
@@ -394,6 +465,8 @@ export default function Settings() {
   const [showAudiobookDestinationBrowser, setShowAudiobookDestinationBrowser] = useState(false);
   const [isAudiobookDestinationSaving, setIsAudiobookDestinationSaving] = useState(false);
   const [removingAudiobookDestinationId, setRemovingAudiobookDestinationId] = useState(null);
+  const [scanningAudiobookDestinationId, setScanningAudiobookDestinationId] = useState(null);
+  const [audiobookDestinationPendingScan, setAudiobookDestinationPendingScan] = useState(null);
   const [audiobookDestinationPath, setAudiobookDestinationPath] = useState('');
   const audiobookFolderInputRef = useRef(null);
   const selectedAudiobookDestination = audiobookDestinations.find((destination) => (
@@ -988,14 +1061,44 @@ export default function Settings() {
       }
       setAudiobookDestinationPath('');
       setShowAudiobookDestinationBrowser(false);
+      setAudiobookDestinationPendingScan(destination);
       setAudiobookMessage(destination.isWritable
-        ? `Added ${destination.name}. New imports will be stored there.`
-        : `Added ${destination.name} as a read-only library. Existing audiobooks can be played, but new files cannot be stored there.`);
+        ? `Added ${destination.name} as an audiobook destination.`
+        : `Added ${destination.name} as a read-only audiobook destination.`);
     } catch (err) {
       setAudiobookHasError(true);
       setAudiobookMessage(err.response?.data?.error || 'Could not add the audiobook destination.');
     } finally {
       setIsAudiobookDestinationSaving(false);
+    }
+  };
+
+  const handleAudiobookDestinationScan = async (destination) => {
+    if (!destination || scanningAudiobookDestinationId !== null) return;
+    setScanningAudiobookDestinationId(String(destination.id));
+    setAudiobookHasError(false);
+    setAudiobookMessage(`Scanning ${destination.name} for audiobooks…`);
+    try {
+      const response = await audiobooksApi.scanDestination(destination.id);
+      const result = response.data.data;
+      setAudiobookMessage(
+        `Scan complete. Found ${result.audiobookCount} ${result.audiobookCount === 1 ? 'audiobook' : 'audiobooks'} in ${destination.name}. Files remain in their original folders.`
+      );
+      setAudiobookDestinationPendingScan(null);
+    } catch (err) {
+      setAudiobookHasError(true);
+      setAudiobookMessage(err.response?.data?.error || `Could not scan ${destination.name}.`);
+      setAudiobookDestinationPendingScan(null);
+    } finally {
+      setScanningAudiobookDestinationId(null);
+    }
+  };
+
+  const handleAudiobookDestinationScanLater = () => {
+    const destination = audiobookDestinationPendingScan;
+    setAudiobookDestinationPendingScan(null);
+    if (destination) {
+      setAudiobookMessage(`Added ${destination.name}. Use its scan button whenever you want to discover audiobooks there.`);
     }
   };
 
@@ -2018,6 +2121,7 @@ export default function Settings() {
                             {audiobookDestinations.map((destination) => {
                                 const isSelected = String(destination.id) === String(selectedAudiobookDestinationId);
                                 const isRemoving = String(destination.id) === removingAudiobookDestinationId;
+                                const isScanning = String(destination.id) === scanningAudiobookDestinationId;
                                 return (
                                     <div
                                         key={destination.id}
@@ -2079,18 +2183,30 @@ export default function Settings() {
                                                 </span>
                                             </span>
                                         </button>
-                                        {!destination.isDefault && (
+                                        <div className="flex shrink-0 items-center gap-1">
                                             <button
                                                 type="button"
-                                                onClick={() => handleAudiobookDestinationRemove(destination)}
-                                                disabled={isRemoving || isAudiobookUploading || isAudiobookServerImporting}
-                                                className="shrink-0 rounded-lg p-2 text-muted-foreground opacity-60 hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 transition-all disabled:opacity-30"
-                                                title={`Remove ${destination.name} from Bookshelf without deleting its files`}
-                                                aria-label={`Remove audiobook destination ${destination.name}`}
+                                                onClick={() => handleAudiobookDestinationScan(destination)}
+                                                disabled={!destination.isAvailable || scanningAudiobookDestinationId !== null || isRemoving}
+                                                className="rounded-lg p-2 text-muted-foreground opacity-60 hover:bg-primary/10 hover:text-primary group-hover:opacity-100 transition-all disabled:opacity-30"
+                                                title={`Scan ${destination.name} for audiobooks`}
+                                                aria-label={`Scan audiobook destination ${destination.name}`}
                                             >
-                                                {isRemoving ? <Loader size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                                                {isScanning ? <Loader size={16} className="animate-spin" /> : <Search size={16} />}
                                             </button>
-                                        )}
+                                            {!destination.isDefault && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleAudiobookDestinationRemove(destination)}
+                                                    disabled={isRemoving || isScanning || isAudiobookUploading || isAudiobookServerImporting}
+                                                    className="rounded-lg p-2 text-muted-foreground opacity-60 hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 transition-all disabled:opacity-30"
+                                                    title={`Remove ${destination.name} from Bookshelf without deleting its files`}
+                                                    aria-label={`Remove audiobook destination ${destination.name}`}
+                                                >
+                                                    {isRemoving ? <Loader size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 );
                             })}
@@ -2109,6 +2225,13 @@ export default function Settings() {
                         title="Add Audiobook Destination"
                         selectLabel="Add This Destination"
                         isSelecting={isAudiobookDestinationSaving}
+                    />
+
+                    <AudiobookScanDialog
+                        destination={audiobookDestinationPendingScan}
+                        isScanning={scanningAudiobookDestinationId !== null}
+                        onCancel={handleAudiobookDestinationScanLater}
+                        onConfirm={() => handleAudiobookDestinationScan(audiobookDestinationPendingScan)}
                     />
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">

@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS BooksAuthors (
 CREATE TABLE IF NOT EXISTS Audiobooks (
     ID                    INTEGER PRIMARY KEY AUTOINCREMENT,
     audiobook_folder      TEXT    NOT NULL UNIQUE,
+    audiobook_metadata    TEXT    NOT NULL DEFAULT '{}',
     audiobook_create_date INTEGER NOT NULL,
     audiobook_update_date INTEGER NOT NULL
 );

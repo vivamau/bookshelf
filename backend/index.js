@@ -59,15 +59,16 @@ const {
     resolveAudiobookAudioPath,
     resolveAudiobookCoverPath,
     resolveAudiobookDirectoryPath,
-    scanAudiobookCatalog,
-    writeAudiobookMetadata
+    sanitizeAudiobookMetadata,
+    scanAudiobookCatalog
 } = require('./utils/audiobookCatalog');
 const {
     AudiobookAuthorError,
     deleteAudiobookRecord,
     enrichAudiobookCatalog,
     findOrCreateAuthorByName,
-    replaceAudiobookAuthors
+    replaceAudiobookAuthors,
+    updateAudiobookMetadata
 } = require('./utils/audiobookAuthors');
 const {
     AudiobookGenreError,
@@ -277,7 +278,10 @@ const loadFreshAudiobookCatalog = async () => {
     return enrichAudiobookGenres(db, catalogWithAuthors);
 };
 const loadAudiobookCatalog = createStaleWhileRevalidateLoader(loadFreshAudiobookCatalog, {
-    maxAgeMs: 30000,
+    // Integration tests replace the shared SQLite connection between suites. Avoid
+    // letting a stale background refresh keep writing to a connection being closed;
+    // explicit reloads still exercise the complete scan path in tests.
+    maxAgeMs: process.env.NODE_ENV === 'test' ? Number.MAX_SAFE_INTEGER : 30000,
     onRefreshError: (error) => console.error('Background audiobook catalog refresh failed:', error)
 });
 const loadAudiobookshelfProgress = async (userId) => {
@@ -1993,7 +1997,6 @@ audiobooksRouter.post('/destinations', checkManageBooks, async (req, res) => {
             [destinationName, destinationPath, Date.now()]
         );
         const destination = await getAudiobookDestination(result.lastID);
-        await loadAudiobookCatalog.reload();
         res.status(201).json({ data: destination });
     } catch (err) {
         if (err instanceof AudiobookDestinationError) {
@@ -2004,6 +2007,38 @@ audiobooksRouter.post('/destinations', checkManageBooks, async (req, res) => {
         }
         console.error('Audiobook destination creation failed:', err);
         res.status(500).json({ error: 'Could not add the audiobook destination' });
+    }
+});
+
+audiobooksRouter.post('/destinations/:id/scan', checkManageBooks, async (req, res) => {
+    try {
+        const destination = await getAudiobookDestination(req.params.id);
+        if (!destination.isAvailable) {
+            throw new AudiobookDestinationError(
+                'This audiobook destination is unavailable. Check that the server folder is mounted and readable.',
+                409
+            );
+        }
+
+        const catalog = await loadAudiobookCatalog.reload();
+        const audiobooks = catalog.filter((audiobook) => (
+            String(audiobook.destinationId) === String(destination.id)
+        ));
+        res.json({
+            message: `Found ${audiobooks.length} ${audiobooks.length === 1 ? 'audiobook' : 'audiobooks'} in ${destination.name}`,
+            data: {
+                destinationId: destination.id,
+                destinationName: destination.name,
+                audiobookCount: audiobooks.length,
+                scannedAt: Date.now()
+            }
+        });
+    } catch (err) {
+        if (err instanceof AudiobookDestinationError) {
+            return res.status(err.statusCode).json({ error: err.message });
+        }
+        console.error('Audiobook destination scan failed:', err);
+        res.status(500).json({ error: 'Could not scan the audiobook destination' });
     }
 });
 
@@ -2219,11 +2254,12 @@ audiobooksRouter.put('/metadata', checkManageBooks, async (req, res) => {
             genres: ignoredGenres,
             ...fileMetadata
         } = requestedMetadata;
-        const storage = resolveVirtualAudiobookLocation(audiobook.folder);
-        await writeAudiobookMetadata(storage.rootPath, storage.relativePath, {
+        const sanitizedMetadata = sanitizeAudiobookMetadata({
             ...fileMetadata,
             author: ''
         });
+        delete sanitizedMetadata.author;
+        await updateAudiobookMetadata(db, audiobook.folder, sanitizedMetadata);
 
         if (authorIds !== undefined) {
             await replaceAudiobookAuthors(db, audiobook.folder, authorIds);

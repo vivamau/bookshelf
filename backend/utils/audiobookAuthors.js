@@ -28,6 +28,32 @@ const dbAll = (db, sql, params = []) => new Promise((resolve, reject) => {
 });
 
 const normalizeFullName = (value) => String(value || '').trim().replace(/\s+/g, ' ');
+const CENTRAL_METADATA_FIELDS = [
+    'title',
+    'narrator',
+    'series',
+    'seriesSequence',
+    'language',
+    'description',
+    'publishedYear'
+];
+
+const parseCentralMetadata = (value) => {
+    try {
+        const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+        return Object.fromEntries(CENTRAL_METADATA_FIELDS
+            .filter((field) => Object.prototype.hasOwnProperty.call(parsed, field))
+            .map((field) => [field, parsed[field]]));
+    } catch {
+        return {};
+    }
+};
+
+const getScannedMetadata = (item) => Object.fromEntries(CENTRAL_METADATA_FIELDS.map((field) => [
+    field,
+    item[field] ?? (field === 'publishedYear' ? null : '')
+]));
 
 const splitFullName = (fullName) => {
     const parts = normalizeFullName(fullName).split(' ').filter(Boolean);
@@ -99,6 +125,19 @@ const getAudiobookAuthors = (db, audiobookId) => dbAll(
     [audiobookId]
 );
 
+const updateAudiobookMetadata = async (db, folder, metadata) => {
+    const audiobook = await ensureAudiobookRecord(db, folder);
+    const normalizedMetadata = parseCentralMetadata(metadata);
+    await dbRun(
+        db,
+        `UPDATE Audiobooks
+         SET audiobook_metadata = ?, audiobook_update_date = ?
+         WHERE ID = ?`,
+        [JSON.stringify(normalizedMetadata), Date.now(), audiobook.ID]
+    );
+    return normalizedMetadata;
+};
+
 const linkLegacyAuthor = async (db, audiobook, legacyAuthorName) => {
     const author = await findOrCreateAuthorByName(db, legacyAuthorName);
     if (!author) return;
@@ -121,6 +160,11 @@ const enrichAudiobookCatalog = async (db, catalog = []) => {
 
         try {
             audiobook = await ensureAudiobookRecord(db, item.folder);
+            let centralMetadata = parseCentralMetadata(audiobook.audiobook_metadata);
+            if (Object.keys(centralMetadata).length === 0) {
+                centralMetadata = getScannedMetadata(normalizedItem);
+                await updateAudiobookMetadata(db, item.folder, centralMetadata);
+            }
             authors = await getAudiobookAuthors(db, audiobook.ID);
 
             if (authors.length === 0 && normalizeFullName(legacyAuthorName)) {
@@ -139,29 +183,20 @@ const enrichAudiobookCatalog = async (db, catalog = []) => {
             }
         }
 
+        const centralMetadata = parseCentralMetadata(audiobook?.audiobook_metadata);
+        const centralUpdatedAt = Number.isFinite(Number(audiobook?.audiobook_update_date))
+            ? new Date(Number(audiobook.audiobook_update_date)).toISOString()
+            : null;
         enrichedCatalog.push({
             ...normalizedItem,
+            ...(Object.keys(centralMetadata).length > 0 ? centralMetadata : {}),
             id: item.id,
             audiobookId: audiobook?.ID || null,
+            updatedAt: centralUpdatedAt && centralUpdatedAt > normalizedItem.updatedAt
+                ? centralUpdatedAt
+                : normalizedItem.updatedAt,
             authors
         });
-    }
-
-    const activeFolders = catalog.map((item) => item.folder);
-    try {
-        if (activeFolders.length === 0) {
-            await dbRun(db, 'DELETE FROM Audiobooks');
-        } else {
-            const placeholders = activeFolders.map(() => '?').join(', ');
-            await dbRun(
-                db,
-                `DELETE FROM Audiobooks WHERE audiobook_folder NOT IN (${placeholders})`,
-                activeFolders
-            );
-        }
-    } catch (error) {
-        if (!isSqliteStorageError(error)) throw error;
-        console.error('Could not prune stale audiobook author links:', error);
     }
     return enrichedCatalog;
 };
@@ -231,6 +266,8 @@ module.exports = {
     enrichAudiobookCatalog,
     findOrCreateAuthorByName,
     normalizeAuthorIds,
+    parseCentralMetadata,
     replaceAudiobookAuthors,
-    splitFullName
+    splitFullName,
+    updateAudiobookMetadata
 };

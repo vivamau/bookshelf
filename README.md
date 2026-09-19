@@ -156,6 +156,10 @@ Librarians can open **Settings → Audiobooks** and configure one or more writab
 
 Removing a configured destination only disconnects it from Bookshelf; files in that folder are never deleted. Add the same destination again to make its collections available in the catalog.
 
+After adding a destination, Bookshelf asks whether it should scan that folder immediately. Confirming discovers its audiobook collections in place: the files remain in their existing folders and are not copied into built-in storage. A scan button on each destination can repeat or defer discovery at any time.
+
+The scan creates a central SQLite record for each discovered audiobook. Title, narrator, series, sequence, language, description, publication year, authors, genres, and listening progress are managed centrally even when audio files live in different destinations. Existing `.bookshelf-metadata.json` files are imported when an audiobook is first discovered for backward compatibility; later metadata edits are saved to SQLite rather than written back into the storage folder.
+
 SMB/CIFS shares must be mounted by the operating system before Bookshelf can use them. Add the resulting local mount path—for example `/mnt/nas/audiobooks` on Linux or `/Volumes/Audiobooks` on macOS—rather than an `smb://` URL. A readable mount can be connected for catalog browsing and playback even when it is read-only; uploads and imports require write permission for the account running the backend service.
 
 Supported audio formats are:

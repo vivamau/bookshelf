@@ -3,7 +3,8 @@ const {
     AudiobookAuthorError,
     enrichAudiobookCatalog,
     replaceAudiobookAuthors,
-    splitFullName
+    splitFullName,
+    updateAudiobookMetadata
 } = require('../../utils/audiobookAuthors');
 
 const run = (db, sql, params = []) => new Promise((resolve, reject) => {
@@ -51,6 +52,7 @@ describe('audiobook author repository', () => {
                 CREATE TABLE Audiobooks (
                     ID INTEGER PRIMARY KEY AUTOINCREMENT,
                     audiobook_folder TEXT NOT NULL UNIQUE,
+                    audiobook_metadata TEXT NOT NULL DEFAULT '{}',
                     audiobook_create_date INTEGER NOT NULL,
                     audiobook_update_date INTEGER NOT NULL
                 );
@@ -124,7 +126,7 @@ describe('audiobook author repository', () => {
             }));
     });
 
-    test('removes database links for audiobook folders that are no longer in the catalog', async () => {
+    test('keeps central metadata when an audiobook folder is temporarily unavailable', async () => {
         await enrichAudiobookCatalog(db, [{
             id: 'Removed Collection',
             folder: 'Removed Collection',
@@ -138,7 +140,60 @@ describe('audiobook author repository', () => {
             db,
             'SELECT * FROM Audiobooks WHERE audiobook_folder = ?',
             ['Removed Collection']
-        )).toBeUndefined();
+        )).toEqual(expect.objectContaining({
+            audiobook_folder: 'Removed Collection'
+        }));
+    });
+
+    test('imports discovered metadata centrally and keeps central edits authoritative', async () => {
+        const [discovered] = await enrichAudiobookCatalog(db, [{
+            id: 'Remote Collection',
+            folder: '@bookshelf-destination-7/Remote Collection',
+            title: 'Title from Folder Metadata',
+            narrator: 'Original Narrator',
+            series: 'Remote Series',
+            seriesSequence: '1',
+            language: 'English',
+            description: 'Discovered on the storage folder',
+            publishedYear: 2024,
+            author: ''
+        }]);
+        expect(discovered.title).toBe('Title from Folder Metadata');
+
+        const stored = await get(
+            db,
+            'SELECT audiobook_metadata FROM Audiobooks WHERE audiobook_folder = ?',
+            ['@bookshelf-destination-7/Remote Collection']
+        );
+        expect(JSON.parse(stored.audiobook_metadata)).toMatchObject({
+            title: 'Title from Folder Metadata',
+            narrator: 'Original Narrator',
+            publishedYear: 2024
+        });
+
+        await updateAudiobookMetadata(db, '@bookshelf-destination-7/Remote Collection', {
+            title: 'Central Library Title',
+            narrator: 'Central Narrator',
+            series: '',
+            seriesSequence: '',
+            language: 'English',
+            description: 'Stored in SQLite',
+            publishedYear: 2025
+        });
+        const [rescanned] = await enrichAudiobookCatalog(db, [{
+            id: 'Remote Collection',
+            folder: '@bookshelf-destination-7/Remote Collection',
+            title: 'Changed Folder Title',
+            narrator: 'Changed Folder Narrator',
+            author: ''
+        }]);
+
+        expect(rescanned).toMatchObject({
+            title: 'Central Library Title',
+            narrator: 'Central Narrator',
+            description: 'Stored in SQLite',
+            publishedYear: 2025
+        });
     });
 
     test('keeps audiobook details available when link storage is unavailable', async () => {

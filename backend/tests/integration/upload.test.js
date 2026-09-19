@@ -44,7 +44,6 @@ describe('Upload Endpoint Integration', () => {
     const uploadedLargeM4bPath = path.join(__dirname, '..', '..', 'audiobooks', 'Test Collection', 'large-complete-book.m4b');
     const uploadedAudiobookCoverPath = path.join(__dirname, '..', '..', 'audiobooks', 'Test Collection', 'Disc 1', 'cover.jpg');
     const managedAudiobookCoverPath = path.join(__dirname, '..', '..', 'audiobooks', 'Test Collection', 'Disc 1', 'bookshelf-cover.png');
-    const uploadedAudiobookMetadataPath = path.join(__dirname, '..', '..', 'audiobooks', 'Test Collection', 'Disc 1', '.bookshelf-metadata.json');
     const archiveCollectionPath = path.join(__dirname, '..', '..', 'audiobooks', 'Archive Collection');
     const serverImportSourcePath = path.join(__dirname, 'Server Import Collection');
     const serverImportDestinationPath = path.join(__dirname, '..', '..', 'audiobooks', 'Server Import Collection');
@@ -308,6 +307,47 @@ describe('Upload Endpoint Integration', () => {
         expect(res.body.error).toMatch(/mount.*SMB.*local path/i);
     });
 
+    test('POST /api/audiobooks/destinations/:id/scan discovers audiobooks in place', async () => {
+        const inPlaceTrack = path.join(
+            additionalAudiobookDestinationPath,
+            'Existing In Place',
+            '01.mp3'
+        );
+        fs.mkdirSync(path.dirname(inPlaceTrack), { recursive: true });
+        fs.writeFileSync(inPlaceTrack, 'existing server audio');
+
+        const res = await request(app)
+            .post(`/api/audiobooks/destinations/${additionalAudiobookDestinationId}/scan`)
+            .set('Cookie', authCookie);
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.data).toMatchObject({
+            destinationId: additionalAudiobookDestinationId,
+            destinationName: 'Integration NAS',
+            audiobookCount: 1
+        });
+        expect(fs.readFileSync(inPlaceTrack, 'utf8')).toBe('existing server audio');
+        const centralRecord = await new Promise((resolve, reject) => {
+            db.get(
+                `SELECT audiobook_folder, audiobook_metadata
+                 FROM Audiobooks
+                 WHERE audiobook_folder LIKE ?`,
+                [`@bookshelf-destination-${additionalAudiobookDestinationId}/Existing In Place`],
+                (error, row) => error ? reject(error) : resolve(row)
+            );
+        });
+        expect(centralRecord.audiobook_folder).toContain('Existing In Place');
+        expect(JSON.parse(centralRecord.audiobook_metadata).title).toBe('Existing In Place');
+    });
+
+    test('POST /api/audiobooks/destinations/:id/scan rejects guest accounts', async () => {
+        const res = await request(app)
+            .post(`/api/audiobooks/destinations/${additionalAudiobookDestinationId}/scan`)
+            .set('Cookie', guestCookie);
+
+        expect(res.statusCode).toBe(403);
+    });
+
     test('POST /api/audiobooks/import-directory imports into the selected destination', async () => {
         const res = await request(app)
             .post('/api/audiobooks/import-directory')
@@ -335,6 +375,7 @@ describe('Upload Endpoint Integration', () => {
             .set('Cookie', authCookie);
         additionalDestinationAudiobook = catalogResponse.body.data.find((audiobook) => (
             audiobook.destinationId === additionalAudiobookDestinationId
+            && audiobook.folder.includes('Server Import Collection/Disc 1')
         ));
         expect(additionalDestinationAudiobook).toMatchObject({
             destinationId: additionalAudiobookDestinationId,
@@ -366,7 +407,16 @@ describe('Upload Endpoint Integration', () => {
             'Server Import Collection',
             'Disc 1',
             '.bookshelf-metadata.json'
-        ))).toBe(true);
+        ))).toBe(false);
+
+        const storedMetadata = await new Promise((resolve, reject) => {
+            db.get(
+                'SELECT audiobook_metadata FROM Audiobooks WHERE audiobook_folder = ?',
+                [additionalDestinationAudiobook.folder],
+                (error, row) => error ? reject(error) : resolve(JSON.parse(row.audiobook_metadata))
+            );
+        });
+        expect(storedMetadata.title).toBe('Remote Destination Book');
     });
 
     test('DELETE /api/audiobooks/destinations disconnects a destination without deleting files', async () => {
@@ -664,8 +714,18 @@ describe('Upload Endpoint Integration', () => {
             description: 'An integration-test collection.'
         });
         expect(res.body.data).not.toHaveProperty('author');
-        expect(JSON.parse(fs.readFileSync(uploadedAudiobookMetadataPath, 'utf8')).title)
-            .toBe('The Test Audiobook');
+        const storedMetadata = await new Promise((resolve, reject) => {
+            db.get(
+                'SELECT audiobook_metadata FROM Audiobooks WHERE audiobook_folder = ?',
+                ['Test Collection/Disc 1'],
+                (error, row) => error ? reject(error) : resolve(JSON.parse(row.audiobook_metadata))
+            );
+        });
+        expect(storedMetadata.title).toBe('The Test Audiobook');
+        expect(fs.existsSync(path.join(
+            path.dirname(uploadedAudiobookPath),
+            '.bookshelf-metadata.json'
+        ))).toBe(false);
 
         const guestDetails = await request(app)
             .get('/api/audiobooks/details')

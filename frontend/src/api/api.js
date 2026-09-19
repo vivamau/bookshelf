@@ -143,6 +143,7 @@ export const audiobooksApi = {
   getAll: () => api.get('/audiobooks'),
   getDestinations: () => api.get('/audiobooks/destinations'),
   addDestination: (path, name) => api.post('/audiobooks/destinations', { path, name }),
+  scanDestination: (id) => api.post(`/audiobooks/destinations/${id}/scan`),
   removeDestination: (id) => api.delete(`/audiobooks/destinations/${id}`),
   getSeries: () => api.get('/audiobooks/series'),
   getByFolder: (folder) => api.get('/audiobooks/details', { params: { folder } }),
