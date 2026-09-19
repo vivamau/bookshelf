@@ -42,6 +42,10 @@ describe('shared book and audiobook authors', () => {
             .post('/login')
             .send({ username: 'admin', password: 'adminpassword' });
         adminCookie = loginResponse.headers['set-cookie'][0].split(';')[0];
+        const scanResponse = await request(app)
+            .post('/api/audiobooks/destinations/default/scan')
+            .set('Cookie', adminCookie);
+        expect(scanResponse.statusCode).toBe(200);
     });
 
     afterAll(async () => {

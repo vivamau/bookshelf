@@ -40,7 +40,7 @@ const seedUserRoles = (dbInstance) => {
                 }
 
                 const now = Date.now();
-                const stmt = db.prepare(`
+                const insertSql = `
                     INSERT INTO UserRoles (
                         userrole_name,
                         userrole_description,
@@ -51,31 +51,40 @@ const seedUserRoles = (dbInstance) => {
                         userrole_create_date,
                         userrole_update_date
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                `, (err) => {
-                    if (err) return reject(err);
-                });
+                `;
+                db.run("BEGIN TRANSACTION", (beginError) => {
+                    if (beginError) return reject(beginError);
 
-                db.run("BEGIN TRANSACTION");
-                roles.forEach(role => {
-                    stmt.run(
-                        role.userrole_name,
-                        role.userrole_description,
-                        role.userrole_manageusers,
-                        role.userrole_managebooks,
-                        role.userrole_readbooks,
-                        role.userrole_viewbooks,
-                        now,
-                        now
-                    );
-                });
+                    const insertRole = (index) => {
+                        if (index >= roles.length) {
+                            return db.run("COMMIT", (commitError) => {
+                                if (commitError) return reject(commitError);
+                                console.log('User roles seeded successfully.');
+                                resolve();
+                            });
+                        }
 
-                db.run("COMMIT", (err) => {
-                    stmt.finalize();
-                    if (err) reject(err);
-                    else {
-                        console.log('User roles seeded successfully.');
-                        resolve();
-                    }
+                        const role = roles[index];
+                        return db.run(
+                            insertSql,
+                            [
+                                role.userrole_name,
+                                role.userrole_description,
+                                role.userrole_manageusers,
+                                role.userrole_managebooks,
+                                role.userrole_readbooks,
+                                role.userrole_viewbooks,
+                                now,
+                                now
+                            ],
+                            (insertError) => {
+                                if (!insertError) return insertRole(index + 1);
+                                return db.run('ROLLBACK', () => reject(insertError));
+                            }
+                        );
+                    };
+
+                    return insertRole(0);
                 });
             });
         });

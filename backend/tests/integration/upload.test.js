@@ -329,7 +329,7 @@ describe('Upload Endpoint Integration', () => {
         expect(fs.readFileSync(inPlaceTrack, 'utf8')).toBe('existing server audio');
         const centralRecord = await new Promise((resolve, reject) => {
             db.get(
-                `SELECT audiobook_folder, audiobook_metadata
+                `SELECT audiobook_folder, audiobook_metadata, audiobook_catalog
                  FROM Audiobooks
                  WHERE audiobook_folder LIKE ?`,
                 [`@bookshelf-destination-${additionalAudiobookDestinationId}/Existing In Place`],
@@ -338,6 +338,30 @@ describe('Upload Endpoint Integration', () => {
         });
         expect(centralRecord.audiobook_folder).toContain('Existing In Place');
         expect(JSON.parse(centralRecord.audiobook_metadata).title).toBe('Existing In Place');
+        expect(JSON.parse(centralRecord.audiobook_catalog)).toMatchObject({
+            destinationId: additionalAudiobookDestinationId,
+            trackCount: 1,
+            tracks: [expect.objectContaining({
+                path: expect.stringContaining('Existing In Place/01.mp3')
+            })]
+        });
+
+        const temporarilyUnavailableTrack = `${inPlaceTrack}.temporarily-unavailable`;
+        fs.renameSync(inPlaceTrack, temporarilyUnavailableTrack);
+        try {
+            const catalogResponse = await request(app)
+                .get('/api/audiobooks')
+                .set('Cookie', authCookie);
+            expect(catalogResponse.statusCode).toBe(200);
+            expect(catalogResponse.body.data).toEqual(expect.arrayContaining([
+                expect.objectContaining({
+                    folder: centralRecord.audiobook_folder,
+                    title: 'Existing In Place'
+                })
+            ]));
+        } finally {
+            fs.renameSync(temporarilyUnavailableTrack, inPlaceTrack);
+        }
     });
 
     test('POST /api/audiobooks/destinations/:id/scan rejects guest accounts', async () => {
@@ -563,6 +587,10 @@ describe('Upload Endpoint Integration', () => {
 
     test('GET /api/audiobooks lists server collections for guest accounts', async () => {
         fs.writeFileSync(uploadedAudiobookCoverPath, 'fake cover');
+        const scanResponse = await request(app)
+            .post('/api/audiobooks/destinations/default/scan')
+            .set('Cookie', authCookie);
+        expect(scanResponse.statusCode).toBe(200);
 
         const res = await request(app)
             .get('/api/audiobooks')

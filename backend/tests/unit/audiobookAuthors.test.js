@@ -2,6 +2,7 @@ const sqlite3 = require('sqlite3').verbose();
 const {
     AudiobookAuthorError,
     enrichAudiobookCatalog,
+    loadAudiobookCatalogFromDatabase,
     replaceAudiobookAuthors,
     splitFullName,
     updateAudiobookMetadata
@@ -53,6 +54,7 @@ describe('audiobook author repository', () => {
                     ID INTEGER PRIMARY KEY AUTOINCREMENT,
                     audiobook_folder TEXT NOT NULL UNIQUE,
                     audiobook_metadata TEXT NOT NULL DEFAULT '{}',
+                    audiobook_catalog TEXT NOT NULL DEFAULT '{}',
                     audiobook_create_date INTEGER NOT NULL,
                     audiobook_update_date INTEGER NOT NULL
                 );
@@ -62,6 +64,15 @@ describe('audiobook author repository', () => {
                     author_id INTEGER NOT NULL REFERENCES Authors (ID) ON DELETE RESTRICT,
                     audiobookauthor_create_date INTEGER NOT NULL,
                     UNIQUE (audiobook_id, author_id)
+                );
+                CREATE TABLE Generes (
+                    ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    genere_title TEXT NOT NULL
+                );
+                CREATE TABLE AudiobooksGeneres (
+                    ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    audiobook_id INTEGER NOT NULL REFERENCES Audiobooks (ID) ON DELETE CASCADE,
+                    genere_id INTEGER NOT NULL REFERENCES Generes (ID) ON DELETE RESTRICT
                 );
             `, (error) => (error ? reject(error) : resolve()));
         });
@@ -156,7 +167,23 @@ describe('audiobook author repository', () => {
             language: 'English',
             description: 'Discovered on the storage folder',
             publishedYear: 2024,
-            author: ''
+            author: '',
+            destinationId: 7,
+            destinationName: 'Remote library',
+            trackCount: 1,
+            totalSize: 128,
+            formats: ['MP3'],
+            modifiedAt: '2026-09-19T10:00:00.000Z',
+            updatedAt: '2026-09-19T10:00:00.000Z',
+            tracks: [{
+                title: 'Chapter 1',
+                path: '@bookshelf-destination-7/Remote Collection/01.mp3',
+                format: 'MP3',
+                size: 128,
+                mimeType: 'audio/mpeg',
+                modifiedAt: '2026-09-19T10:00:00.000Z',
+                duration: 60
+            }]
         }]);
         expect(discovered.title).toBe('Title from Folder Metadata');
 
@@ -169,6 +196,18 @@ describe('audiobook author repository', () => {
             title: 'Title from Folder Metadata',
             narrator: 'Original Narrator',
             publishedYear: 2024
+        });
+
+        const [databaseCatalogItem] = await loadAudiobookCatalogFromDatabase(db);
+        expect(databaseCatalogItem).toMatchObject({
+            folder: '@bookshelf-destination-7/Remote Collection',
+            title: 'Title from Folder Metadata',
+            destinationId: 7,
+            trackCount: 1,
+            tracks: [{
+                path: '@bookshelf-destination-7/Remote Collection/01.mp3',
+                duration: 60
+            }]
         });
 
         await updateAudiobookMetadata(db, '@bookshelf-destination-7/Remote Collection', {

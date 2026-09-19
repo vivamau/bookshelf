@@ -58,6 +58,10 @@ describe('Audiobookshelf client compatibility', () => {
             .set('X-Return-Tokens', 'true')
             .send({ username: 'admin', password: 'adminpassword' });
         accessToken = login.body.accessToken;
+        const scanResponse = await request(app)
+            .post('/api/audiobooks/destinations/default/scan')
+            .set('Authorization', `Bearer ${accessToken}`);
+        expect(scanResponse.statusCode).toBe(200);
     });
 
     afterAll((done) => {
@@ -540,7 +544,7 @@ describe('Audiobookshelf client compatibility', () => {
         const futureModifiedAt = new Date(Date.now() + 5000);
         fs.utimesSync(coverPath, futureModifiedAt, futureModifiedAt);
         const reload = await request(app)
-            .get('/api/audiobooks')
+            .post('/api/audiobooks/destinations/default/scan')
             .set('Authorization', `Bearer ${accessToken}`);
         expect(reload.statusCode).toBe(200);
 

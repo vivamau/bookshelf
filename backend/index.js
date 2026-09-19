@@ -53,7 +53,6 @@ const {
     COVER_EXTENSIONS,
     MANAGED_COVER_PREFIX,
     enrichAudiobookDurations,
-    createStaleWhileRevalidateLoader,
     findAudiobookByFolder,
     getAudiobookContentType,
     resolveAudiobookAudioPath,
@@ -67,6 +66,7 @@ const {
     deleteAudiobookRecord,
     enrichAudiobookCatalog,
     findOrCreateAuthorByName,
+    loadAudiobookCatalogFromDatabase,
     replaceAudiobookAuthors,
     updateAudiobookMetadata
 } = require('./utils/audiobookAuthors');
@@ -255,35 +255,57 @@ const resolveStoredAudiobookDirectoryPath = (virtualPath) => {
         directoryPath: resolveAudiobookDirectoryPath(location.rootPath, location.relativePath)
     };
 };
-const loadFreshAudiobookCatalog = async () => {
-    const destinations = await refreshAudiobookDestinationRoots({ probeWrite: false });
-    const destinationCatalogs = await Promise.all(destinations.map(async (destination) => {
+const hideMissingAudiobooksAfterScan = async (destination, activeFolders) => {
+    const rows = await dbAllAsync('SELECT ID, audiobook_folder FROM Audiobooks');
+    const activeFolderSet = new Set(activeFolders);
+    for (const row of rows) {
+        const storedDestination = parseVirtualAudiobookPath(row.audiobook_folder).destinationId;
+        if (String(storedDestination) !== String(destination.id)) continue;
+        if (activeFolderSet.has(row.audiobook_folder)) continue;
+        await dbRunAsync(
+            `UPDATE Audiobooks
+             SET audiobook_catalog = '{}'
+             WHERE ID = ?`,
+            [row.ID]
+        );
+    }
+};
+const scanAndStoreAudiobookCatalog = async (requestedDestinations = null) => {
+    const destinations = requestedDestinations
+        || await refreshAudiobookDestinationRoots({ probeWrite: false });
+    const scannedDestinations = await Promise.all(destinations.map(async (destination) => {
         try {
-            if (!destination.isAvailable) return [];
+            if (!destination.isAvailable) return null;
             if (destination.isDefault) {
                 await fs.promises.mkdir(destination.path, { recursive: true });
             }
             const catalog = await scanAudiobookCatalog(destination.path);
             const catalogWithDurations = await enrichAudiobookDurations(destination.path, catalog);
-            return virtualizeAudiobookCatalog(catalogWithDurations, destination);
+            return {
+                destination,
+                catalog: virtualizeAudiobookCatalog(catalogWithDurations, destination)
+            };
         } catch (error) {
             if (!destination.isDefault) {
                 console.warn(`Audiobook destination unavailable: ${destination.path}`, error?.message || error);
-                return [];
+                return null;
             }
             throw error;
         }
     }));
-    const catalogWithAuthors = await enrichAudiobookCatalog(db, destinationCatalogs.flat());
-    return enrichAudiobookGenres(db, catalogWithAuthors);
+    const successfulScans = scannedDestinations.filter(Boolean);
+    const catalogWithAuthors = await enrichAudiobookCatalog(
+        db,
+        successfulScans.flatMap(({ catalog }) => catalog)
+    );
+    await enrichAudiobookGenres(db, catalogWithAuthors);
+    for (const { destination, catalog } of successfulScans) {
+        await hideMissingAudiobooksAfterScan(destination, catalog.map(({ folder }) => folder));
+    }
+    return loadAudiobookCatalogFromDatabase(db);
 };
-const loadAudiobookCatalog = createStaleWhileRevalidateLoader(loadFreshAudiobookCatalog, {
-    // Integration tests replace the shared SQLite connection between suites. Avoid
-    // letting a stale background refresh keep writing to a connection being closed;
-    // explicit reloads still exercise the complete scan path in tests.
-    maxAgeMs: process.env.NODE_ENV === 'test' ? Number.MAX_SAFE_INTEGER : 30000,
-    onRefreshError: (error) => console.error('Background audiobook catalog refresh failed:', error)
-});
+const loadAudiobookCatalog = () => loadAudiobookCatalogFromDatabase(db);
+loadAudiobookCatalog.reload = () => scanAndStoreAudiobookCatalog();
 const loadAudiobookshelfProgress = async (userId) => {
     try {
         const [catalog, rows] = await Promise.all([
@@ -2020,7 +2042,7 @@ audiobooksRouter.post('/destinations/:id/scan', checkManageBooks, async (req, re
             );
         }
 
-        const catalog = await loadAudiobookCatalog.reload();
+        const catalog = await scanAndStoreAudiobookCatalog([destination]);
         const audiobooks = catalog.filter((audiobook) => (
             String(audiobook.destinationId) === String(destination.id)
         ));
@@ -2052,8 +2074,16 @@ audiobooksRouter.delete('/destinations/:id', checkManageBooks, async (req, res) 
         if (!result.changes) {
             throw new AudiobookDestinationError('Audiobook destination not found', 404);
         }
+        await dbRunAsync(
+            `UPDATE Audiobooks
+             SET audiobook_catalog = '{}'
+             WHERE audiobook_folder = ? OR audiobook_folder LIKE ?`,
+            [
+                `@bookshelf-destination-${destinationId}`,
+                `@bookshelf-destination-${destinationId}/%`
+            ]
+        );
         await refreshAudiobookDestinationRoots();
-        await loadAudiobookCatalog.reload();
         res.json({ message: 'Audiobook destination removed. Its files were not deleted.' });
     } catch (err) {
         if (err instanceof AudiobookDestinationError) {
@@ -2064,10 +2094,9 @@ audiobooksRouter.delete('/destinations/:id', checkManageBooks, async (req, res) 
     }
 });
 
-const loadAudiobooksForUser = async (userId, { reload = false } = {}) => {
-    await fs.promises.mkdir(AUDIOBOOKS_DIR, { recursive: true });
+const loadAudiobooksForUser = async (userId) => {
     const [audiobooks, progressRows] = await Promise.all([
-        reload ? loadAudiobookCatalog.reload() : loadAudiobookCatalog(),
+        loadAudiobookCatalog(),
         new Promise((resolve, reject) => {
             db.all(
                 'SELECT audiobook_folder, progress_percentage FROM AudiobooksUsers WHERE user_id = ?',
@@ -2088,9 +2117,9 @@ const loadAudiobooksForUser = async (userId, { reload = false } = {}) => {
 
 audiobooksRouter.get('/', async (req, res) => {
     try {
-        res.json({ data: await loadAudiobooksForUser(req.user.user_id, { reload: true }) });
+        res.json({ data: await loadAudiobooksForUser(req.user.user_id) });
     } catch (err) {
-        console.error('Audiobook catalog scan failed:', err);
+        console.error('Audiobook catalog load failed:', err);
         res.status(500).json({ error: 'Could not load the audiobook catalog' });
     }
 });
@@ -2271,7 +2300,7 @@ audiobooksRouter.put('/metadata', checkManageBooks, async (req, res) => {
             await replaceAudiobookGenres(db, audiobook.folder, genreIds);
         }
 
-        const updatedAudiobooks = await loadAudiobookCatalog.reload();
+        const updatedAudiobooks = await loadAudiobookCatalog();
         const updatedAudiobook = updatedAudiobooks.find((item) => item.folder === audiobook.folder);
         res.json({ data: updatedAudiobook });
     } catch (err) {
@@ -2318,7 +2347,10 @@ audiobooksRouter.post('/cover-from-url', checkManageBooks, async (req, res) => {
             await fs.promises.rm(temporaryPath, { force: true }).catch(() => {});
         }
 
-        const updatedAudiobooks = await loadAudiobookCatalog.reload();
+        const destination = await getAudiobookDestination(
+            parseVirtualAudiobookPath(audiobook.folder).destinationId
+        );
+        const updatedAudiobooks = await scanAndStoreAudiobookCatalog([destination]);
         const updatedAudiobook = updatedAudiobooks.find((item) => item.folder === audiobook.folder);
         res.json({ data: updatedAudiobook });
     } catch (err) {
@@ -2453,13 +2485,11 @@ audiobooksRouter.delete('/', checkManageUsers, async (req, res) => {
             const rootTrack = resolveStoredAudiobookAudioPath(audiobook.tracks[0].path);
             await fs.promises.unlink(rootTrack.audioPath);
             await deleteAudiobookRecord(db, audiobook.folder);
-            await loadAudiobookCatalog.reload();
             return res.json({ message: 'Audiobook deleted' });
         }
 
         await fs.promises.rm(storage.directoryPath, { recursive: true, force: false });
         await deleteAudiobookRecord(db, audiobook.folder);
-        await loadAudiobookCatalog.reload();
         res.json({ message: 'Audiobook deleted' });
     } catch (err) {
         if (err instanceof AudiobookCatalogError) {
@@ -2493,7 +2523,7 @@ audiobooksRouter.post('/import-directory', checkManageBooks, async (req, res) =>
             await getAudiobookDestination(req.body?.destinationId)
         );
         const result = await importAudiobookDirectory(req.body?.path, destination.path);
-        const audiobooks = await loadAudiobookCatalog.reload();
+        const audiobooks = await scanAndStoreAudiobookCatalog([destination]);
         res.status(result.importedCount > 0 ? 201 : 200).json({
             message: result.importedCount > 0
                 ? 'Server audiobook folder imported'
@@ -2521,8 +2551,9 @@ audiobooksRouter.post('/upload', checkManageBooks, async (req, res) => {
 
     const audiobookFile = req.files.audiobook;
     let destination;
+    let storageDestination;
     try {
-        const storageDestination = requireWritableAudiobookDestination(
+        storageDestination = requireWritableAudiobookDestination(
             await getAudiobookDestination(req.body.destinationId)
         );
         destination = resolveAudiobookUploadPath(
@@ -2559,7 +2590,7 @@ audiobooksRouter.post('/upload', checkManageBooks, async (req, res) => {
 
         await audiobookFile.mv(destination.uploadPath);
         uploadReserved = false;
-        await loadAudiobookCatalog.reload();
+        await scanAndStoreAudiobookCatalog([storageDestination]);
         res.status(201).json({
             message: 'Audiobook file uploaded',
             path: destination.relativePath,
@@ -2909,7 +2940,13 @@ if (require.main === module) {
             await seedUserRoles(db);
             await seedUsers(db);
             await fs.promises.mkdir(AUDIOBOOKS_DIR, { recursive: true });
-            await loadAudiobookCatalog();
+            await refreshAudiobookDestinationRoots({ probeWrite: false });
+            const storedAudiobooks = await loadAudiobookCatalog();
+            if (storedAudiobooks.length === 0) {
+                // One-time compatibility import for installations that predate the
+                // central catalog. Normal library requests never scan storage.
+                await scanAndStoreAudiobookCatalog();
+            }
             
             // Manual schema patch for book_current_page if migrations missed it
             db.serialize(() => {

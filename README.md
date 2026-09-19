@@ -160,6 +160,8 @@ After adding a destination, Bookshelf asks whether it should scan that folder im
 
 The scan creates a central SQLite record for each discovered audiobook. Title, narrator, series, sequence, language, description, publication year, authors, genres, and listening progress are managed centrally even when audio files live in different destinations. Existing `.bookshelf-metadata.json` files are imported when an audiobook is first discovered for backward compatibility; later metadata edits are saved to SQLite rather than written back into the storage folder.
 
+The central record also keeps the track, cover, format, size, and duration catalog produced by the scan. Opening the Audiobooks page reads this catalog directly from SQLite and does not walk storage folders or probe audio files. Use the destination scan action after changing files outside Bookshelf; uploads, imports, cover changes, and deletions refresh the affected catalog automatically.
+
 SMB/CIFS shares must be mounted by the operating system before Bookshelf can use them. Add the resulting local mount path—for example `/mnt/nas/audiobooks` on Linux or `/Volumes/Audiobooks` on macOS—rather than an `smb://` URL. A readable mount can be connected for catalog browsing and playback even when it is read-only; uploads and imports require write permission for the account running the backend service.
 
 Supported audio formats are:
