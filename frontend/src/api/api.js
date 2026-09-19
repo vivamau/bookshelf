@@ -150,6 +150,7 @@ export const audiobooksApi = {
   getProgress: (folder) => api.get('/audiobooks/progress', { params: { folder } }),
   updateProgress: (folder, progress) => api.post('/audiobooks/progress', { folder, ...progress }),
   updateMetadata: (folder, metadata) => api.put('/audiobooks/metadata', { folder, metadata }),
+  removeFromLibrary: (folder) => api.delete('/audiobooks/metadata', { params: { folder } }),
   setCoverFromUrl: (folder, coverUrl) => api.post('/audiobooks/cover-from-url', { folder, coverUrl }),
   remove: (folder) => api.delete('/audiobooks', { params: { folder } }),
   getDownloadUrl: (folder) => `${API_URL}/audiobooks/download?folder=${encodeURIComponent(folder)}`,

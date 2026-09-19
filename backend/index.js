@@ -54,6 +54,7 @@ const {
     MANAGED_COVER_PREFIX,
     enrichAudiobookDurations,
     findAudiobookByFolder,
+    getAudiobookDuplicateKey,
     getAudiobookContentType,
     resolveAudiobookAudioPath,
     resolveAudiobookCoverPath,
@@ -271,6 +272,7 @@ const hideMissingAudiobooksAfterScan = async (destination, activeFolders) => {
     }
 };
 const scanAndStoreAudiobookCatalog = async (requestedDestinations = null) => {
+    const existingCatalog = await loadAudiobookCatalogFromDatabase(db);
     const destinations = requestedDestinations
         || await refreshAudiobookDestinationRoots({ probeWrite: false });
     const scannedDestinations = await Promise.all(destinations.map(async (destination) => {
@@ -294,18 +296,65 @@ const scanAndStoreAudiobookCatalog = async (requestedDestinations = null) => {
         }
     }));
     const successfulScans = scannedDestinations.filter(Boolean);
+    const scannedDestinationIds = new Set(successfulScans.map(({ destination }) => (
+        String(destination.id)
+    )));
+    const scannedFolders = new Set(successfulScans.flatMap(({ catalog }) => (
+        catalog.map(({ folder }) => folder)
+    )));
+    const duplicateOwners = new Map();
+    existingCatalog.forEach((audiobook) => {
+        const destinationId = String(
+            parseVirtualAudiobookPath(audiobook.folder).destinationId
+        );
+        if (scannedDestinationIds.has(destinationId) && !scannedFolders.has(audiobook.folder)) {
+            return;
+        }
+        const duplicateKey = getAudiobookDuplicateKey(audiobook);
+        if (duplicateKey && !duplicateOwners.has(duplicateKey)) {
+            duplicateOwners.set(duplicateKey, audiobook.folder);
+        }
+    });
+    const deduplicatedScans = successfulScans.map(({ destination, catalog }) => {
+        const uniqueCatalog = [];
+        let duplicateCount = 0;
+        catalog.forEach((audiobook) => {
+            const duplicateKey = getAudiobookDuplicateKey(audiobook);
+            const existingOwner = duplicateKey ? duplicateOwners.get(duplicateKey) : null;
+            if (existingOwner && existingOwner !== audiobook.folder) {
+                duplicateCount += 1;
+                return;
+            }
+            if (duplicateKey) duplicateOwners.set(duplicateKey, audiobook.folder);
+            uniqueCatalog.push(audiobook);
+        });
+        return {
+            destination,
+            catalog: uniqueCatalog,
+            discoveredCount: catalog.length,
+            duplicateCount
+        };
+    });
     const catalogWithAuthors = await enrichAudiobookCatalog(
         db,
-        successfulScans.flatMap(({ catalog }) => catalog)
+        deduplicatedScans.flatMap(({ catalog }) => catalog)
     );
     await enrichAudiobookGenres(db, catalogWithAuthors);
-    for (const { destination, catalog } of successfulScans) {
+    for (const { destination, catalog } of deduplicatedScans) {
         await hideMissingAudiobooksAfterScan(destination, catalog.map(({ folder }) => folder));
     }
-    return loadAudiobookCatalogFromDatabase(db);
+    return {
+        catalog: await loadAudiobookCatalogFromDatabase(db),
+        scans: deduplicatedScans.map(({ destination, catalog, discoveredCount, duplicateCount }) => ({
+            destinationId: destination.id,
+            importedCount: catalog.length,
+            discoveredCount,
+            duplicateCount
+        }))
+    };
 };
 const loadAudiobookCatalog = () => loadAudiobookCatalogFromDatabase(db);
-loadAudiobookCatalog.reload = () => scanAndStoreAudiobookCatalog();
+loadAudiobookCatalog.reload = async () => (await scanAndStoreAudiobookCatalog()).catalog;
 const loadAudiobookshelfProgress = async (userId) => {
     try {
         const [catalog, rows] = await Promise.all([
@@ -2042,9 +2091,12 @@ audiobooksRouter.post('/destinations/:id/scan', checkManageBooks, async (req, re
             );
         }
 
-        const catalog = await scanAndStoreAudiobookCatalog([destination]);
-        const audiobooks = catalog.filter((audiobook) => (
+        const scanResult = await scanAndStoreAudiobookCatalog([destination]);
+        const audiobooks = scanResult.catalog.filter((audiobook) => (
             String(audiobook.destinationId) === String(destination.id)
+        ));
+        const destinationScan = scanResult.scans.find(({ destinationId }) => (
+            String(destinationId) === String(destination.id)
         ));
         res.json({
             message: `Found ${audiobooks.length} ${audiobooks.length === 1 ? 'audiobook' : 'audiobooks'} in ${destination.name}`,
@@ -2052,6 +2104,7 @@ audiobooksRouter.post('/destinations/:id/scan', checkManageBooks, async (req, re
                 destinationId: destination.id,
                 destinationName: destination.name,
                 audiobookCount: audiobooks.length,
+                duplicateCount: destinationScan?.duplicateCount || 0,
                 scannedAt: Date.now()
             }
         });
@@ -2318,6 +2371,27 @@ audiobooksRouter.put('/metadata', checkManageBooks, async (req, res) => {
     }
 });
 
+audiobooksRouter.delete('/metadata', checkManageBooks, async (req, res) => {
+    try {
+        const audiobooks = await loadAudiobookCatalog();
+        const audiobook = findAudiobookByFolder(audiobooks, req.query.folder);
+        if (!audiobook) {
+            return res.status(404).json({ error: 'Audiobook not found' });
+        }
+
+        await deleteAudiobookRecord(db, audiobook.folder);
+        res.json({
+            message: 'Audiobook removed from the library. Files were kept on the server.'
+        });
+    } catch (err) {
+        if (err instanceof AudiobookAuthorError) {
+            return res.status(err.statusCode).json({ error: err.message });
+        }
+        console.error('Audiobook library record removal failed:', err);
+        res.status(500).json({ error: 'Could not remove the audiobook from the library' });
+    }
+});
+
 audiobooksRouter.post('/cover-from-url', checkManageBooks, async (req, res) => {
     const folder = req.body.folder;
     try {
@@ -2350,8 +2424,8 @@ audiobooksRouter.post('/cover-from-url', checkManageBooks, async (req, res) => {
         const destination = await getAudiobookDestination(
             parseVirtualAudiobookPath(audiobook.folder).destinationId
         );
-        const updatedAudiobooks = await scanAndStoreAudiobookCatalog([destination]);
-        const updatedAudiobook = updatedAudiobooks.find((item) => item.folder === audiobook.folder);
+        const scanResult = await scanAndStoreAudiobookCatalog([destination]);
+        const updatedAudiobook = scanResult.catalog.find((item) => item.folder === audiobook.folder);
         res.json({ data: updatedAudiobook });
     } catch (err) {
         if (err instanceof RemoteImageError) {
@@ -2523,7 +2597,7 @@ audiobooksRouter.post('/import-directory', checkManageBooks, async (req, res) =>
             await getAudiobookDestination(req.body?.destinationId)
         );
         const result = await importAudiobookDirectory(req.body?.path, destination.path);
-        const audiobooks = await scanAndStoreAudiobookCatalog([destination]);
+        const { catalog: audiobooks } = await scanAndStoreAudiobookCatalog([destination]);
         res.status(result.importedCount > 0 ? 201 : 200).json({
             message: result.importedCount > 0
                 ? 'Server audiobook folder imported'

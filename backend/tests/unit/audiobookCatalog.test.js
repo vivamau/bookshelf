@@ -5,6 +5,7 @@ const {
     createStaleWhileRevalidateLoader,
     enrichAudiobookDurations,
     findAudiobookByFolder,
+    getAudiobookDuplicateKey,
     getAudiobookContentType,
     probeAudioDuration,
     resolveAudiobookAudioPath,
@@ -18,6 +19,33 @@ const directoryEntry = (name) => ({ name, isDirectory: () => true, isFile: () =>
 const fileEntry = (name) => ({ name, isDirectory: () => false, isFile: () => true });
 
 describe('audiobook catalog', () => {
+    test('detects copied audiobooks by their track manifest without using the storage folder', () => {
+        const original = {
+            folder: 'Original Book',
+            tracks: [
+                { path: 'Original Book/01 - Opening.mp3', format: 'MP3', size: 1024, duration: 60.5 },
+                { path: 'Original Book/02 - Ending.mp3', format: 'MP3', size: 2048, duration: 90 }
+            ]
+        };
+        const copied = {
+            folder: '@bookshelf-destination-3/Backup Copy',
+            tracks: [
+                { path: '@bookshelf-destination-3/Backup Copy/01 - Opening.mp3', format: 'MP3', size: 1024, duration: 60.5 },
+                { path: '@bookshelf-destination-3/Backup Copy/02 - Ending.mp3', format: 'MP3', size: 2048, duration: 90 }
+            ]
+        };
+        const differentBook = {
+            ...copied,
+            tracks: [
+                { path: '@bookshelf-destination-3/Backup Copy/01 - Opening.mp3', format: 'MP3', size: 1025, duration: 60.5 },
+                copied.tracks[1]
+            ]
+        };
+
+        expect(getAudiobookDuplicateKey(copied)).toBe(getAudiobookDuplicateKey(original));
+        expect(getAudiobookDuplicateKey(differentBook)).not.toBe(getAudiobookDuplicateKey(original));
+    });
+
     test('reads audio duration with ffprobe and safely falls back when it is unavailable', async () => {
         const successfulExec = jest.fn((command, args, options, callback) => callback(null, '123.45\n'));
         const failedExec = jest.fn((command, args, options, callback) => callback(new Error('missing')));

@@ -285,6 +285,19 @@ const displayName = (value) => value
     .replace(/_+/g, ' ')
     .trim();
 
+const getAudiobookDuplicateKey = (audiobook = {}) => {
+    if (!Array.isArray(audiobook.tracks) || audiobook.tracks.length === 0) return null;
+    const manifest = audiobook.tracks.map((track) => {
+        const trackPath = String(track.path || '').replace(/\\/g, '/');
+        const fileName = path.posix.basename(trackPath).normalize('NFC').toLowerCase();
+        const format = String(track.format || path.extname(fileName).slice(1)).toUpperCase();
+        const size = Number(track.size) || 0;
+        const duration = Math.round((Number(track.duration) || 0) * 1000);
+        return `${fileName}:${format}:${size}:${duration}`;
+    });
+    return `${manifest.length}|${manifest.join('|')}`;
+};
+
 const findAudiobookByFolder = (catalog, requestedFolder) => {
     const folder = String(requestedFolder || '').replace(/\\/g, '/');
     const exactMatch = catalog.find((item) => item.folder === folder);
@@ -413,6 +426,7 @@ module.exports = {
     AudiobookCatalogError,
     findAudiobookByFolder,
     enrichAudiobookDurations,
+    getAudiobookDuplicateKey,
     getAudiobookContentType,
     isSafariUserAgent,
     normalizeRelativeAssetPath,

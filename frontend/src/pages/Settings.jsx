@@ -1081,8 +1081,11 @@ export default function Settings() {
     try {
       const response = await audiobooksApi.scanDestination(destination.id);
       const result = response.data.data;
+      const duplicateSummary = result.duplicateCount > 0
+        ? ` Skipped ${result.duplicateCount} duplicate ${result.duplicateCount === 1 ? 'copy' : 'copies'}.`
+        : '';
       setAudiobookMessage(
-        `Scan complete. Found ${result.audiobookCount} ${result.audiobookCount === 1 ? 'audiobook' : 'audiobooks'} in ${destination.name}. Files remain in their original folders.`
+        `Scan complete. Found ${result.audiobookCount} ${result.audiobookCount === 1 ? 'audiobook' : 'audiobooks'} in ${destination.name}.${duplicateSummary} Files remain in their original folders.`
       );
       setAudiobookDestinationPendingScan(null);
     } catch (err) {

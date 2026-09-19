@@ -1,6 +1,7 @@
 const sqlite3 = require('sqlite3').verbose();
 const {
     AudiobookAuthorError,
+    deleteAudiobookRecord,
     enrichAudiobookCatalog,
     loadAudiobookCatalogFromDatabase,
     replaceAudiobookAuthors,
@@ -73,6 +74,12 @@ describe('audiobook author repository', () => {
                     ID INTEGER PRIMARY KEY AUTOINCREMENT,
                     audiobook_id INTEGER NOT NULL REFERENCES Audiobooks (ID) ON DELETE CASCADE,
                     genere_id INTEGER NOT NULL REFERENCES Generes (ID) ON DELETE RESTRICT
+                );
+                CREATE TABLE AudiobooksUsers (
+                    ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    audiobook_folder TEXT NOT NULL,
+                    user_id INTEGER NOT NULL,
+                    progress_percentage REAL NOT NULL DEFAULT 0
                 );
             `, (error) => (error ? reject(error) : resolve()));
         });
@@ -154,6 +161,33 @@ describe('audiobook author repository', () => {
         )).toEqual(expect.objectContaining({
             audiobook_folder: 'Removed Collection'
         }));
+    });
+
+    test('deletes the central audiobook record and progress without requiring storage access', async () => {
+        await enrichAudiobookCatalog(db, [{
+            id: 'Keep Files',
+            folder: 'Keep Files',
+            title: 'Keep Files',
+            author: 'Mary Shelley'
+        }]);
+        await run(
+            db,
+            `INSERT INTO AudiobooksUsers (audiobook_folder, user_id, progress_percentage)
+             VALUES (?, ?, ?)`,
+            ['Keep Files', 7, 42]
+        );
+
+        await expect(deleteAudiobookRecord(db, 'Keep Files')).resolves.toBe(1);
+        await expect(get(
+            db,
+            'SELECT * FROM Audiobooks WHERE audiobook_folder = ?',
+            ['Keep Files']
+        )).resolves.toBeUndefined();
+        await expect(get(
+            db,
+            'SELECT * FROM AudiobooksUsers WHERE audiobook_folder = ?',
+            ['Keep Files']
+        )).resolves.toBeUndefined();
     });
 
     test('imports discovered metadata centrally and keeps central edits authoritative', async () => {

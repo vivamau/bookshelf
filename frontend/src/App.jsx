@@ -30,6 +30,7 @@ import {
   X,
   Loader,
   Trash2,
+  Database,
   Download,
   ImagePlus,
   Link2,
@@ -1043,6 +1044,7 @@ function AudiobookDetails() {
   const lastSavedPositionRef = useRef(0);
   const progressSaveChainRef = useRef(Promise.resolve());
   const deleteCancelButtonRef = useRef(null);
+  const forgetCancelButtonRef = useRef(null);
   const folder = new URLSearchParams(location.search).get('folder') || '';
   const [audiobook, setAudiobook] = useState(null);
   const [selectedTrackIndex, setSelectedTrackIndex] = useState(0);
@@ -1062,6 +1064,9 @@ function AudiobookDetails() {
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [isDeletingAudiobook, setIsDeletingAudiobook] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  const [showForgetConfirmation, setShowForgetConfirmation] = useState(false);
+  const [isForgettingAudiobook, setIsForgettingAudiobook] = useState(false);
+  const [forgetError, setForgetError] = useState('');
   const [selectedAuthors, setSelectedAuthors] = useState([]);
   const [selectedGenres, setSelectedGenres] = useState([]);
   const [allGenres, setAllGenres] = useState([]);
@@ -1086,6 +1091,17 @@ function AudiobookDetails() {
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
   }, [showDeleteConfirmation, isDeletingAudiobook]);
+
+  useEffect(() => {
+    if (!showForgetConfirmation) return undefined;
+    forgetCancelButtonRef.current?.focus();
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape' && !isForgettingAudiobook) setShowForgetConfirmation(false);
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [showForgetConfirmation, isForgettingAudiobook]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1341,6 +1357,19 @@ function AudiobookDetails() {
     }
   };
 
+  const forgetAudiobook = async () => {
+    setIsForgettingAudiobook(true);
+    setForgetError('');
+    try {
+      audioRef.current?.pause();
+      await audiobooksApi.removeFromLibrary(audiobookFolder);
+      navigate('/?tab=Audiobooks', { replace: true });
+    } catch (requestError) {
+      setForgetError(requestError.response?.data?.error || 'The audiobook could not be removed from the library.');
+      setIsForgettingAudiobook(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-1 items-center justify-center bg-background">
@@ -1516,6 +1545,19 @@ function AudiobookDetails() {
                   <Download size={13} />
                   Download
                 </button>
+                {hasPermission('userrole_managebooks') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForgetError('');
+                      setShowForgetConfirmation(true);
+                    }}
+                    className="flex items-center justify-center gap-2 rounded-full border border-amber-500/45 bg-amber-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-amber-600 transition-all hover:border-amber-500/70 hover:bg-amber-500/15 dark:text-amber-300"
+                  >
+                    <Database size={13} />
+                    Remove from library
+                  </button>
+                )}
                 {hasPermission('userrole_manageusers') && (
                   <button
                     type="button"
@@ -1941,6 +1983,74 @@ function AudiobookDetails() {
           </div>
         </section>
       </div>
+
+      {showForgetConfirmation && (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-background/85 p-4 backdrop-blur-md animate-in fade-in duration-200"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !isForgettingAudiobook) {
+              setShowForgetConfirmation(false);
+            }
+          }}
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="forget-audiobook-title"
+            aria-describedby="forget-audiobook-description"
+            className="w-full max-w-md overflow-hidden rounded-2xl border border-amber-500/35 bg-card shadow-2xl shadow-black/40 animate-in zoom-in-95 slide-in-from-bottom-2 duration-200"
+          >
+            <div className="relative border-b border-border bg-amber-500/5 px-6 pb-5 pt-6">
+              <div className="absolute inset-x-0 top-0 h-1 bg-amber-500" />
+              <div className="flex items-start gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-300">
+                  <Database size={21} />
+                </div>
+                <div className="min-w-0">
+                  <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-600 dark:text-amber-300">Database record only</p>
+                  <h2 id="forget-audiobook-title" className="text-xl font-black tracking-tight">Remove from the library?</h2>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <p id="forget-audiobook-description" className="text-sm leading-relaxed text-muted-foreground">
+                Bookshelf will remove <span className="font-bold text-foreground">“{audiobook.title}”</span> and its saved metadata and listening progress from the central database.
+              </p>
+              <div className="mt-4 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                Audio tracks and cover files stay untouched on the server. A future scan can add this audiobook again.
+              </div>
+
+              {forgetError && (
+                <p role="alert" className="mt-4 rounded-xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                  {forgetError}
+                </p>
+              )}
+
+              <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button
+                  ref={forgetCancelButtonRef}
+                  type="button"
+                  onClick={() => setShowForgetConfirmation(false)}
+                  disabled={isForgettingAudiobook}
+                  className="rounded-xl border border-border px-5 py-2.5 text-sm font-bold transition-colors hover:bg-secondary/30 disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={forgetAudiobook}
+                  disabled={isForgettingAudiobook}
+                  className="flex items-center justify-center gap-2 rounded-xl border border-amber-500 bg-amber-500 px-5 py-2.5 text-sm font-black text-amber-950 transition-colors hover:bg-amber-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-60"
+                >
+                  {isForgettingAudiobook ? <Loader size={16} className="animate-spin" /> : <Database size={16} />}
+                  {isForgettingAudiobook ? 'Removing…' : 'Remove database record'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showDeleteConfirmation && (
         <div

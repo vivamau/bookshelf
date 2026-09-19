@@ -45,6 +45,7 @@ describe('Upload Endpoint Integration', () => {
     const uploadedAudiobookCoverPath = path.join(__dirname, '..', '..', 'audiobooks', 'Test Collection', 'Disc 1', 'cover.jpg');
     const managedAudiobookCoverPath = path.join(__dirname, '..', '..', 'audiobooks', 'Test Collection', 'Disc 1', 'bookshelf-cover.png');
     const archiveCollectionPath = path.join(__dirname, '..', '..', 'audiobooks', 'Archive Collection');
+    const forgottenCollectionPath = path.join(__dirname, '..', '..', 'audiobooks', 'Forgotten Metadata Collection');
     const serverImportSourcePath = path.join(__dirname, 'Server Import Collection');
     const serverImportDestinationPath = path.join(__dirname, '..', '..', 'audiobooks', 'Server Import Collection');
     const additionalAudiobookDestinationPath = path.join(__dirname, 'Additional Audiobook Destination');
@@ -130,6 +131,9 @@ describe('Upload Endpoint Integration', () => {
         }
         if (fs.existsSync(archiveCollectionPath)) {
             fs.rmSync(archiveCollectionPath, { recursive: true, force: true });
+        }
+        if (fs.existsSync(forgottenCollectionPath)) {
+            fs.rmSync(forgottenCollectionPath, { recursive: true, force: true });
         }
         if (fs.existsSync(serverImportSourcePath)) {
             fs.rmSync(serverImportSourcePath, { recursive: true, force: true });
@@ -315,6 +319,13 @@ describe('Upload Endpoint Integration', () => {
         );
         fs.mkdirSync(path.dirname(inPlaceTrack), { recursive: true });
         fs.writeFileSync(inPlaceTrack, 'existing server audio');
+        const duplicateTrack = path.join(
+            additionalAudiobookDestinationPath,
+            'Duplicate Copy',
+            'sample-track.mp3'
+        );
+        fs.mkdirSync(path.dirname(duplicateTrack), { recursive: true });
+        fs.copyFileSync(uploadedAudiobookPath, duplicateTrack);
 
         const res = await request(app)
             .post(`/api/audiobooks/destinations/${additionalAudiobookDestinationId}/scan`)
@@ -324,7 +335,8 @@ describe('Upload Endpoint Integration', () => {
         expect(res.body.data).toMatchObject({
             destinationId: additionalAudiobookDestinationId,
             destinationName: 'Integration NAS',
-            audiobookCount: 1
+            audiobookCount: 1,
+            duplicateCount: 1
         });
         expect(fs.readFileSync(inPlaceTrack, 'utf8')).toBe('existing server audio');
         const centralRecord = await new Promise((resolve, reject) => {
@@ -359,6 +371,9 @@ describe('Upload Endpoint Integration', () => {
                     title: 'Existing In Place'
                 })
             ]));
+            expect(catalogResponse.body.data.some(({ folder }) => (
+                folder.includes('Duplicate Copy')
+            ))).toBe(false);
         } finally {
             fs.renameSync(temporarilyUnavailableTrack, inPlaceTrack);
         }
@@ -399,12 +414,16 @@ describe('Upload Endpoint Integration', () => {
             .set('Cookie', authCookie);
         additionalDestinationAudiobook = catalogResponse.body.data.find((audiobook) => (
             audiobook.destinationId === additionalAudiobookDestinationId
-            && audiobook.folder.includes('Server Import Collection/Disc 1')
+            && audiobook.folder.includes('Existing In Place')
         ));
         expect(additionalDestinationAudiobook).toMatchObject({
             destinationId: additionalAudiobookDestinationId,
             destinationName: 'Integration NAS'
         });
+        expect(catalogResponse.body.data.some((audiobook) => (
+            audiobook.destinationId === additionalAudiobookDestinationId
+            && audiobook.folder.includes('Server Import Collection/Disc 1')
+        ))).toBe(false);
     });
 
     test('external destination audiobooks support playback and metadata updates', async () => {
@@ -428,8 +447,7 @@ describe('Upload Endpoint Integration', () => {
         expect(metadataResponse.body.data.title).toBe('Remote Destination Book');
         expect(fs.existsSync(path.join(
             additionalAudiobookDestinationPath,
-            'Server Import Collection',
-            'Disc 1',
+            'Existing In Place',
             '.bookshelf-metadata.json'
         ))).toBe(false);
 
@@ -818,6 +836,70 @@ describe('Upload Endpoint Integration', () => {
         expect(res.headers['content-type']).toContain('application/x-tar');
         expect(res.headers['content-disposition']).toContain('Archive Collection.tar');
         expect(res.body.length).toBeGreaterThan(20);
+    });
+
+    test('DELETE /api/audiobooks/metadata removes only the database record and keeps server files', async () => {
+        const forgottenTrackPath = path.join(forgottenCollectionPath, 'unique-forgotten-track.opus');
+        fs.mkdirSync(forgottenCollectionPath, { recursive: true });
+        fs.writeFileSync(forgottenTrackPath, 'audio that must remain on the server');
+
+        const scanResponse = await request(app)
+            .post('/api/audiobooks/destinations/default/scan')
+            .set('Cookie', authCookie);
+        expect(scanResponse.statusCode).toBe(200);
+
+        const progressResponse = await request(app)
+            .post('/api/audiobooks/progress')
+            .set('Cookie', authCookie)
+            .send({
+                folder: 'Forgotten Metadata Collection',
+                trackPath: 'Forgotten Metadata Collection/unique-forgotten-track.opus',
+                trackIndex: 0,
+                positionSeconds: 12,
+                durationSeconds: 60
+            });
+        expect(progressResponse.statusCode).toBe(200);
+
+        const deniedResponse = await request(app)
+            .delete('/api/audiobooks/metadata')
+            .query({ folder: 'Forgotten Metadata Collection' })
+            .set('Cookie', guestCookie);
+        expect(deniedResponse.statusCode).toBe(403);
+
+        const response = await request(app)
+            .delete('/api/audiobooks/metadata')
+            .query({ folder: 'Forgotten Metadata Collection' })
+            .set('Cookie', manageBooksOnlyCookie);
+
+        expect(response.statusCode).toBe(200);
+        expect(response.body.message).toContain('Files were kept');
+        expect(fs.readFileSync(forgottenTrackPath, 'utf8')).toBe('audio that must remain on the server');
+
+        const [centralRecord, progressRecord] = await Promise.all([
+            new Promise((resolve, reject) => {
+                db.get(
+                    'SELECT * FROM Audiobooks WHERE audiobook_folder = ?',
+                    ['Forgotten Metadata Collection'],
+                    (error, row) => error ? reject(error) : resolve(row)
+                );
+            }),
+            new Promise((resolve, reject) => {
+                db.get(
+                    'SELECT * FROM AudiobooksUsers WHERE audiobook_folder = ?',
+                    ['Forgotten Metadata Collection'],
+                    (error, row) => error ? reject(error) : resolve(row)
+                );
+            })
+        ]);
+        expect(centralRecord).toBeUndefined();
+        expect(progressRecord).toBeUndefined();
+
+        const catalogResponse = await request(app)
+            .get('/api/audiobooks')
+            .set('Cookie', authCookie);
+        expect(catalogResponse.body.data.some(({ folder }) => (
+            folder === 'Forgotten Metadata Collection'
+        ))).toBe(false);
     });
 
     test('DELETE /api/audiobooks rejects guest accounts', async () => {

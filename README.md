@@ -162,6 +162,10 @@ The scan creates a central SQLite record for each discovered audiobook. Title, n
 
 The central record also keeps the track, cover, format, size, and duration catalog produced by the scan. Opening the Audiobooks page reads this catalog directly from SQLite and does not walk storage folders or probe audio files. Use the destination scan action after changing files outside Bookshelf; uploads, imports, cover changes, and deletions refresh the affected catalog automatically.
 
+Scans compare each discovered audiobook's ordered track manifest (file names, formats, sizes, and durations) with the central catalog. Matching copies are reported and skipped, including copies stored in different destinations; their files are left untouched.
+
+Librarians can use **Remove from library** on an audiobook to delete its central metadata, author and genre links, and listening progress without deleting its audio or cover files. The collection remains out of the library until its destination is scanned again.
+
 SMB/CIFS shares must be mounted by the operating system before Bookshelf can use them. Add the resulting local mount path—for example `/mnt/nas/audiobooks` on Linux or `/Volumes/Audiobooks` on macOS—rather than an `smb://` URL. A readable mount can be connected for catalog browsing and playback even when it is read-only; uploads and imports require write permission for the account running the backend service.
 
 Supported audio formats are:

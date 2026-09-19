@@ -368,11 +368,25 @@ const replaceAudiobookAuthors = async (db, folder, authorIds) => {
     return getAudiobookAuthors(db, audiobook.ID);
 };
 
-const deleteAudiobookRecord = (db, folder) => dbRun(
-    db,
-    'DELETE FROM Audiobooks WHERE audiobook_folder = ?',
-    [folder]
-);
+const deleteAudiobookRecord = async (db, folder) => {
+    const normalizedFolder = String(folder || '').trim();
+    if (!normalizedFolder) throw new AudiobookAuthorError('Audiobook folder is required');
+
+    await dbRun(db, 'BEGIN IMMEDIATE TRANSACTION');
+    try {
+        await dbRun(db, 'DELETE FROM AudiobooksUsers WHERE audiobook_folder = ?', [normalizedFolder]);
+        const result = await dbRun(
+            db,
+            'DELETE FROM Audiobooks WHERE audiobook_folder = ?',
+            [normalizedFolder]
+        );
+        await dbRun(db, 'COMMIT');
+        return result.changes;
+    } catch (error) {
+        await dbRun(db, 'ROLLBACK').catch(() => undefined);
+        throw error;
+    }
+};
 
 module.exports = {
     AudiobookAuthorError,
