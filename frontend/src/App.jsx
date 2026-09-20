@@ -160,7 +160,7 @@ const AudiobookCard = ({ audiobook, index }) => {
   const completionPercentage = normalizeAudiobookProgress(audiobook.progress_percentage);
   const completionLabel = getAudiobookProgressLabel(completionPercentage);
   const coverUrl = audiobook.coverPath
-    ? `${import.meta.env.VITE_API_BASE_URL}/api/audiobooks/cover?path=${encodeURIComponent(audiobook.coverPath)}&v=${encodeURIComponent(audiobook.modifiedAt)}`
+    ? `${import.meta.env.VITE_API_BASE_URL}/api/audiobooks/cover?path=${encodeURIComponent(audiobook.coverPath)}&v=${encodeURIComponent(audiobook.coverModifiedAt || audiobook.modifiedAt)}`
     : null;
 
   return (
@@ -1186,7 +1186,7 @@ function AudiobookDetails() {
 
   const selectedTrack = audiobook?.tracks[selectedTrackIndex] || null;
   const coverUrl = audiobook?.coverPath
-    ? `${import.meta.env.VITE_API_BASE_URL}/api/audiobooks/cover?path=${encodeURIComponent(audiobook.coverPath)}&v=${encodeURIComponent(audiobook.modifiedAt)}`
+    ? `${import.meta.env.VITE_API_BASE_URL}/api/audiobooks/cover?path=${encodeURIComponent(audiobook.coverPath)}&v=${encodeURIComponent(audiobook.coverModifiedAt || audiobook.modifiedAt)}`
     : null;
   const audioUrl = selectedTrack
     ? `${import.meta.env.VITE_API_BASE_URL}/api/audiobooks/audio?path=${encodeURIComponent(selectedTrack.path)}`
@@ -2018,7 +2018,7 @@ function AudiobookDetails() {
                 Bookshelf will remove <span className="font-bold text-foreground">“{audiobook.title}”</span> and its saved metadata and listening progress from the central database.
               </p>
               <div className="mt-4 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-                Audio tracks and cover files stay untouched on the server. A future scan can add this audiobook again.
+                Audio tracks and covers stored beside them stay untouched. The app-managed cover is removed with the database record. A future scan can add this audiobook again.
               </div>
 
               {forgetError && (

@@ -28,7 +28,7 @@ const BookItem = ({ id, title, year, cover, progress }) => {
 const AudiobookItem = ({ audiobook }) => {
   const navigate = useNavigate();
   const coverUrl = audiobook.coverPath
-    ? `${import.meta.env.VITE_API_BASE_URL}/api/audiobooks/cover?path=${encodeURIComponent(audiobook.coverPath)}&v=${encodeURIComponent(audiobook.modifiedAt)}`
+    ? `${import.meta.env.VITE_API_BASE_URL}/api/audiobooks/cover?path=${encodeURIComponent(audiobook.coverPath)}&v=${encodeURIComponent(audiobook.coverModifiedAt || audiobook.modifiedAt)}`
     : null;
 
   return (

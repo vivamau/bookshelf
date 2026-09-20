@@ -162,9 +162,11 @@ The scan creates a central SQLite record for each discovered audiobook. Title, n
 
 The central record also keeps the track, cover, format, size, and duration catalog produced by the scan. Opening the Audiobooks page reads this catalog directly from SQLite and does not walk storage folders or probe audio files. Use the destination scan action after changing files outside Bookshelf; uploads, imports, cover changes, and deletions refresh the affected catalog automatically.
 
+Covers added from a web image are stored in the fixed app-managed `backend/data/audiobook-covers/` directory, and their protected path is recorded in `Audiobooks.audiobook_cover_path`. This lets Bookshelf associate and replace covers without writing to the audiobook's source folder, including read-only SMB mounts and other external storage. Covers already stored beside audio files continue to work.
+
 Scans compare each discovered audiobook's ordered track manifest (file names, formats, sizes, and durations) with the central catalog. Matching copies are reported and skipped, including copies stored in different destinations; their files are left untouched.
 
-Librarians can use **Remove from library** on an audiobook to delete its central metadata, author and genre links, and listening progress without deleting its audio or cover files. The collection remains out of the library until its destination is scanned again.
+Librarians can use **Remove from library** on an audiobook to delete its central metadata, author and genre links, listening progress, and app-managed cover without deleting its audio files or any cover stored beside them. The collection remains out of the library until its destination is scanned again.
 
 SMB/CIFS shares must be mounted by the operating system before Bookshelf can use them. Add the resulting local mount path—for example `/mnt/nas/audiobooks` on Linux or `/Volumes/Audiobooks` on macOS—rather than an `smb://` URL. A readable mount can be connected for catalog browsing and playback even when it is read-only; uploads and imports require write permission for the account running the backend service.
 

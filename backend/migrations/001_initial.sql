@@ -60,6 +60,8 @@ CREATE TABLE IF NOT EXISTS Audiobooks (
     audiobook_folder      TEXT    NOT NULL UNIQUE,
     audiobook_metadata    TEXT    NOT NULL DEFAULT '{}',
     audiobook_catalog     TEXT    NOT NULL DEFAULT '{}',
+    audiobook_cover_path  TEXT,
+    audiobook_cover_update_date INTEGER,
     audiobook_create_date INTEGER NOT NULL,
     audiobook_update_date INTEGER NOT NULL
 );

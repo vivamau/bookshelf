@@ -6,6 +6,7 @@ const {
     loadAudiobookCatalogFromDatabase,
     replaceAudiobookAuthors,
     splitFullName,
+    updateAudiobookCover,
     updateAudiobookMetadata
 } = require('../../utils/audiobookAuthors');
 
@@ -56,6 +57,8 @@ describe('audiobook author repository', () => {
                     audiobook_folder TEXT NOT NULL UNIQUE,
                     audiobook_metadata TEXT NOT NULL DEFAULT '{}',
                     audiobook_catalog TEXT NOT NULL DEFAULT '{}',
+                    audiobook_cover_path TEXT,
+                    audiobook_cover_update_date INTEGER,
                     audiobook_create_date INTEGER NOT NULL,
                     audiobook_update_date INTEGER NOT NULL
                 );
@@ -242,6 +245,17 @@ describe('audiobook author repository', () => {
                 path: '@bookshelf-destination-7/Remote Collection/01.mp3',
                 duration: 60
             }]
+        });
+
+        await updateAudiobookCover(
+            db,
+            '@bookshelf-destination-7/Remote Collection',
+            '@bookshelf-central-cover/1.png'
+        );
+        const [catalogWithCentralCover] = await loadAudiobookCatalogFromDatabase(db);
+        expect(catalogWithCentralCover).toMatchObject({
+            coverPath: '@bookshelf-central-cover/1.png',
+            coverModifiedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/)
         });
 
         await updateAudiobookMetadata(db, '@bookshelf-destination-7/Remote Collection', {

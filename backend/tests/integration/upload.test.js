@@ -34,6 +34,8 @@ describe('Upload Endpoint Integration', () => {
     let audiobookGenreId;
     let additionalAudiobookDestinationId;
     let additionalDestinationAudiobook;
+    let managedAudiobookCoverReference;
+    const centralAudiobookCoverPaths = [];
     const dummyFilePath = path.join(__dirname, 'test_upload.epub');
     const uploadedFilePath = path.join(__dirname, '..', '..', 'books', 'test_upload.epub');
     const dummyAudiobookPath = path.join(__dirname, 'sample-track.mp3');
@@ -43,7 +45,7 @@ describe('Upload Endpoint Integration', () => {
     const uploadedM4bPath = path.join(__dirname, '..', '..', 'audiobooks', 'Test Collection', 'complete-book.m4b');
     const uploadedLargeM4bPath = path.join(__dirname, '..', '..', 'audiobooks', 'Test Collection', 'large-complete-book.m4b');
     const uploadedAudiobookCoverPath = path.join(__dirname, '..', '..', 'audiobooks', 'Test Collection', 'Disc 1', 'cover.jpg');
-    const managedAudiobookCoverPath = path.join(__dirname, '..', '..', 'audiobooks', 'Test Collection', 'Disc 1', 'bookshelf-cover.png');
+    const centralAudiobookCoversPath = path.join(__dirname, '..', '..', 'data', 'audiobook-covers');
     const archiveCollectionPath = path.join(__dirname, '..', '..', 'audiobooks', 'Archive Collection');
     const forgottenCollectionPath = path.join(__dirname, '..', '..', 'audiobooks', 'Forgotten Metadata Collection');
     const serverImportSourcePath = path.join(__dirname, 'Server Import Collection');
@@ -150,6 +152,9 @@ describe('Upload Endpoint Integration', () => {
         if (fs.existsSync(secondRootAudiobookPath)) {
             fs.unlinkSync(secondRootAudiobookPath);
         }
+        centralAudiobookCoverPaths.forEach((coverPath) => {
+            fs.rmSync(coverPath, { force: true });
+        });
         db.close(done);
     });
 
@@ -459,6 +464,47 @@ describe('Upload Endpoint Integration', () => {
             );
         });
         expect(storedMetadata.title).toBe('Remote Destination Book');
+
+        downloadRemoteImage.mockResolvedValueOnce({
+            data: Buffer.from('remote destination cover'),
+            extension: 'webp',
+            contentType: 'image/webp'
+        });
+        const externalAudiobookDirectory = path.join(
+            additionalAudiobookDestinationPath,
+            'Existing In Place'
+        );
+        fs.chmodSync(externalAudiobookDirectory, 0o555);
+        let coverResponse;
+        try {
+            coverResponse = await request(app)
+                .post('/api/audiobooks/cover-from-url')
+                .set('Cookie', authCookie)
+                .send({
+                    folder: additionalDestinationAudiobook.folder,
+                    coverUrl: 'https://covers.example/remote-audiobook.webp'
+                });
+        } finally {
+            fs.chmodSync(externalAudiobookDirectory, 0o755);
+        }
+
+        expect(coverResponse.statusCode).toBe(200);
+        expect(coverResponse.body.data.coverPath).toMatch(/^@bookshelf-central-cover\/\d+\.webp$/);
+        const externalCentralCoverPath = path.join(
+            centralAudiobookCoversPath,
+            path.posix.basename(coverResponse.body.data.coverPath)
+        );
+        centralAudiobookCoverPaths.push(externalCentralCoverPath);
+        expect(fs.readFileSync(externalCentralCoverPath, 'utf8')).toBe('remote destination cover');
+        expect(fs.existsSync(path.join(externalAudiobookDirectory, 'bookshelf-cover.webp'))).toBe(false);
+        const storedCoverReference = await new Promise((resolve, reject) => {
+            db.get(
+                'SELECT audiobook_cover_path FROM Audiobooks WHERE audiobook_folder = ?',
+                [additionalDestinationAudiobook.folder],
+                (error, row) => error ? reject(error) : resolve(row?.audiobook_cover_path)
+            );
+        });
+        expect(storedCoverReference).toBe(coverResponse.body.data.coverPath);
     });
 
     test('DELETE /api/audiobooks/destinations disconnects a destination without deleting files', async () => {
@@ -655,9 +701,44 @@ describe('Upload Endpoint Integration', () => {
             });
 
         expect(res.statusCode).toBe(200);
-        expect(res.body.data.coverPath).toBe('Test Collection/Disc 1/bookshelf-cover.png');
+        managedAudiobookCoverReference = res.body.data.coverPath;
+        expect(managedAudiobookCoverReference).toMatch(/^@bookshelf-central-cover\/\d+\.png$/);
+        const managedAudiobookCoverPath = path.join(
+            centralAudiobookCoversPath,
+            path.posix.basename(managedAudiobookCoverReference)
+        );
+        centralAudiobookCoverPaths.push(managedAudiobookCoverPath);
         expect(fs.readFileSync(managedAudiobookCoverPath, 'utf8')).toBe('downloaded cover');
+        expect(fs.existsSync(path.join(
+            path.dirname(uploadedAudiobookPath),
+            'bookshelf-cover.png'
+        ))).toBe(false);
         expect(downloadRemoteImage).toHaveBeenCalledWith('https://covers.example/audiobook.png');
+
+        downloadRemoteImage.mockResolvedValueOnce({
+            data: Buffer.from('replacement cover'),
+            extension: 'webp',
+            contentType: 'image/webp'
+        });
+        const replacementResponse = await request(app)
+            .post('/api/audiobooks/cover-from-url')
+            .set('Cookie', authCookie)
+            .send({
+                folder: 'Test Collection/Disc 1',
+                coverUrl: 'https://covers.example/audiobook.webp'
+            });
+
+        expect(replacementResponse.statusCode).toBe(200);
+        managedAudiobookCoverReference = replacementResponse.body.data.coverPath;
+        expect(managedAudiobookCoverReference).toMatch(/^@bookshelf-central-cover\/\d+\.webp$/);
+        const replacementCoverPath = path.join(
+            centralAudiobookCoversPath,
+            path.posix.basename(managedAudiobookCoverReference)
+        );
+        centralAudiobookCoverPaths.push(replacementCoverPath);
+        expect(fs.existsSync(managedAudiobookCoverPath)).toBe(false);
+        expect(fs.readFileSync(replacementCoverPath, 'utf8')).toBe('replacement cover');
+        expect(downloadRemoteImage).toHaveBeenCalledWith('https://covers.example/audiobook.webp');
     });
 
     test('POST /api/audiobooks/cover-from-url rejects guest accounts', async () => {
@@ -675,12 +756,12 @@ describe('Upload Endpoint Integration', () => {
     test('GET /api/audiobooks/cover serves a protected collection cover', async () => {
         const res = await request(app)
             .get('/api/audiobooks/cover')
-            .query({ path: 'Test Collection/Disc 1/bookshelf-cover.png' })
+            .query({ path: managedAudiobookCoverReference })
             .set('Cookie', guestCookie);
 
         expect(res.statusCode).toBe(200);
         expect(res.headers['cache-control']).toBe('private, max-age=3600');
-        expect(res.body.toString()).toBe('downloaded cover');
+        expect(res.body.toString()).toBe('replacement cover');
     });
 
     test('GET /api/audiobooks/audio streams protected tracks with range support', async () => {
@@ -838,7 +919,7 @@ describe('Upload Endpoint Integration', () => {
         expect(res.body.length).toBeGreaterThan(20);
     });
 
-    test('DELETE /api/audiobooks/metadata removes only the database record and keeps server files', async () => {
+    test('DELETE /api/audiobooks/metadata removes central data and keeps source audio files', async () => {
         const forgottenTrackPath = path.join(forgottenCollectionPath, 'unique-forgotten-track.opus');
         fs.mkdirSync(forgottenCollectionPath, { recursive: true });
         fs.writeFileSync(forgottenTrackPath, 'audio that must remain on the server');
@@ -847,6 +928,26 @@ describe('Upload Endpoint Integration', () => {
             .post('/api/audiobooks/destinations/default/scan')
             .set('Cookie', authCookie);
         expect(scanResponse.statusCode).toBe(200);
+
+        downloadRemoteImage.mockResolvedValueOnce({
+            data: Buffer.from('temporary central cover'),
+            extension: 'jpg',
+            contentType: 'image/jpeg'
+        });
+        const coverResponse = await request(app)
+            .post('/api/audiobooks/cover-from-url')
+            .set('Cookie', authCookie)
+            .send({
+                folder: 'Forgotten Metadata Collection',
+                coverUrl: 'https://covers.example/forgotten.jpg'
+            });
+        expect(coverResponse.statusCode).toBe(200);
+        const forgottenCentralCoverPath = path.join(
+            centralAudiobookCoversPath,
+            path.posix.basename(coverResponse.body.data.coverPath)
+        );
+        centralAudiobookCoverPaths.push(forgottenCentralCoverPath);
+        expect(fs.existsSync(forgottenCentralCoverPath)).toBe(true);
 
         const progressResponse = await request(app)
             .post('/api/audiobooks/progress')
@@ -872,8 +973,9 @@ describe('Upload Endpoint Integration', () => {
             .set('Cookie', manageBooksOnlyCookie);
 
         expect(response.statusCode).toBe(200);
-        expect(response.body.message).toContain('Files were kept');
+        expect(response.body.message).toContain('Audio files were kept');
         expect(fs.readFileSync(forgottenTrackPath, 'utf8')).toBe('audio that must remain on the server');
+        expect(fs.existsSync(forgottenCentralCoverPath)).toBe(false);
 
         const [centralRecord, progressRecord] = await Promise.all([
             new Promise((resolve, reject) => {

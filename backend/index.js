@@ -50,8 +50,6 @@ const {
 } = require('./utils/audiobookProgress');
 const {
     AudiobookCatalogError,
-    COVER_EXTENSIONS,
-    MANAGED_COVER_PREFIX,
     enrichAudiobookDurations,
     findAudiobookByFolder,
     getAudiobookDuplicateKey,
@@ -69,6 +67,7 @@ const {
     findOrCreateAuthorByName,
     loadAudiobookCatalogFromDatabase,
     replaceAudiobookAuthors,
+    updateAudiobookCover,
     updateAudiobookMetadata
 } = require('./utils/audiobookAuthors');
 const {
@@ -162,6 +161,8 @@ app.use(fileUpload({
 app.use('/covers', express.static(path.join(__dirname, 'covers')));
 const BOOKS_DIR = path.join(__dirname, 'books');
 const AUDIOBOOKS_DIR = path.join(__dirname, 'audiobooks');
+const AUDIOBOOK_COVERS_DIR = path.join(__dirname, 'data', 'audiobook-covers');
+const CENTRAL_AUDIOBOOK_COVER_PREFIX = '@bookshelf-central-cover/';
 const audiobookDestinationRoots = new Map([
     [DEFAULT_AUDIOBOOK_DESTINATION_ID, AUDIOBOOKS_DIR]
 ]);
@@ -246,8 +247,26 @@ const resolveStoredAudiobookAudioPath = (virtualPath) => {
     return resolveAudiobookAudioPath(location.rootPath, location.relativePath);
 };
 const resolveStoredAudiobookCoverPath = (virtualPath) => {
+    const requestedPath = String(virtualPath || '').replace(/\\/g, '/');
+    if (requestedPath.startsWith(CENTRAL_AUDIOBOOK_COVER_PREFIX)) {
+        const fileName = requestedPath.slice(CENTRAL_AUDIOBOOK_COVER_PREFIX.length);
+        if (!fileName || path.posix.basename(fileName) !== fileName) {
+            throw new AudiobookCatalogError('Invalid centralized audiobook cover path');
+        }
+        const resolved = resolveAudiobookCoverPath(AUDIOBOOK_COVERS_DIR, fileName);
+        return { ...resolved, relativePath: requestedPath };
+    }
     const location = resolveVirtualAudiobookLocation(virtualPath);
     return resolveAudiobookCoverPath(location.rootPath, location.relativePath);
+};
+const removeCentralAudiobookCover = async (coverPath) => {
+    if (!String(coverPath || '').startsWith(CENTRAL_AUDIOBOOK_COVER_PREFIX)) return;
+    try {
+        const resolved = resolveStoredAudiobookCoverPath(coverPath);
+        await fs.promises.rm(resolved.coverPath, { force: true });
+    } catch (error) {
+        console.warn('Could not remove centralized audiobook cover:', error?.message || error);
+    }
 };
 const resolveStoredAudiobookDirectoryPath = (virtualPath) => {
     const location = resolveVirtualAudiobookLocation(virtualPath);
@@ -2380,8 +2399,9 @@ audiobooksRouter.delete('/metadata', checkManageBooks, async (req, res) => {
         }
 
         await deleteAudiobookRecord(db, audiobook.folder);
+        await removeCentralAudiobookCover(audiobook.coverPath);
         res.json({
-            message: 'Audiobook removed from the library. Files were kept on the server.'
+            message: 'Audiobook removed from the library. Audio files were kept on the server.'
         });
     } catch (err) {
         if (err instanceof AudiobookAuthorError) {
@@ -2402,30 +2422,28 @@ audiobooksRouter.post('/cover-from-url', checkManageBooks, async (req, res) => {
         }
 
         const cover = await downloadRemoteImage(req.body.coverUrl);
-        const { directoryPath } = resolveStoredAudiobookDirectoryPath(audiobook.folder);
-        const fileName = `${MANAGED_COVER_PREFIX}${cover.extension}`;
-        const filePath = path.join(directoryPath, fileName);
+        await fs.promises.mkdir(AUDIOBOOK_COVERS_DIR, { recursive: true });
+        const fileName = `${audiobook.audiobookId}.${cover.extension}`;
+        const coverReference = `${CENTRAL_AUDIOBOOK_COVER_PREFIX}${fileName}`;
+        const filePath = path.join(AUDIOBOOK_COVERS_DIR, fileName);
         const temporaryPath = path.join(
-            directoryPath,
-            `${MANAGED_COVER_PREFIX}${process.pid}-${Date.now()}.tmp`
+            AUDIOBOOK_COVERS_DIR,
+            `.${audiobook.audiobookId}-${process.pid}-${Date.now()}.tmp`
         );
 
         try {
             await fs.promises.writeFile(temporaryPath, cover.data, { mode: 0o600 });
             await fs.promises.rename(temporaryPath, filePath);
-            await Promise.all([...COVER_EXTENSIONS]
-                .map((extension) => path.join(directoryPath, `${MANAGED_COVER_PREFIX}${extension.slice(1)}`))
-                .filter((managedPath) => managedPath !== filePath)
-                .map((managedPath) => fs.promises.rm(managedPath, { force: true })));
         } finally {
             await fs.promises.rm(temporaryPath, { force: true }).catch(() => {});
         }
 
-        const destination = await getAudiobookDestination(
-            parseVirtualAudiobookPath(audiobook.folder).destinationId
-        );
-        const scanResult = await scanAndStoreAudiobookCatalog([destination]);
-        const updatedAudiobook = scanResult.catalog.find((item) => item.folder === audiobook.folder);
+        await updateAudiobookCover(db, audiobook.folder, coverReference);
+        if (audiobook.coverPath !== coverReference) {
+            await removeCentralAudiobookCover(audiobook.coverPath);
+        }
+        const updatedAudiobooks = await loadAudiobookCatalog();
+        const updatedAudiobook = updatedAudiobooks.find((item) => item.folder === audiobook.folder);
         res.json({ data: updatedAudiobook });
     } catch (err) {
         if (err instanceof RemoteImageError) {
@@ -2559,11 +2577,13 @@ audiobooksRouter.delete('/', checkManageUsers, async (req, res) => {
             const rootTrack = resolveStoredAudiobookAudioPath(audiobook.tracks[0].path);
             await fs.promises.unlink(rootTrack.audioPath);
             await deleteAudiobookRecord(db, audiobook.folder);
+            await removeCentralAudiobookCover(audiobook.coverPath);
             return res.json({ message: 'Audiobook deleted' });
         }
 
         await fs.promises.rm(storage.directoryPath, { recursive: true, force: false });
         await deleteAudiobookRecord(db, audiobook.folder);
+        await removeCentralAudiobookCover(audiobook.coverPath);
         res.json({ message: 'Audiobook deleted' });
     } catch (err) {
         if (err instanceof AudiobookCatalogError) {
@@ -3014,6 +3034,7 @@ if (require.main === module) {
             await seedUserRoles(db);
             await seedUsers(db);
             await fs.promises.mkdir(AUDIOBOOKS_DIR, { recursive: true });
+            await fs.promises.mkdir(AUDIOBOOK_COVERS_DIR, { recursive: true });
             await refreshAudiobookDestinationRoots({ probeWrite: false });
             const storedAudiobooks = await loadAudiobookCatalog();
             if (storedAudiobooks.length === 0) {

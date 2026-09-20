@@ -942,7 +942,8 @@ paths:
           description: Cover image not found
   /api/audiobooks/cover-from-url:
     post:
-      summary: Download and apply a remote cover to an audiobook collection
+      summary: Download a remote cover into app-managed audiobook cover storage
+      description: Stores the cover in the app's central cover directory and records its protected path in SQLite, without writing to the audiobook source folder.
       requestBody:
         required: true
         content:
@@ -1105,6 +1106,22 @@ paths:
           description: Updated audiobook collection
         400:
           description: Invalid metadata
+        403:
+          description: Manage Books permission is required
+        404:
+          description: Audiobook not found
+    delete:
+      summary: Remove an audiobook's central library record without deleting its source audio
+      description: Deletes central metadata, links, progress, and any app-managed cover. Audio files and covers stored beside them remain untouched.
+      parameters:
+        - in: query
+          name: folder
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Audiobook record removed; source files retained
         403:
           description: Manage Books permission is required
         404:

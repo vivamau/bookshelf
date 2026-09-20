@@ -174,6 +174,22 @@ const updateAudiobookMetadata = async (db, folder, metadata) => {
     return normalizedMetadata;
 };
 
+const updateAudiobookCover = async (db, folder, coverPath) => {
+    const audiobook = await ensureAudiobookRecord(db, folder);
+    const normalizedCoverPath = String(coverPath || '').trim();
+    const now = Date.now();
+    await dbRun(
+        db,
+        `UPDATE Audiobooks
+         SET audiobook_cover_path = ?,
+             audiobook_cover_update_date = ?,
+             audiobook_update_date = ?
+         WHERE ID = ?`,
+        [normalizedCoverPath || null, normalizedCoverPath ? now : null, now, audiobook.ID]
+    );
+    return normalizedCoverPath || null;
+};
+
 const updateAudiobookCatalogSnapshot = async (db, folder, item) => {
     const audiobook = await ensureAudiobookRecord(db, folder);
     const catalogSnapshot = JSON.stringify(getCatalogSnapshot(item));
@@ -233,12 +249,18 @@ const loadAudiobookCatalogFromDatabase = async (db) => {
         const centralUpdatedAt = Number.isFinite(Number(audiobook.audiobook_update_date))
             ? new Date(Number(audiobook.audiobook_update_date)).toISOString()
             : null;
+        const centralCoverUpdatedAt = audiobook.audiobook_cover_update_date != null
+            && Number.isFinite(Number(audiobook.audiobook_cover_update_date))
+            ? new Date(Number(audiobook.audiobook_cover_update_date)).toISOString()
+            : null;
         return {
             ...snapshot,
             ...metadata,
             id: snapshot.id || audiobook.audiobook_folder,
             folder: audiobook.audiobook_folder,
             audiobookId: audiobook.ID,
+            coverPath: audiobook.audiobook_cover_path || snapshot.coverPath,
+            coverModifiedAt: centralCoverUpdatedAt || snapshot.coverModifiedAt,
             updatedAt: centralUpdatedAt && (!snapshot.updatedAt || centralUpdatedAt > snapshot.updatedAt)
                 ? centralUpdatedAt
                 : snapshot.updatedAt,
@@ -399,6 +421,7 @@ module.exports = {
     parseCentralMetadata,
     replaceAudiobookAuthors,
     splitFullName,
+    updateAudiobookCover,
     updateAudiobookCatalogSnapshot,
     updateAudiobookMetadata
 };
