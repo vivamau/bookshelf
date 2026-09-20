@@ -669,6 +669,23 @@ describe('Upload Endpoint Integration', () => {
             coverPath: 'Test Collection/Disc 1/cover.jpg'
         });
         expect(collection.tracks[0].title).toBe('sample-track');
+
+        const summaryResponse = await request(app)
+            .get('/api/audiobooks')
+            .query({ summary: true })
+            .set('Cookie', guestCookie);
+        expect(summaryResponse.statusCode).toBe(200);
+        const summary = summaryResponse.body.data.find(
+            (audiobook) => audiobook.folder === 'Test Collection/Disc 1'
+        );
+        expect(summary).toMatchObject({
+            title: 'Disc 1',
+            trackCount: 1,
+            formats: ['MP3'],
+            firstTrackTitle: 'sample-track',
+            progress_percentage: 0
+        });
+        expect(summary).not.toHaveProperty('tracks');
     });
 
     test('GET /api/audiobooks/details accepts an audiobooks-prefixed folder', async () => {

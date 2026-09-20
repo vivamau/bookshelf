@@ -4,6 +4,7 @@ const {
     deleteAudiobookRecord,
     enrichAudiobookCatalog,
     loadAudiobookCatalogFromDatabase,
+    loadAudiobookSummariesFromDatabase,
     replaceAudiobookAuthors,
     splitFullName,
     updateAudiobookCover,
@@ -246,6 +247,17 @@ describe('audiobook author repository', () => {
                 duration: 60
             }]
         });
+
+        const [databaseSummary] = await loadAudiobookSummariesFromDatabase(db);
+        expect(databaseSummary).toMatchObject({
+            folder: '@bookshelf-destination-7/Remote Collection',
+            title: 'Title from Folder Metadata',
+            trackCount: 1,
+            totalSize: 128,
+            formats: ['MP3'],
+            firstTrackTitle: 'Chapter 1'
+        });
+        expect(databaseSummary).not.toHaveProperty('tracks');
 
         await updateAudiobookCover(
             db,

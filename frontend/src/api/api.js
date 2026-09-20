@@ -140,7 +140,7 @@ export const settingsApi = {
 };
 
 export const audiobooksApi = {
-  getAll: () => api.get('/audiobooks'),
+  getAll: (params = {}) => api.get('/audiobooks', { params }),
   getDestinations: () => api.get('/audiobooks/destinations'),
   addDestination: (path, name) => api.post('/audiobooks/destinations', { path, name }),
   scanDestination: (id) => api.post(`/audiobooks/destinations/${id}/scan`),

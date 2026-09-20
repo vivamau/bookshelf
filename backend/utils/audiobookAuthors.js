@@ -61,6 +61,15 @@ const parseCatalogSnapshot = (value) => {
     }
 };
 
+const parseJsonArray = (value) => {
+    try {
+        const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+};
+
 const getCatalogSnapshot = (item) => {
     const tracks = Array.isArray(item.tracks) ? item.tracks : [];
     return {
@@ -270,6 +279,77 @@ const loadAudiobookCatalogFromDatabase = async (db) => {
     }).filter(Boolean);
 };
 
+const loadAudiobookSummariesFromDatabase = async (db) => {
+    const [audiobooks, authorRows] = await Promise.all([
+        dbAll(
+            db,
+            `SELECT ID,
+                    audiobook_folder,
+                    audiobook_metadata,
+                    audiobook_cover_path,
+                    audiobook_cover_update_date,
+                    audiobook_update_date,
+                    json_extract(audiobook_catalog, '$.id') AS catalog_id,
+                    json_extract(audiobook_catalog, '$.coverPath') AS catalog_cover_path,
+                    json_extract(audiobook_catalog, '$.coverModifiedAt') AS catalog_cover_modified_at,
+                    json_extract(audiobook_catalog, '$.trackCount') AS catalog_track_count,
+                    json_extract(audiobook_catalog, '$.totalSize') AS catalog_total_size,
+                    json_extract(audiobook_catalog, '$.formats') AS catalog_formats,
+                    json_extract(audiobook_catalog, '$.modifiedAt') AS catalog_modified_at,
+                    json_extract(audiobook_catalog, '$.updatedAt') AS catalog_updated_at,
+                    json_extract(audiobook_catalog, '$.destinationId') AS catalog_destination_id,
+                    json_extract(audiobook_catalog, '$.destinationName') AS catalog_destination_name,
+                    json_extract(audiobook_catalog, '$.tracks[0].title') AS first_track_title
+             FROM Audiobooks
+             WHERE audiobook_catalog IS NOT NULL AND audiobook_catalog <> '{}'
+             ORDER BY ID`
+        ),
+        dbAll(
+            db,
+            `SELECT aa.audiobook_id, a.*
+             FROM AudiobooksAuthors aa
+             JOIN Authors a ON a.ID = aa.author_id
+             ORDER BY aa.ID`
+        )
+    ]);
+    const authorsByAudiobook = new Map();
+    authorRows.forEach(({ audiobook_id: audiobookId, ...author }) => {
+        if (!authorsByAudiobook.has(audiobookId)) authorsByAudiobook.set(audiobookId, []);
+        authorsByAudiobook.get(audiobookId).push(author);
+    });
+
+    return audiobooks.map((audiobook) => {
+        const metadata = parseCentralMetadata(audiobook.audiobook_metadata);
+        const centralUpdatedAt = Number.isFinite(Number(audiobook.audiobook_update_date))
+            ? new Date(Number(audiobook.audiobook_update_date)).toISOString()
+            : null;
+        const centralCoverUpdatedAt = audiobook.audiobook_cover_update_date != null
+            && Number.isFinite(Number(audiobook.audiobook_cover_update_date))
+            ? new Date(Number(audiobook.audiobook_cover_update_date)).toISOString()
+            : null;
+        return {
+            ...metadata,
+            id: audiobook.catalog_id || audiobook.audiobook_folder,
+            folder: audiobook.audiobook_folder,
+            audiobookId: audiobook.ID,
+            coverPath: audiobook.audiobook_cover_path || audiobook.catalog_cover_path || null,
+            coverModifiedAt: centralCoverUpdatedAt || audiobook.catalog_cover_modified_at || null,
+            trackCount: Number(audiobook.catalog_track_count) || 0,
+            totalSize: Number(audiobook.catalog_total_size) || 0,
+            formats: parseJsonArray(audiobook.catalog_formats),
+            modifiedAt: audiobook.catalog_modified_at || null,
+            updatedAt: centralUpdatedAt && (!audiobook.catalog_updated_at
+                || centralUpdatedAt > audiobook.catalog_updated_at)
+                ? centralUpdatedAt
+                : audiobook.catalog_updated_at,
+            destinationId: audiobook.catalog_destination_id ?? 'default',
+            destinationName: audiobook.catalog_destination_name || 'Built-in storage',
+            firstTrackTitle: audiobook.first_track_title || '',
+            authors: authorsByAudiobook.get(audiobook.ID) || []
+        };
+    });
+};
+
 const linkLegacyAuthor = async (db, audiobook, legacyAuthorName) => {
     const author = await findOrCreateAuthorByName(db, legacyAuthorName);
     if (!author) return;
@@ -416,6 +496,7 @@ module.exports = {
     enrichAudiobookCatalog,
     findOrCreateAuthorByName,
     loadAudiobookCatalogFromDatabase,
+    loadAudiobookSummariesFromDatabase,
     normalizeAuthorIds,
     parseCatalogSnapshot,
     parseCentralMetadata,

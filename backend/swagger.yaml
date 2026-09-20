@@ -903,10 +903,16 @@ paths:
           description: Manage Books permission is required
   /api/audiobooks:
     get:
-      summary: List audiobook collections found in the server audiobooks directory
+      summary: List audiobook collections stored in the central catalog
+      parameters:
+        - in: query
+          name: summary
+          schema:
+            type: boolean
+          description: Return lightweight homepage records without track manifests.
       responses:
         200:
-          description: Audiobook collections grouped by their containing directory
+          description: Audiobook collections with the current user's listening progress
         403:
           description: Authentication is required
     delete:

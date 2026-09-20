@@ -66,6 +66,7 @@ const {
     enrichAudiobookCatalog,
     findOrCreateAuthorByName,
     loadAudiobookCatalogFromDatabase,
+    loadAudiobookSummariesFromDatabase,
     replaceAudiobookAuthors,
     updateAudiobookCover,
     updateAudiobookMetadata
@@ -2166,9 +2167,9 @@ audiobooksRouter.delete('/destinations/:id', checkManageBooks, async (req, res) 
     }
 });
 
-const loadAudiobooksForUser = async (userId) => {
+const loadAudiobooksForUser = async (userId, { summary = false } = {}) => {
     const [audiobooks, progressRows] = await Promise.all([
-        loadAudiobookCatalog(),
+        summary ? loadAudiobookSummariesFromDatabase(db) : loadAudiobookCatalog(),
         new Promise((resolve, reject) => {
             db.all(
                 'SELECT audiobook_folder, progress_percentage FROM AudiobooksUsers WHERE user_id = ?',
@@ -2189,7 +2190,11 @@ const loadAudiobooksForUser = async (userId) => {
 
 audiobooksRouter.get('/', async (req, res) => {
     try {
-        res.json({ data: await loadAudiobooksForUser(req.user.user_id) });
+        res.json({
+            data: await loadAudiobooksForUser(req.user.user_id, {
+                summary: req.query.summary === 'true'
+            })
+        });
     } catch (err) {
         console.error('Audiobook catalog load failed:', err);
         res.status(500).json({ error: 'Could not load the audiobook catalog' });

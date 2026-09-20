@@ -68,6 +68,7 @@ import {
 } from './lib/audiobookProgress';
 import { truncateAudiobookTitle } from './lib/audiobookTitle';
 import {
+  buildAudiobookSeriesCatalog,
   getAudiobookSeriesCompletion,
   getAudiobookSeriesLabel
 } from './lib/audiobookSeries';
@@ -210,7 +211,7 @@ const AudiobookCard = ({ audiobook, index }) => {
           {truncateAudiobookTitle(audiobook.title)}
         </h3>
         <p className="mt-1 truncate text-xs text-muted-foreground">
-          {authorNames || audiobook.tracks[0]?.title || 'Audio collection'}
+          {authorNames || audiobook.firstTrackTitle || audiobook.tracks?.[0]?.title || 'Audio collection'}
         </p>
         <p className={cn(
           "mt-1.5 text-[10px] font-black uppercase tracking-[0.14em]",
@@ -750,10 +751,10 @@ function Dashboard() {
       try {
         if (activeTab === 'Audiobooks') {
           setAudiobooksError('');
-          const audiobooksResponse = await audiobooksApi.getAll();
-          const seriesResponse = await audiobooksApi.getSeries();
-          setAudiobooks(audiobooksResponse.data.data || []);
-          setAudiobookSeries(seriesResponse.data.data || []);
+          const audiobooksResponse = await audiobooksApi.getAll({ summary: true });
+          const audiobookCatalog = audiobooksResponse.data.data || [];
+          setAudiobooks(audiobookCatalog);
+          setAudiobookSeries(buildAudiobookSeriesCatalog(audiobookCatalog));
           return;
         }
 
