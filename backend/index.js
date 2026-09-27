@@ -170,6 +170,9 @@ const audiobookDestinationRoots = new Map([
 const dbAllAsync = (sql, params = []) => new Promise((resolve, reject) => {
     db.all(sql, params, (error, rows) => error ? reject(error) : resolve(rows));
 });
+const dbGetAsync = (sql, params = []) => new Promise((resolve, reject) => {
+    db.get(sql, params, (error, row) => error ? reject(error) : resolve(row));
+});
 const dbRunAsync = (sql, params = []) => new Promise((resolve, reject) => {
     db.run(sql, params, function onRun(error) {
         if (error) reject(error);
@@ -788,6 +791,63 @@ app.use('/api/authors', (req, res, next) => {
 
     // Custom Authors Routes
     const authorsRouter = express.Router();
+    const normalizeAuthorNamePart = (value) => String(value || '')
+        .normalize('NFKC')
+        .trim()
+        .replace(/\s+/g, ' ');
+    const findExistingAuthor = (firstName, lastName) => dbGetAsync(
+        `SELECT * FROM Authors
+         WHERE LOWER(TRIM(author_name || ' ' || author_lastname)) = LOWER(?)
+         ORDER BY ID
+         LIMIT 1`,
+        [normalizeAuthorNamePart(`${firstName} ${lastName}`)]
+    );
+    const duplicateAuthorResponse = (res, author) => res.status(409).json({
+        error: 'This author already exists. Select the existing author instead.',
+        code: 'AUTHOR_ALREADY_EXISTS',
+        existingAuthor: author
+    });
+
+    authorsRouter.post('/', checkManageBooks, async (req, res) => {
+        const firstName = normalizeAuthorNamePart(req.body?.author_name);
+        const lastName = normalizeAuthorNamePart(req.body?.author_lastname);
+        if (!firstName) {
+            return res.status(400).json({ error: 'First name is required' });
+        }
+        if (firstName.length > 200 || lastName.length > 200) {
+            return res.status(400).json({ error: 'Author names must be 200 characters or fewer' });
+        }
+
+        try {
+            const existingAuthor = await findExistingAuthor(firstName, lastName);
+            if (existingAuthor) return duplicateAuthorResponse(res, existingAuthor);
+
+            const now = Date.now();
+            const result = await dbRunAsync(
+                `INSERT INTO Authors (
+                    author_name, author_lastname, author_wiki, author_avatar,
+                    author_create_date, author_update_date
+                 ) VALUES (?, ?, ?, ?, ?, ?)`,
+                [
+                    firstName,
+                    lastName,
+                    String(req.body?.author_wiki || '').trim() || null,
+                    String(req.body?.author_avatar || '').trim() || null,
+                    now,
+                    now
+                ]
+            );
+            const author = await dbGetAsync('SELECT * FROM Authors WHERE ID = ?', [result.lastID]);
+            return res.status(201).json({ data: author });
+        } catch (error) {
+            if (error?.code === 'SQLITE_CONSTRAINT') {
+                const existingAuthor = await findExistingAuthor(firstName, lastName).catch(() => null);
+                if (existingAuthor) return duplicateAuthorResponse(res, existingAuthor);
+            }
+            console.error('Author creation failed:', error);
+            return res.status(500).json({ error: 'Could not create the author' });
+        }
+    });
     
     // Get books by author
     authorsRouter.get('/:id/books', (req, res) => {
@@ -853,10 +913,10 @@ app.use('/api/authors', (req, res, next) => {
 
     // List authors (Pagination, Search, Sort)
     authorsRouter.get('/', (req, res) => {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 50; 
+        const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+        const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 50));
         const offset = (page - 1) * limit;
-        const search = req.query.search || '';
+        const search = normalizeAuthorNamePart(req.query.search);
 
         let countSql = `SELECT COUNT(*) as total FROM Authors`;
         let sql = `SELECT * FROM Authors`;
@@ -866,18 +926,33 @@ app.use('/api/authors', (req, res, next) => {
 
         const sort = req.query.sort || 'name';
         if (search) {
-             const searchClause = " WHERE author_name LIKE ? OR author_lastname LIKE ?";
+             const searchTerms = search
+                 .split(' ')
+                 .filter(Boolean)
+                 .slice(0, 12)
+                 .map((term) => term.replace(/[\\%_]/g, '\\$&'));
+             const searchClause = ` WHERE ${searchTerms.map(() => (
+                 "LOWER(TRIM(author_name || ' ' || author_lastname)) LIKE LOWER(?) ESCAPE '\\'"
+             )).join(' AND ')}`;
              countSql += searchClause;
              sql += searchClause;
-             params.push(`%${search}%`, `%${search}%`);
-             countParams.push(`%${search}%`, `%${search}%`);
+             const searchParams = searchTerms.map((term) => `%${term}%`);
+             params.push(...searchParams);
+             countParams.push(...searchParams);
         }
 
-        let orderBy = 'author_name ASC, author_lastname ASC';
+        let orderBy = 'author_name COLLATE NOCASE ASC, author_lastname COLLATE NOCASE ASC';
         if (sort === 'latest') {
              orderBy = 'author_create_date DESC';
         } else if (sort === 'name') {
-             orderBy = 'author_name ASC, author_lastname ASC';
+             orderBy = 'author_name COLLATE NOCASE ASC, author_lastname COLLATE NOCASE ASC';
+        }
+        if (search) {
+             orderBy = `CASE
+                 WHEN LOWER(TRIM(author_name || ' ' || author_lastname)) = LOWER(?) THEN 0
+                 ELSE 1
+             END, ${orderBy}`;
+             params.push(search);
         }
 
         sql += ` ORDER BY ${orderBy} LIMIT ? OFFSET ?`;
@@ -899,7 +974,7 @@ app.use('/api/authors', (req, res, next) => {
     });
 
     // Fallback to CRUD for other author methods
-    const crud = createCrudRouter('Authors', db, 'ID', ['GET', 'POST', 'PUT', 'DELETE'], ['author_name', 'author_lastname']);
+    const crud = createCrudRouter('Authors', db, 'ID', ['GET', 'PUT', 'DELETE'], ['author_name', 'author_lastname']);
     authorsRouter.use('/', crud);
     
     authorsRouter(req, res, next);

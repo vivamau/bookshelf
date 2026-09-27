@@ -78,6 +78,22 @@ describe('AuthorSearch Component', () => {
         });
     });
 
+    test('directs an exact name match to the existing author', async () => {
+        authorsApi.getAll.mockResolvedValue({
+            data: { data: [{ ID: 1, author_name: 'Jane', author_lastname: 'Austen' }] }
+        });
+
+        render(<AuthorSearch onSelect={() => {}} />);
+        fireEvent.change(screen.getByPlaceholderText('Search or add author...'), {
+            target: { value: ' jane  AUSTEN ' }
+        });
+
+        await waitFor(() => {
+            expect(screen.getByText('This author already exists. Select the existing entry above.')).toBeInTheDocument();
+        });
+        expect(screen.queryByText(/Create "/)).not.toBeInTheDocument();
+    });
+
     test('switches to create mode and simulates author creation', async () => {
          // Setup mock for creation
          const newAuthor = { ID: 100, author_name: 'John', author_lastname: 'Smith' };
@@ -112,6 +128,29 @@ describe('AuthorSearch Component', () => {
              });
              expect(handleSelect).toHaveBeenCalledWith(newAuthor);
          });
+    });
+
+    test('uses the existing entry when the preflight check finds a duplicate', async () => {
+         const existingAuthor = { ID: 5, author_name: 'Octavia E.', author_lastname: 'Butler' };
+         authorsApi.getAll
+             .mockResolvedValueOnce({ data: { data: [] } })
+             .mockResolvedValueOnce({ data: { data: [existingAuthor] } });
+         const handleSelect = jest.fn();
+
+         render(<AuthorSearch onSelect={handleSelect} />);
+         fireEvent.change(screen.getByPlaceholderText('Search or add author...'), {
+             target: { value: 'Octavia E. Butler' }
+         });
+         await waitFor(() => screen.getByText('Create "Octavia E. Butler"'));
+         fireEvent.click(screen.getByText('Create "Octavia E. Butler"'));
+         fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+         await waitFor(() => {
+             expect(screen.getByText('This author already exists. Use the existing entry instead.')).toBeInTheDocument();
+         });
+         fireEvent.click(screen.getByRole('button', { name: 'Use Octavia E. Butler' }));
+         expect(handleSelect).toHaveBeenCalledWith(existingAuthor);
+         expect(authorsApi.create).not.toHaveBeenCalled();
     });
     
     test('clears selection when X is clicked', () => {

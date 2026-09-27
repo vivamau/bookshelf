@@ -90,17 +90,33 @@ const getOrCreatePublisher = (db, publisherName) => {
 
 const getOrCreateAuthor = (db, firstName, lastName) => {
     return new Promise((resolve, reject) => {
-        db.get("SELECT ID FROM Authors WHERE author_name = ? AND author_lastname = ?", 
-            [firstName, lastName], 
+        const normalizedFirstName = String(firstName || '').normalize('NFKC').trim().replace(/\s+/g, ' ');
+        const normalizedLastName = String(lastName || '').normalize('NFKC').trim().replace(/\s+/g, ' ');
+        const findExisting = (callback) => db.get(
+            `SELECT ID FROM Authors
+             WHERE LOWER(TRIM(author_name || ' ' || author_lastname)) = LOWER(?)
+             ORDER BY ID
+             LIMIT 1`,
+            [`${normalizedFirstName} ${normalizedLastName}`.trim()],
+            callback
+        );
+        findExisting(
             (err, row) => {
                 if (err) return reject(err);
                 if (row) return resolve(row.ID);
                 
                 const now = Date.now();
-                const avatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${firstName}${lastName}`;
+                const avatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${normalizedFirstName}${normalizedLastName}`;
                 db.run("INSERT INTO Authors (author_name, author_lastname, author_avatar, author_create_date) VALUES (?, ?, ?, ?)", 
-                    [firstName, lastName, avatarUrl, now], 
+                    [normalizedFirstName, normalizedLastName, avatarUrl, now],
                     function(err) {
+                        if (err?.code === 'SQLITE_CONSTRAINT') {
+                            return findExisting((lookupError, existing) => {
+                                if (lookupError) return reject(lookupError);
+                                if (existing) return resolve(existing.ID);
+                                return reject(err);
+                            });
+                        }
                         if (err) return reject(err);
                         resolve(this.lastID);
                     }

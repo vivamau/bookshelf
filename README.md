@@ -162,6 +162,8 @@ The scan creates a central SQLite record for each discovered audiobook. Title, n
 
 The central record also keeps the track, cover, format, size, and duration catalog produced by the scan. Opening the Audiobooks page reads this catalog directly from SQLite and does not walk storage folders or probe audio files. The homepage uses a lightweight database summary and builds both the title grid and series shelves from one request; full track manifests are loaded only when an audiobook is opened. Use the destination scan action after changing files outside Bookshelf; uploads, imports, cover changes, and deletions refresh the affected catalog automatically.
 
+Author pickers search complete names token by token, so they continue to find entries in large author catalogs even when a full name is entered. New authors are checked case-insensitively after whitespace normalization; when a match exists, Bookshelf returns the existing entry and asks the user to select it instead of creating a duplicate. A database trigger provides the same protection to scanner and import paths.
+
 Covers added from a web image are stored in the fixed app-managed `backend/data/audiobook-covers/` directory, and their protected path is recorded in `Audiobooks.audiobook_cover_path`. This lets Bookshelf associate and replace covers without writing to the audiobook's source folder, including read-only SMB mounts and other external storage. Covers already stored beside audio files continue to work.
 
 Scans compare each discovered audiobook's ordered track manifest (file names, formats, sizes, and durations) with the central catalog. Matching copies are reported and skipped, including copies stored in different destinations; their files are left untouched.

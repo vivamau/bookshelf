@@ -71,6 +71,51 @@ describe('shared book and audiobook authors', () => {
         expect(response.body.data[0]).not.toHaveProperty('author');
     });
 
+    test('author search matches complete names regardless of token order', async () => {
+        const response = await request(app)
+            .get('/api/authors')
+            .query({ search: 'Jemisin N. K.', limit: 10 })
+            .set('Cookie', adminCookie);
+
+        expect(response.statusCode).toBe(200);
+        expect(response.body.data).toEqual([
+            expect.objectContaining({ ID: originalAuthorId, author_name: 'N. K.', author_lastname: 'Jemisin' })
+        ]);
+    });
+
+    test('author creation rejects normalized duplicates and returns the existing entry', async () => {
+        const response = await request(app)
+            .post('/api/authors')
+            .set('Cookie', adminCookie)
+            .send({ author_name: '  n. ', author_lastname: 'K.   JEMISIN' });
+
+        expect(response.statusCode).toBe(409);
+        expect(response.body).toMatchObject({
+            code: 'AUTHOR_ALREADY_EXISTS',
+            existingAuthor: { ID: originalAuthorId, author_name: 'N. K.', author_lastname: 'Jemisin' }
+        });
+        expect(response.body.error).toContain('Select the existing author');
+
+        await expect(run(
+            'INSERT INTO Authors (author_name, author_lastname) VALUES (?, ?)',
+            ['n.', 'k. jemisin']
+        )).rejects.toMatchObject({ code: 'SQLITE_CONSTRAINT' });
+    });
+
+    test('author creation normalizes a genuinely new name', async () => {
+        const response = await request(app)
+            .post('/api/authors')
+            .set('Cookie', adminCookie)
+            .send({ author_name: '  Samuel   R. ', author_lastname: ' Delany ' });
+
+        expect(response.statusCode).toBe(201);
+        expect(response.body.data).toMatchObject({
+            ID: expect.any(Number),
+            author_name: 'Samuel R.',
+            author_lastname: 'Delany'
+        });
+    });
+
     test('metadata updates reassign the audiobook through author IDs', async () => {
         const updateResponse = await request(app)
             .put('/api/audiobooks/metadata')
