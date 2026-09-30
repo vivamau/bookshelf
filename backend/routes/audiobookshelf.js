@@ -286,7 +286,7 @@ const createAudiobookshelfRouters = ({
 
         let resolved;
         try {
-            resolved = resolveAudiobookAudioPath(audiobooksDirectory, track.path);
+            resolved = await resolveAudiobookAudioPath(audiobooksDirectory, track.path);
         } catch (error) {
             return res.status(400).json({ error: error.message });
         }
@@ -519,7 +519,7 @@ const createAudiobookshelfRouters = ({
                 res.setHeader('Cache-Control', 'private, max-age=3600');
                 return res.type('png').send(FALLBACK_COVER_PNG);
             }
-            const cover = resolveAudiobookCoverPath(audiobooksDirectory, audiobook.coverPath);
+            const cover = await resolveAudiobookCoverPath(audiobooksDirectory, audiobook.coverPath);
             res.setHeader('Cache-Control', 'private, max-age=3600');
             return res.sendFile(cover.coverPath);
         } catch (error) {

@@ -240,17 +240,29 @@ const requireWritableAudiobookDestination = (destination) => {
     }
     return destination;
 };
-const resolveVirtualAudiobookLocation = (virtualPath) => {
+const resolveVirtualAudiobookLocation = async (virtualPath) => {
     const parsed = parseVirtualAudiobookPath(virtualPath);
-    const rootPath = audiobookDestinationRoots.get(String(parsed.destinationId));
+    let rootPath = audiobookDestinationRoots.get(String(parsed.destinationId));
+    if (!rootPath && parsed.destinationId !== DEFAULT_AUDIOBOOK_DESTINATION_ID) {
+        const destination = await dbGetAsync(
+            `SELECT audiobookdestination_path
+             FROM AudiobookDestinations
+             WHERE ID = ?`,
+            [parsed.destinationId]
+        );
+        rootPath = destination?.audiobookdestination_path;
+        if (rootPath) {
+            audiobookDestinationRoots.set(String(parsed.destinationId), rootPath);
+        }
+    }
     if (!rootPath) throw new AudiobookCatalogError('Audiobook destination not found');
     return { ...parsed, rootPath };
 };
-const resolveStoredAudiobookAudioPath = (virtualPath) => {
-    const location = resolveVirtualAudiobookLocation(virtualPath);
+const resolveStoredAudiobookAudioPath = async (virtualPath) => {
+    const location = await resolveVirtualAudiobookLocation(virtualPath);
     return resolveAudiobookAudioPath(location.rootPath, location.relativePath);
 };
-const resolveStoredAudiobookCoverPath = (virtualPath) => {
+const resolveStoredAudiobookCoverPath = async (virtualPath) => {
     const requestedPath = String(virtualPath || '').replace(/\\/g, '/');
     if (requestedPath.startsWith(CENTRAL_AUDIOBOOK_COVER_PREFIX)) {
         const fileName = requestedPath.slice(CENTRAL_AUDIOBOOK_COVER_PREFIX.length);
@@ -260,20 +272,20 @@ const resolveStoredAudiobookCoverPath = (virtualPath) => {
         const resolved = resolveAudiobookCoverPath(AUDIOBOOK_COVERS_DIR, fileName);
         return { ...resolved, relativePath: requestedPath };
     }
-    const location = resolveVirtualAudiobookLocation(virtualPath);
+    const location = await resolveVirtualAudiobookLocation(virtualPath);
     return resolveAudiobookCoverPath(location.rootPath, location.relativePath);
 };
 const removeCentralAudiobookCover = async (coverPath) => {
     if (!String(coverPath || '').startsWith(CENTRAL_AUDIOBOOK_COVER_PREFIX)) return;
     try {
-        const resolved = resolveStoredAudiobookCoverPath(coverPath);
+        const resolved = await resolveStoredAudiobookCoverPath(coverPath);
         await fs.promises.rm(resolved.coverPath, { force: true });
     } catch (error) {
         console.warn('Could not remove centralized audiobook cover:', error?.message || error);
     }
 };
-const resolveStoredAudiobookDirectoryPath = (virtualPath) => {
-    const location = resolveVirtualAudiobookLocation(virtualPath);
+const resolveStoredAudiobookDirectoryPath = async (virtualPath) => {
+    const location = await resolveVirtualAudiobookLocation(virtualPath);
     return {
         ...location,
         directoryPath: resolveAudiobookDirectoryPath(location.rootPath, location.relativePath)
@@ -2537,10 +2549,10 @@ audiobooksRouter.post('/cover-from-url', checkManageBooks, async (req, res) => {
     }
 });
 
-audiobooksRouter.get('/cover', (req, res) => {
+audiobooksRouter.get('/cover', async (req, res) => {
     let cover;
     try {
-        cover = resolveStoredAudiobookCoverPath(req.query.path);
+        cover = await resolveStoredAudiobookCoverPath(req.query.path);
     } catch (err) {
         if (err instanceof AudiobookCatalogError) {
             return res.status(400).json({ error: err.message });
@@ -2558,10 +2570,10 @@ audiobooksRouter.get('/cover', (req, res) => {
     });
 });
 
-audiobooksRouter.get('/audio', (req, res) => {
+audiobooksRouter.get('/audio', async (req, res) => {
     let audio;
     try {
-        audio = resolveStoredAudiobookAudioPath(req.query.path);
+        audio = await resolveStoredAudiobookAudioPath(req.query.path);
     } catch (err) {
         if (err instanceof AudiobookCatalogError) {
             return res.status(400).json({ error: err.message });
@@ -2600,12 +2612,12 @@ audiobooksRouter.get('/download', async (req, res) => {
 
         const downloadName = safeDownloadName(audiobook.title);
         if (audiobook.tracks.length === 1) {
-            const track = resolveStoredAudiobookAudioPath(audiobook.tracks[0].path);
+            const track = await resolveStoredAudiobookAudioPath(audiobook.tracks[0].path);
             const extension = path.extname(track.audioPath).toLowerCase();
             return res.download(track.audioPath, `${downloadName}${extension}`);
         }
 
-        const { directoryPath } = resolveStoredAudiobookDirectoryPath(audiobook.folder);
+        const { directoryPath } = await resolveStoredAudiobookDirectoryPath(audiobook.folder);
         res.attachment(`${downloadName}.tar`);
         res.type('application/x-tar');
 
@@ -2646,7 +2658,7 @@ audiobooksRouter.delete('/', checkManageUsers, async (req, res) => {
         if (!audiobook) {
             return res.status(404).json({ error: 'Audiobook not found' });
         }
-        const storage = resolveStoredAudiobookDirectoryPath(audiobook.folder);
+        const storage = await resolveStoredAudiobookDirectoryPath(audiobook.folder);
         if (storage.relativePath === '.') {
             if (audiobook.tracks.length !== 1) {
                 return res.status(400).json({
@@ -2654,7 +2666,7 @@ audiobooksRouter.delete('/', checkManageUsers, async (req, res) => {
                 });
             }
 
-            const rootTrack = resolveStoredAudiobookAudioPath(audiobook.tracks[0].path);
+            const rootTrack = await resolveStoredAudiobookAudioPath(audiobook.tracks[0].path);
             await fs.promises.unlink(rootTrack.audioPath);
             await deleteAudiobookRecord(db, audiobook.folder);
             await removeCentralAudiobookCover(audiobook.coverPath);

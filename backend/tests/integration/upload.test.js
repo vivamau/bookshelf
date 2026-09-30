@@ -435,10 +435,41 @@ describe('Upload Endpoint Integration', () => {
         const audioResponse = await request(app)
             .get('/api/audiobooks/audio')
             .set('Cookie', authCookie)
+            .set('Range', 'bytes=0-7')
+            .buffer(true)
+            .parse(binaryParser)
             .query({ path: additionalDestinationAudiobook.tracks[0].path });
 
-        expect(audioResponse.statusCode).toBe(200);
+        expect(audioResponse.statusCode).toBe(206);
         expect(audioResponse.headers['content-type']).toMatch(/^audio\/mpeg/);
+        expect(audioResponse.headers['accept-ranges']).toBe('bytes');
+        expect(audioResponse.headers['content-range']).toBe('bytes 0-7/21');
+        expect(audioResponse.body.toString()).toBe('existing');
+
+        const compatibleItems = await request(app)
+            .get('/api/libraries/lib_bookshelf_audiobooks/items')
+            .set('Cookie', authCookie);
+        expect(compatibleItems.statusCode).toBe(200);
+        const compatibleItem = compatibleItems.body.results.find((item) => (
+            item.media.metadata.title === 'Existing In Place'
+        ));
+        expect(compatibleItem).toBeDefined();
+
+        const playResponse = await request(app)
+            .post(`/api/items/${compatibleItem.id}/play`)
+            .set('Cookie', authCookie)
+            .send({ mediaPlayer: 'Remote storage integration test' });
+        expect(playResponse.statusCode).toBe(200);
+
+        const compatibleStream = await request(app)
+            .get(playResponse.body.audioTracks[0].contentUrl)
+            .set('Range', 'bytes=9-14')
+            .buffer(true)
+            .parse(binaryParser);
+        expect(compatibleStream.statusCode).toBe(206);
+        expect(compatibleStream.headers['accept-ranges']).toBe('bytes');
+        expect(compatibleStream.headers['content-range']).toBe('bytes 9-14/21');
+        expect(compatibleStream.body.toString()).toBe('server');
 
         const metadataResponse = await request(app)
             .put('/api/audiobooks/metadata')
